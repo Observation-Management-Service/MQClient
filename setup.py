@@ -1,4 +1,4 @@
-import setuptools
+import setuptools  # type: ignore
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -22,5 +22,6 @@ setuptools.setup(
     python_requires='>=3.7',
     extras_require={
         'RabbitMQ': ['pika'],
+        'tests': ['pytest', 'pytest-asyncio', 'pytest-flake8', 'pytest-mypy'],
     }
 )
