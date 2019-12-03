@@ -22,6 +22,6 @@ setuptools.setup(
     python_requires='>=3.7',
     extras_require={
         'RabbitMQ': ['pika'],
-        'tests': ['pytest', 'pytest-asyncio', 'pytest-flake8', 'pytest-mypy'],
+        'tests': ['pytest', 'pytest-asyncio', 'pytest-flake8', 'pytest-mypy', 'pytest-mock'],
     }
 )

@@ -113,7 +113,7 @@ def ack_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
         raise RuntimeError("queue is not connected")
     queue.channel.basic_ack(msg_id)
 
-def message_generator(queue: RabbitMQSub, timeout: int, auto_ack: bool = True,
+def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = True,
                       propagate_error: bool = True) -> typing.Generator[Message, None, None]:
     """
     A generator yielding a Message.
@@ -129,7 +129,8 @@ def message_generator(queue: RabbitMQSub, timeout: int, auto_ack: bool = True,
     try:
         for method_frame, header_frame, body in queue.channel.consume(queue.queue, inactivity_timeout=timeout):
             if not method_frame:
-                break # out of messages
+                logging.info("no messages in idle timeout window")
+                break
             try:
                 yield Message(method_frame.delivery_tag, body)
             except Exception as e:
