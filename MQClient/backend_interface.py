@@ -1,27 +1,58 @@
+"""
+Define an interface that backends will adhere to.
+"""
+
 import typing
 
+MessageID = typing.Union[int, str, bytes]
+
+class Message:
+    """Message object. Holds msg_id and data."""
+    def __init__(self, msg_id: MessageID, data: bytes):
+        self.msg_id = msg_id
+        self.data = data
+
+# -------------------
+# classes to override
+# -------------------
+
 class RawQueue:
+    """Raw queue object, to hold queue state."""
+    pass
+
+# ---------------------------------------
+# Functions to be implemented in backends
+# ---------------------------------------
+
+def create_pub_queue() -> RawQueue:
+    """Create a publishing queue"""
+    raise NotImplementedError()
+
+def create_sub_queue() -> RawQueue:
+    """Create a subscription queue"""
+    raise NotImplementedError()
+
+def send_message(queue: RawQueue, msg: bytes) -> None:
+    """Send a message on a queue"""
+    raise NotImplementedError()
+
+def get_message(queue: RawQueue) -> typing.Optional[Message]:
+    """Get a single message from a queue"""
+    raise NotImplementedError()
+
+def ack_message(queue: RawQueue, msg_id: MessageID) -> None:
+    """Ack a message from the queue"""
+    raise NotImplementedError()
+
+def message_generator(queue: RawQueue, timeout: int, auto_ack: bool = True,
+                      propagate_error: bool = True) -> None:
     """
-    Generic queue interface to a backend implementation.
+    A generator yielding a Message.
 
     Args:
-        name (str): name of queue
-        address (str): address of queue server
+        queue (RabbitMQSub): queue object
+        timeout (int): timeout in seconds for inactivity
+        auto_ack (bool): Ack each message after successful processing
+        propagate_error (bool): should errors from downstream code kill the generator?
     """
-    def __init__(self, name: str, address: str) -> None:
-        raise NotImplementedError()
-
-    def send(self, msg: bytes) -> None:
-        """
-        Send a message on the queue.
-
-        Args:
-            msg (bytes): message data to send
-        """
-        raise NotImplementedError()
-
-    def recv(self, callback: typing.Callable[[bytes], None]) -> None:
-        """
-        Receive messages from the queue, via a callback function.
-        """
-        raise NotImplementedError()
+    raise NotImplementedError()
