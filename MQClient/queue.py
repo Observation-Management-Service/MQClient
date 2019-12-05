@@ -106,7 +106,7 @@ class Queue:
         is rejected.
 
         Returns:
-            Any: object of data received
+            Any: object of data received, or None if queue is empty
         """
         msg = self._backend.get_message(self.raw_sub_queue)
         if not msg:
