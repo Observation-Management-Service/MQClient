@@ -43,6 +43,13 @@ def test_ack_message(mock_pika) -> None:
         12
     )
 
+def test_reject_message(mock_pika) -> None:
+    q = rabbitmq.create_sub_queue("localhost", "test")
+    rabbitmq.reject_message(q, 12)
+    mock_pika.return_value.channel.return_value.basic_nack.assert_called_with(
+        12
+    )
+
 def test_consume(mock_pika) -> None:
     q = rabbitmq.create_sub_queue("localhost", "test")
     fake_message = (MagicMock(delivery_tag=12), None, b'foo, bar')

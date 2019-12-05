@@ -44,6 +44,10 @@ def ack_message(queue: RawQueue, msg_id: MessageID) -> None:
     """Ack a message from the queue"""
     raise NotImplementedError()
 
+def reject_message(queue: RawQueue, msg_id: MessageID) -> None:
+    """Reject (nack) a message from the queue"""
+    raise NotImplementedError()
+
 def message_generator(queue: RawQueue, timeout: int, auto_ack: bool = True,
                       propagate_error: bool = True) -> None:
     """

@@ -113,6 +113,21 @@ def ack_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
         raise RuntimeError("queue is not connected")
     queue.channel.basic_ack(msg_id)
 
+def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
+    """
+    Reject (nack) a message from the queue.
+
+    Note that RabbitMQ acks messages in-order, so nacking message
+    3 of 3 in-progress messages will nack them all.
+
+    Args:
+        queue (RabbitMQSub): queue object
+        msg_id (MessageID): message id
+    """
+    if not queue.channel:
+        raise RuntimeError("queue is not connected")
+    queue.channel.basic_nack(msg_id)
+
 def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = True,
                       propagate_error: bool = True) -> typing.Generator[Message, None, None]:
     """
