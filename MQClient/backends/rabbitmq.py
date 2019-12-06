@@ -1,5 +1,6 @@
 import logging
 import typing
+import time
 from functools import partial
 
 import pika  # type: ignore
@@ -42,6 +43,7 @@ class RabbitMQSub(RabbitMQ):
 
     def connect(self):
         super(RabbitMQSub, self).connect()
+        self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
 
 def try_call(queue: RabbitMQ, func: typing.Callable) -> typing.Any:
@@ -58,6 +60,7 @@ def try_call(queue: RabbitMQ, func: typing.Callable) -> typing.Any:
         except pika.exceptions.AMQPConnectionError:
             pass
         queue.close()
+        time.sleep(1)
         queue.connect()
     raise Exception('RabbitMQ connection error')
 
@@ -76,6 +79,7 @@ def try_yield(queue: RabbitMQ, func: typing.Callable) -> typing.Generator[typing
         except pika.exceptions.AMQPConnectionError:
             pass
         queue.close()
+        time.sleep(1)
         queue.connect()
     raise Exception('RabbitMQ connection error')
 
