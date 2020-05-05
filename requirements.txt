@@ -10,6 +10,7 @@ mypy-extensions==0.4.3
 packaging==19.2
 pika==1.1.0
 pluggy==0.13.1
+pulsar-client==2.5.1
 py==1.8.0
 pycodestyle==2.5.0
 pyflakes==2.1.1
