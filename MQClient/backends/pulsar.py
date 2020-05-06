@@ -10,9 +10,17 @@ class Pulsar(RawQueue):
     pass
 
 
+class PulsarPub(Pulsar):
+    pass
+
+
+class PulsarSub(Pulsar):
+    pass
+
 # Interface Methods
 
-def create_pub_queue() -> RawQueue:
+
+def create_pub_queue() -> PulsarPub:
     """Create a publishing queue"""
     raise NotImplementedError()
 
@@ -22,33 +30,33 @@ def create_sub_queue() -> RawQueue:
     raise NotImplementedError()
 
 
-def send_message(queue: RawQueue, msg: bytes) -> None:
+def send_message(queue: PulsarPub, msg: bytes) -> None:
     """Send a message on a queue"""
     raise NotImplementedError()
 
 
-def get_message(queue: RawQueue) -> typing.Optional[Message]:
+def get_message(queue: PulsarSub) -> typing.Optional[Message]:
     """Get a single message from a queue"""
     raise NotImplementedError()
 
 
-def ack_message(queue: RawQueue, msg_id: MessageID) -> None:
+def ack_message(queue: PulsarSub, msg_id: MessageID) -> None:
     """Ack a message from the queue"""
     raise NotImplementedError()
 
 
-def reject_message(queue: RawQueue, msg_id: MessageID) -> None:
+def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
     """Reject (nack) a message from the queue"""
     raise NotImplementedError()
 
 
-def message_generator(queue: RawQueue, timeout: int, auto_ack: bool = True,
+def message_generator(queue: PulsarSub, timeout: int, auto_ack: bool = True,
                       propagate_error: bool = True) -> None:
     """
     A generator yielding a Message.
 
     Args:
-        queue (RabbitMQSub): queue object
+        queue (PulsarSub): queue object
         timeout (int): timeout in seconds for inactivity
         auto_ack (bool): Ack each message after successful processing
         propagate_error (bool): should errors from downstream code kill the generator?
