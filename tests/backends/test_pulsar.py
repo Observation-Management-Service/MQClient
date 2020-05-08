@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+import pulsar as pulsar_client
 import pytest  # type: ignore
 from MQClient.backends import pulsar
 
@@ -34,8 +35,8 @@ def test_send_message(mock_pulsar) -> None:  # pylint: disable=W0621
 def test_get_message(mock_pulsar) -> None:  # pylint: disable=W0621
     """Test getting message."""
     q = pulsar.create_sub_queue("localhost", "test")
-    fake_message = (MagicMock(delivery_tag=12), None, b'foo, bar')
-    mock_pulsar.return_value.subscribe.return_value.receive.return_value = fake_message
+    mock_pulsar.return_value.subscribe.return_value.receive.return_value.data.return_value = b'foo, bar'
+    mock_pulsar.return_value.subscribe.return_value.receive.return_value.message_id.return_value = 12
     m = pulsar.get_message(q)
     assert m is not None
     assert m.msg_id == 12
@@ -59,10 +60,10 @@ def test_reject_message(mock_pulsar) -> None:  # pylint: disable=W0621
 def test_consume(mock_pulsar) -> None:  # pylint: disable=W0621
     """Test message generator."""
     q = pulsar.create_sub_queue("localhost", "test")
-    fake_message = (MagicMock(delivery_tag=12), None, b'foo, bar')
-    fake_message2 = (MagicMock(delivery_tag=20), None, b'baz')
-    mock_pulsar.return_value.subscribe.return_value.consume.return_value = [
-        fake_message, fake_message2]
+    mock_pulsar.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
+        b'foo, bar', b'baz']
+    mock_pulsar.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [
+        12, 20]
     m = None
     for i, x in enumerate(pulsar.message_generator(q)):
         if i > 0:
@@ -72,16 +73,16 @@ def test_consume(mock_pulsar) -> None:  # pylint: disable=W0621
     assert m.msg_id == 12
     assert m.data == b'foo, bar'
     mock_pulsar.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
-    mock_pulsar.return_value.subscribe.return_value.cancel.assert_called()
+    mock_pulsar.return_value.close.assert_called()
 
 
 def test_consume2(mock_pulsar) -> None:  # pylint: disable=W0621
     """Test message generator."""
     q = pulsar.create_sub_queue("localhost", "test")
-    fake_message = (MagicMock(delivery_tag=12), None, b'foo, bar')
-    fake_message2 = (None, None, None)
-    mock_pulsar.return_value.subscribe.return_value.consume.return_value = [
-        fake_message, fake_message2]
+    mock_pulsar.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
+        b'foo, bar', None]
+    mock_pulsar.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [
+        12, None]
     m = None
     for i, x in enumerate(pulsar.message_generator(q)):
         assert i < 1
@@ -90,4 +91,4 @@ def test_consume2(mock_pulsar) -> None:  # pylint: disable=W0621
     assert m.msg_id == 12
     assert m.data == b'foo, bar'
     mock_pulsar.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
-    mock_pulsar.return_value.subscribe.return_value.cancel.assert_called()
+    mock_pulsar.return_value.close.assert_called()

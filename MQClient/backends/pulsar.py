@@ -1,4 +1,5 @@
 """Back-end using Apache Pulsar."""
+import logging
 import typing
 
 import pulsar  # type: ignore
@@ -25,6 +26,11 @@ class Pulsar(RawQueue):
     def connect(self):
         """Set up client."""
         self.client = pulsar.Client(self.address)
+
+    def close(self):
+        """Close client."""
+        if self.client:
+            self.client.close()
 
 
 class PulsarPub(Pulsar):
@@ -90,13 +96,16 @@ def send_message(queue: PulsarPub, msg: bytes) -> None:
     queue.producer.send(msg)
 
 
-def get_message(queue: PulsarSub) -> typing.Optional[Message]:
+def get_message(queue: PulsarSub, timeout_millis: int = None) -> typing.Optional[Message]:
     """Get a single message from a queue."""
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
-    msg = queue.consumer.receive()
-    return Message(msg.message_id(), msg.data())
+    msg = queue.consumer.receive(timeout_millis=timeout_millis)
+    message_id, data = msg.message_id(), msg.data()
+    if msg and message_id and data:
+        return Message(message_id, data)
+    return None
 
 
 def ack_message(queue: PulsarSub, msg_id: MessageID) -> None:
@@ -115,8 +124,8 @@ def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
     queue.consumer.negative_acknowledge(msg_id)
 
 
-def message_generator(queue: PulsarSub, timeout: int, auto_ack: bool = True,
-                      propagate_error: bool = True) -> None:
+def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True,
+                      propagate_error: bool = True) -> typing.Generator[Message, None, None]:
     """
     Yield Messages.
 
@@ -128,3 +137,23 @@ def message_generator(queue: PulsarSub, timeout: int, auto_ack: bool = True,
     """
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
+
+    try:
+        while True:
+            msg = get_message(queue, timeout_millis=timeout * 1000)
+            if not msg:
+                logging.info("no messages in idle timeout window")
+                break
+            try:
+                yield msg
+            except Exception as e:
+                reject_message(queue, msg.msg_id)
+                if propagate_error:
+                    raise
+                else:
+                    logging.warning('error downstream: %r', e, exc_info=True)
+            else:
+                if auto_ack:
+                    ack_message(queue, msg.msg_id)
+    finally:
+        queue.close()
