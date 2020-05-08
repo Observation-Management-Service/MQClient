@@ -58,7 +58,7 @@ def reject_message(queue: RawQueue, msg_id: MessageID) -> None:
     raise NotImplementedError()
 
 
-def message_generator(queue: RawQueue, timeout: int, auto_ack: bool = True,
+def message_generator(queue: RawQueue, timeout: int = 60, auto_ack: bool = True,
                       propagate_error: bool = True) -> None:
     """
     A generator yielding a Message.
