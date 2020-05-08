@@ -59,7 +59,7 @@ def reject_message(queue: RawQueue, msg_id: MessageID) -> None:
 
 
 def message_generator(queue: RawQueue, timeout: int = 60, auto_ack: bool = True,
-                      propagate_error: bool = True) -> None:
+                      propagate_error: bool = True) -> typing.Generator[Message, None, None]:
     """
     A generator yielding a Message.
 
