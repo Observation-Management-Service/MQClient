@@ -11,7 +11,7 @@ jobs:
             - image: circleci/python:3.8
             - image: deadtrickster/rabbitmq_prometheus:3.7
             - image: apachepulsar/pulsar:2.5.1
-              command: standalone
+              command: bin/pulsar standalone
         steps:
             - checkout
             - run:
@@ -26,7 +26,7 @@ jobs:
             - image: circleci/python:3.8
             - image: deadtrickster/rabbitmq_prometheus:3.7
             - image: apachepulsar/pulsar:2.5.1
-              command: standalone
+              command: bin/pulsar standalone
         steps:
             - checkout
             - run:
