@@ -1,12 +1,12 @@
-from unittest.mock import MagicMock
+"""Unit Tests for Pulsar Backend."""
 
-import pulsar as pulsar_client
 import pytest  # type: ignore
 from MQClient.backends import pulsar
 
 
 @pytest.fixture
 def mock_pulsar(mocker):
+    """Patch mock_pulsar."""
     return mocker.patch('pulsar.Client')
 
 
