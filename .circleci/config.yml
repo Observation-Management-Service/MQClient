@@ -10,6 +10,7 @@ jobs:
         docker:
             - image: circleci/python:3.8
             - image: deadtrickster/rabbitmq_prometheus:3.7
+            - image: apachepulsar/pulsar:2.5.1
         steps:
             - checkout
             - run:
@@ -23,6 +24,7 @@ jobs:
         docker:
             - image: circleci/python:3.8
             - image: deadtrickster/rabbitmq_prometheus:3.7
+            - image: apachepulsar/pulsar:2.5.1
         steps:
             - checkout
             - run:
