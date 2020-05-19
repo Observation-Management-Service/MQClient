@@ -16,11 +16,11 @@ class Pulsar(RawQueue):
         RawQueue
     """
 
-    def __init__(self, address: str, queue: str) -> None:
+    def __init__(self, address: str, topic: str) -> None:
         self.address = address
         if not self.address.startswith('pulsar'):
             self.address = 'pulsar://' + self.address
-        self.queue = queue  # topic
+        self.topic = topic
         self.client = None  # type: pulsar.Client
 
     def connect(self):
@@ -29,6 +29,7 @@ class Pulsar(RawQueue):
 
     def close(self):
         """Close client."""
+        print("CLOSE!!!")
         if self.client:
             self.client.close()
 
@@ -40,14 +41,14 @@ class PulsarPub(Pulsar):
         Pulsar
     """
 
-    def __init__(self, address: str, queue: str) -> None:
-        super().__init__(address, queue)
+    def __init__(self, address: str, topic: str) -> None:
+        super().__init__(address, topic)
         self.producer = None  # type: pulsar.Producer
 
     def connect(self):
         """Connect to producer."""
         super().connect()
-        self.producer = self.client.create_producer(self.queue)
+        self.producer = self.client.create_producer(self.topic)
 
 
 class PulsarSub(Pulsar):
@@ -57,32 +58,32 @@ class PulsarSub(Pulsar):
         Pulsar
     """
 
-    def __init__(self, address: str, queue: str) -> None:
-        super().__init__(address, queue)
+    def __init__(self, address: str, topic: str) -> None:
+        super().__init__(address, topic)
         self.consumer = None  # type: pulsar.Consumer
-        self.subscription_name = f'{self.queue}-subscription'  # single shared subscription
+        self.subscription_name = f'{self.topic}-subscription'  # single shared subscription
         self.prefetch = 1
 
     def connect(self):
         """Connect to subscriber."""
         super().connect()
-        self.consumer = self.client.subscribe(self.queue,
+        self.consumer = self.client.subscribe(self.topic,
                                               self.subscription_name,
                                               receiver_queue_size=self.prefetch)
 
 # Interface Methods
 
 
-def create_pub_queue(address: str, queue: str) -> PulsarPub:
+def create_pub_queue(address: str, name: str) -> PulsarPub:
     """Create a publishing queue."""
-    q = PulsarPub(address, queue)
+    q = PulsarPub(address, name)
     q.connect()
     return q
 
 
-def create_sub_queue(address: str, queue: str, prefetch: int = 1) -> PulsarSub:
+def create_sub_queue(address: str, name: str, prefetch: int = 1) -> PulsarSub:
     """Create a subscription queue."""
-    q = PulsarSub(address, queue)
+    q = PulsarSub(address, name)
     q.prefetch = prefetch
     q.connect()
     return q
@@ -110,6 +111,7 @@ def get_message(queue: PulsarSub, timeout_millis: int = None) -> typing.Optional
             raise
 
     message_id, data = msg.message_id(), msg.data()
+    print(f"DATA :: {msg.data()} {msg.message_id()} {msg}")
     if msg and message_id and data:
         return Message(message_id, data)
     return None
