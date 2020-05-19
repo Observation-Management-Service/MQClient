@@ -28,12 +28,12 @@ class RawQueue:
 # ---------------------------------------
 
 
-def create_pub_queue(address: str, topic: str) -> RawQueue:
+def create_pub_queue(address: str, name: str) -> RawQueue:
     """Create a publishing queue"""
     raise NotImplementedError()
 
 
-def create_sub_queue(address: str, topic: str, prefetch: int = 1) -> RawQueue:
+def create_sub_queue(address: str, name: str, prefetch: int = 1) -> RawQueue:
     """Create a subscription queue"""
     raise NotImplementedError()
 
