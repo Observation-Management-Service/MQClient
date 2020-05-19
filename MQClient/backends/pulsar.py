@@ -29,7 +29,6 @@ class Pulsar(RawQueue):
 
     def close(self):
         """Close client."""
-        print("CLOSE!!!")
         if self.client:
             self.client.close()
 
@@ -111,7 +110,6 @@ def get_message(queue: PulsarSub, timeout_millis: int = None) -> typing.Optional
             raise
 
     message_id, data = msg.message_id(), msg.data()
-    print(f"DATA :: {msg.data()} {msg.message_id()} {msg}")
     if msg and message_id and data:
         return Message(message_id, data)
     return None
