@@ -13,14 +13,14 @@ def mock_pulsar(mocker):
 def test_create_pub_queue(mock_pulsar) -> None:  # pylint: disable=W0621
     """Test creating pub queue."""
     q = pulsar.create_pub_queue("localhost", "test")
-    assert q.queue == "test"
+    assert q.topic == "test"
     mock_pulsar.return_value.create_producer.assert_called()
 
 
 def test_create_sub_queue(mock_pulsar) -> None:  # pylint: disable=W0621
     """Test creating sub queue."""
     q = pulsar.create_sub_queue("localhost", "test", prefetch=213)
-    assert q.queue == "test"
+    assert q.topic == "test"
     assert q.prefetch == 213
     mock_pulsar.return_value.subscribe.assert_called()
 
