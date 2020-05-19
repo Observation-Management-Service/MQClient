@@ -96,8 +96,10 @@ def send_message(queue: PulsarPub, msg: bytes) -> None:
     queue.producer.send(msg)
 
 
-def get_message(queue: PulsarSub, timeout_millis: int = None) -> typing.Optional[Message]:
-    """Get a single message from a queue."""
+def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[Message]:
+    """Get a single message from a queue.
+
+    To endlessly block until a message is available, set `timeout_millis=None`."""
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
