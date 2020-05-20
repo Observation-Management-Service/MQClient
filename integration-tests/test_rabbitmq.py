@@ -12,8 +12,8 @@ def test_10():
     common_tests.test_10(BACKEND)
 
 
-# def test_11():
-#     common_tests.test_11(BACKEND)
+def test_11():
+    common_tests.test_11(BACKEND)
 
 
 def test_20():
@@ -26,3 +26,11 @@ def test_21():
 
 def test_30():
     common_tests.test_30(BACKEND)
+
+
+def test_40():
+    common_tests.test_40(BACKEND)
+
+
+def test_50():
+    common_tests.test_50(BACKEND)
