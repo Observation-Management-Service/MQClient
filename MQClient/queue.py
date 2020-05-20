@@ -1,6 +1,10 @@
-import typing
-import pickle
+"""Queue class encapsulating a pub-sub messaging system."""
+
 import contextlib
+import pickle
+import typing
+import uuid
+
 
 class Queue:
     """
@@ -8,15 +12,16 @@ class Queue:
 
     Args:
         backend (module): the backend to use
-        address (str): address of queue (default: localhost)
-        name (str): name of queue (default: queue)
+        address (str): address of queue (default: 'localhost')
+        name (str): name of queue (default: random string)
         prefetch (int): size of prefetch buffer for receiving messages (default: 10)
     """
+
     def __init__(self, backend: typing.Any, address: str = 'localhost',
-                 name: str = 'queue', prefetch: int = 10) -> None:
+                 name: str = None, prefetch: int = 10) -> None:
         self._backend = backend
         self._address = address
-        self._name = name
+        self._name = name if name else uuid.uuid4().hex
         self._prefetch = prefetch
         self._pub_queue = None
         self._sub_queue = None
