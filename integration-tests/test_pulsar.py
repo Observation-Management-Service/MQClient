@@ -3,12 +3,14 @@ Run an integration test for RabbitMQ.
 
 Verify basic functionality.
 """
+import uuid
 
 from MQClient import Queue, backends
 
 
 def test_queue():
-    q = Queue(backends.pulsar)
+    # random name to make sure every test is from scratch
+    q = Queue(backends.pulsar, name=uuid.uuid4().hex)
     data = {'a': ['foo', 'bar', 3, 4]}
     q.send(data)
 

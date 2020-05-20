@@ -68,7 +68,9 @@ class PulsarSub(Pulsar):
         super().connect()
         self.consumer = self.client.subscribe(self.topic,
                                               self.subscription_name,
-                                              receiver_queue_size=self.prefetch)
+                                              receiver_queue_size=self.prefetch,
+                                              consumer_type=pulsar.ConsumerType.Shared,
+                                              initial_position=pulsar.InitialPosition.Earliest)
 
 # Interface Methods
 
@@ -97,9 +99,11 @@ def send_message(queue: PulsarPub, msg: bytes) -> None:
 
 
 def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[Message]:
-    """Get a single message from a queue.
+    """
+    Get a single message from a queue.
 
-    To endlessly block until a message is available, set `timeout_millis=None`."""
+    To endlessly block until a message is available, set `timeout_millis=None`.
+    """
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
