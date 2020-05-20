@@ -112,10 +112,8 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
     for i in range(tries):
         try:
             msg = queue.consumer.receive(timeout_millis=timeout_millis)
-            print(f"MSG! {msg}")
             if msg:
                 message_id, data = msg.message_id(), msg.data()
-                print(f"MSG {message_id} {data}")
                 if message_id and data:
                     return Message(message_id, data)
             return None
