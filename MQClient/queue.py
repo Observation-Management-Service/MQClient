@@ -18,7 +18,7 @@ class Queue:
     """
 
     def __init__(self, backend: typing.Any, address: str = 'localhost',
-                 name: str = None, prefetch: int = 10) -> None:
+                 name: str = None, prefetch: int = 1) -> None:
         self._backend = backend
         self._address = address
         self._name = name if name else uuid.uuid4().hex
