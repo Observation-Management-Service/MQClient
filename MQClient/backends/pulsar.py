@@ -1,5 +1,6 @@
 """Back-end using Apache Pulsar."""
 import logging
+import time
 import typing
 
 import pulsar  # type: ignore
@@ -107,17 +108,23 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
-    try:
-        msg = queue.consumer.receive(timeout_millis=timeout_millis)
-    except Exception as e:
-        if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
-            return None
-        else:
-            raise
+    for _ in range(3):
+        try:
+            msg = queue.consumer.receive(timeout_millis=timeout_millis)
+            if msg:
+                message_id, data = msg.message_id(), msg.data()
+                if message_id and data:
+                    return Message(message_id, data)
+        except Exception as e:
+            if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
+                pass
+                #return None
+            else:
+                raise
+        queue.close()
+        time.sleep(1)
+        queue.connect()
 
-    message_id, data = msg.message_id(), msg.data()
-    if msg and message_id and data:
-        return Message(message_id, data)
     return None
 
 
