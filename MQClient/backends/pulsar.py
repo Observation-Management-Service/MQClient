@@ -108,24 +108,28 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
-    for _ in range(3):
+    tries = 3
+    for i in range(tries):
         try:
             msg = queue.consumer.receive(timeout_millis=timeout_millis)
+            print(f"MSG! {msg}")
             if msg:
                 message_id, data = msg.message_id(), msg.data()
+                print(f"MSG {message_id} {data}")
                 if message_id and data:
                     return Message(message_id, data)
+            return None
         except Exception as e:
             if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
-                pass
-                #return None
+                if i == tries - 1:
+                    return None
             else:
                 raise
         queue.close()
         time.sleep(1)
         queue.connect()
 
-    return None
+    raise Exception('Pulsar connection error')
 
 
 def ack_message(queue: PulsarSub, msg_id: MessageID) -> None:
