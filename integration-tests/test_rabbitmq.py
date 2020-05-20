@@ -1,22 +1,12 @@
 """
-Run an integration test for RabbitMQ.
+Run integration tests for RabbitMQ backend.
 
 Verify basic functionality.
 """
 
-from MQClient import backends, Queue
+import common_tests
+from MQClient import backends
+
 
 def test_queue():
-    q = Queue(backends.rabbitmq)
-    data = {'a': ['foo', 'bar', 3, 4]}
-    q.send(data)
-
-    with q.recv_one() as d:
-        assert d == data
-
-    data = [1, '2', data]
-    for d in data:
-        q.send(d)
-
-    for i, d in enumerate(q.recv(timeout=1)):
-        assert d == data[i]
+    common_tests.test_queue(backends.rabbitmq)
