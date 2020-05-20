@@ -5,7 +5,7 @@ jobs:
             - image: circleci/python:3.8
         steps:
             - checkout
-            - run: pip install --user tox && tox
+            - run: pip install --user tox && tox --capture=sys
     integrate:
         docker:
             - image: circleci/python:3.8
@@ -22,7 +22,7 @@ jobs:
             - run: dockerize -wait tcp://localhost:5672 -timeout 1m
             - run: dockerize -wait tcp://localhost:8080 -timeout 1m
             - run: dockerize -wait tcp://localhost:6650 -timeout 1m
-            - run: pip install --user tox && tox integration-tests
+            - run: pip install --user tox && tox integration-tests --capture=sys
     example_server:
         docker:
             - image: circleci/python:3.8
