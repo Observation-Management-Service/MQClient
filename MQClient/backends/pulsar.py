@@ -73,6 +73,11 @@ class PulsarSub(Pulsar):
                                               consumer_type=pulsar.ConsumerType.Shared,
                                               initial_position=pulsar.InitialPosition.Earliest)
 
+    def close(self):
+        if self.consumer:
+            self.consumer.redeliver_unacknowledged_messages()
+        super().close()
+
 # Interface Methods
 
 
@@ -108,24 +113,18 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
-    tries = 3
-    for i in range(tries):
-        try:
-            msg = queue.consumer.receive(timeout_millis=timeout_millis)
-            if msg:
-                message_id, data = msg.message_id(), msg.data()
-                if message_id and data:
-                    return Message(message_id, data)
+    try:
+        msg = queue.consumer.receive(timeout_millis=timeout_millis)
+        if msg:
+            message_id, data = msg.message_id(), msg.data()
+            if message_id and data:
+                return Message(message_id, data)
+        return None
+    except Exception as e:
+        if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
             return None
-        except Exception as e:
-            if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
-                if i == tries - 1:
-                    return None
-            else:
-                raise
-        queue.close()
-        time.sleep(1)
-        queue.connect()
+        else:
+            raise
 
     raise Exception('Pulsar connection error')
 
