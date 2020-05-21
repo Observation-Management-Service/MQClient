@@ -16,7 +16,8 @@ from MQClient import Queue
 DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
              1,
              '2',
-             [1, 2, 3, 4]
+             [1, 2, 3, 4],
+             0
              ]
 
 
