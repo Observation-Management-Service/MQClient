@@ -6,7 +6,7 @@ Verify basic functionality.
 import uuid
 from multiprocessing.dummy import Pool as ThreadPool
 
-import pytest
+import pytest  # type: ignore
 
 from MQClient import Queue
 
