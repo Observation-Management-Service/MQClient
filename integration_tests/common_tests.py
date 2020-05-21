@@ -5,6 +5,7 @@ Verify basic functionality.
 
 # pylint: disable=redefined-outer-name
 
+import time
 import typing  # pylint: disable=W0611
 import uuid
 from multiprocessing.dummy import Pool as ThreadPool
@@ -17,7 +18,8 @@ DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
              1,
              '2',
              [1, 2, 3, 4],
-             False
+             False,
+             None
              ]
 
 
@@ -127,6 +129,8 @@ class PubSub:
             assert len(DATA_LIST) == len(received_data)
             for data in DATA_LIST:
                 assert data in received_data
+
+            time.sleep(1)  # wait for threads to cleanup before iterating
 
     def test_22(self, queue_name):
         """Test one pub, multiple subs, unordered (front-loaded sending).
@@ -294,5 +298,51 @@ class PubSub:
             assert data in received_data
 
     def test_50(self, queue_name):
-        """Test prefetching."""
-        pass
+        """Test_20 with variable prefetching.
+
+        One pub, multiple subs.
+        """
+        pub = Queue(self.backend, name=queue_name)
+
+        for i in range(1, len(DATA_LIST) * 2):
+            # for each send, create and receive message via a new sub
+            for data in DATA_LIST:
+                pub.send(data)
+                _print_send(data)
+
+                sub = Queue(self.backend, name=queue_name, prefetch=i)
+                with sub.recv_one() as d:
+                    _print_recv(d)
+                    assert d == data
+                sub.close()
+
+    def test_51(self, queue_name):
+        """One pub, multiple subs, with prefetching.
+
+        Prefetching should have no visible affect.
+        """
+        for data in DATA_LIST:
+            pub = Queue(self.backend, name=queue_name)
+            pub.send(data)
+            _print_send(data)
+
+        received_data = []
+
+        # this should not eat up the whole queue
+        sub = Queue(self.backend, name=queue_name, prefetch=20)
+        with sub.recv_one() as d:
+            _print_recv(d)
+            received_data.append(d)
+        with sub.recv_one() as d:
+            _print_recv(d)
+            received_data.append(d)
+        sub.close()
+
+        sub2 = Queue(self.backend, name=queue_name, prefetch=2)
+        for i, d in enumerate(sub2.recv(timeout=1)):
+            _print_recv(d)
+            received_data.append(d)
+
+        assert len(DATA_LIST) == len(received_data)
+        for data in DATA_LIST:
+            assert data in received_data
