@@ -1,6 +1,5 @@
 """Back-end using Apache Pulsar."""
 import logging
-import time
 import typing
 
 import pulsar  # type: ignore

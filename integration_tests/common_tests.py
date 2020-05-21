@@ -4,7 +4,6 @@ Run integration tests for given backend.
 Verify basic functionality.
 """
 import uuid
-import itertools
 from multiprocessing.dummy import Pool as ThreadPool
 
 import pytest
@@ -41,7 +40,6 @@ class PubSub:
         for i, d in enumerate(pub_sub.recv(timeout=1)):
             assert d == DATA_LIST[i]
 
-
     def test_11(self, queue_name):
         """Test an individual pub and and an individual sub."""
         pub = Queue(self.backend, name=queue_name)
@@ -57,7 +55,6 @@ class PubSub:
         for i, d in enumerate(sub.recv(timeout=1)):
             assert d == DATA_LIST[i]
 
-
     def test_20(self, queue_name):
         """Test one pub, multiple subs, ordered"""
         pub = Queue(self.backend, name=queue_name)
@@ -72,7 +69,6 @@ class PubSub:
                 print(f"RECV :: {d}")
                 assert d == data
             sub._sub_queue.close()
-
 
     def test_21(self, queue_name):
         """Test one pub, multiple subs, unordered"""
@@ -90,16 +86,13 @@ class PubSub:
 
         assert len(DATA_LIST)*10 == sum(len(x) for x in received_data)
 
-
     def test_30(self, queue_name):
         """Test multiple pubs, one subs."""
         pass
 
-
     def test_40(self, queue_name):
         """Test multiple pubs, multiple subs."""
         pass
-
 
     def test_50(self, queue_name):
         """Test prefetching"""
