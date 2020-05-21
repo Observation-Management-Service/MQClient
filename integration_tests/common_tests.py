@@ -184,7 +184,21 @@ class PubSub:
             assert data in received_data
 
     def test_30(self, queue_name):
-        """Test multiple pubs, one sub."""
+        """Test multiple pubs, one sub, ordered."""
+        sub = Queue(self.backend, name=queue_name)
+
+        for data in DATA_LIST:
+            pub = Queue(self.backend, name=queue_name)
+            pub.send(data)
+            _print_send(data)
+
+            received_data = list(sub.recv(timeout=1))
+            _print_recv(received_data)
+
+            assert data == received_data[0]
+
+    def test_31(self, queue_name):
+        """Test multiple pubs, one sub, unordered."""
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
