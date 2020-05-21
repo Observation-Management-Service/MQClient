@@ -87,7 +87,7 @@ class PubSub:
             assert d == DATA_LIST[i]
 
     def test_20(self, queue_name):
-        """Test one pub, multiple subs, ordered."""
+        """Test one pub, multiple subs, ordered/alternatingly."""
         pub = Queue(self.backend, name=queue_name)
 
         # for each send, create and receive message via a new sub
@@ -102,7 +102,7 @@ class PubSub:
             sub.close()
 
     def test_21(self, queue_name):
-        """Test one pub, multiple subs, unordered.
+        """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Repeat process with increasing number of subs, so the ratio of messages and subs vary.
         """
@@ -129,7 +129,7 @@ class PubSub:
                 assert data in received_data
 
     def test_22(self, queue_name):
-        """Test one pub, multiple subs, unordered.
+        """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Use the same number of subs as number of messages.
         """
@@ -169,22 +169,17 @@ class PubSub:
                 recv_data = d
             sub.close()
             _print_recv(recv_data)
-            return recv_data
 
         with ThreadPool(len(DATA_LIST)) as p:
-            received_data = p.map(recv_thread, range(len(DATA_LIST)))
+            p.map(recv_thread, range(len(DATA_LIST)))
 
         # Extra Sub
         with pytest.raises(Exception) as excinfo:
             recv_thread(0)
             assert "No message available" in str(excinfo.value)
 
-        assert len(DATA_LIST) == len(received_data)
-        for data in DATA_LIST:
-            assert data in received_data
-
     def test_30(self, queue_name):
-        """Test multiple pubs, one sub, ordered."""
+        """Test multiple pubs, one sub, ordered/alternatingly."""
         sub = Queue(self.backend, name=queue_name)
 
         for data in DATA_LIST:
@@ -198,7 +193,7 @@ class PubSub:
             assert data == received_data[0]
 
     def test_31(self, queue_name):
-        """Test multiple pubs, one sub, unordered."""
+        """Test multiple pubs, one sub, unordered (front-loaded sending)."""
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
@@ -213,8 +208,90 @@ class PubSub:
             assert data in received_data
 
     def test_40(self, queue_name):
-        """Test multiple pubs, multiple subs."""
-        pass
+        """Test multiple pubs, multiple subs, ordered/alternatingly.
+
+        Use the same number of pubs as subs.
+        """
+        for data in DATA_LIST:
+            pub = Queue(self.backend, name=queue_name)
+            pub.send(data)
+            _print_send(data)
+
+            sub = Queue(self.backend, name=queue_name)
+            received_data = list(sub.recv(timeout=1))
+            _print_recv(received_data)
+
+            assert data == received_data[0]
+
+    def test_41(self, queue_name):
+        """Test multiple pubs, multiple subs, unordered (front-loaded sending).
+
+        Use the same number of pubs as subs.
+        """
+        for data in DATA_LIST:
+            pub = Queue(self.backend, name=queue_name)
+            pub.send(data)
+            _print_send(data)
+
+        received_data = []
+        for _ in range(len(DATA_LIST)):
+            sub = Queue(self.backend, name=queue_name)
+            with sub.recv_one() as d:
+                _print_recv(d)
+                received_data.append(d)
+            sub.close()
+
+        assert len(DATA_LIST) == len(received_data)
+        for data in DATA_LIST:
+            assert data in received_data
+
+    def test_42(self, queue_name):
+        """Test multiple pubs, multiple subs, unordered (front-loaded sending).
+
+        Use the more pubs than subs.
+        """
+        for data in DATA_LIST:
+            pub = Queue(self.backend, name=queue_name)
+            pub.send(data)
+            _print_send(data)
+
+        received_data = []
+        sub = None
+        for i in range(len(DATA_LIST)):
+            if i % 2 == 0:
+                sub = Queue(self.backend, name=queue_name)
+            with sub.recv_one() as d:
+                _print_recv(d)
+                received_data.append(d)
+            sub.close()
+
+        assert len(DATA_LIST) == len(received_data)
+        for data in DATA_LIST:
+            assert data in received_data
+
+    def test_43(self, queue_name):
+        """Test multiple pubs, multiple subs, unordered (front-loaded sending).
+
+        Use the fewer pubs than subs.
+        """
+        pub = 0
+        for i, data in enumerate(DATA_LIST):
+            if i % 2 == 0:
+                pub = Queue(self.backend, name=queue_name)
+            pub.send(data)
+            _print_send(data)
+
+        received_data = []
+        for _ in range(len(DATA_LIST)):
+            sub = Queue(self.backend, name=queue_name)
+            with sub.recv_one() as d:
+                _print_recv(d)
+                received_data.append(d)
+            sub.close()
+
+        assert len(DATA_LIST) == len(received_data)
+        for data in DATA_LIST:
+            assert data in received_data
 
     def test_50(self, queue_name):
         """Test prefetching."""
