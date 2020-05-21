@@ -116,17 +116,24 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
-    try:
-        msg = queue.consumer.receive(timeout_millis=timeout_millis)
-        if msg:
-            message_id, data = msg.message_id(), msg.data()
-            if message_id and data:
-                return Message(message_id, data)
-        return None
-    except Exception as e:
-        if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
+    while True:
+        try:
+            msg = queue.consumer.receive(timeout_millis=timeout_millis)
+            if msg:
+                message_id, data = msg.message_id(), msg.data()
+                if message_id and data:
+                    return Message(message_id, data)
             return None
-        raise
+
+        except Exception as e:
+            if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
+                return None
+            if str(e) == "Pulsar error: AlreadyClosed":
+                queue.connect()
+                continue
+            raise
+
+        break  # poor man's do-while loop
 
     raise Exception('Pulsar connection error')
 
