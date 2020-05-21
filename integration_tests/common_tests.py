@@ -1,13 +1,15 @@
-"""
-Run integration tests for given backend.
+"""Run integration tests for given backend.
 
 Verify basic functionality.
 """
+
+# pylint: disable=redefined-outer-name
+
+import typing  # pylint: disable=W0611
 import uuid
 from multiprocessing.dummy import Pool as ThreadPool
 
 import pytest  # type: ignore
-
 from MQClient import Queue
 
 # don't put in duplicates
@@ -20,12 +22,17 @@ DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
 
 @pytest.fixture
 def queue_name():
+    """Get random queue name."""
     name = uuid.uuid4().hex
     print(f"NAME :: {name}")
     return name
 
 
 class PubSub:
+    """Integration test suite."""
+
+    backend = None  # type: typing.Any
+
     def test_10(self, queue_name):
         """Test one pub, one sub."""
         pub_sub = Queue(self.backend, name=queue_name)
@@ -56,7 +63,7 @@ class PubSub:
             assert d == DATA_LIST[i]
 
     def test_20(self, queue_name):
-        """Test one pub, multiple subs, ordered"""
+        """Test one pub, multiple subs, ordered."""
         pub = Queue(self.backend, name=queue_name)
 
         # for each send, create and receive message via a new sub
@@ -71,9 +78,9 @@ class PubSub:
             sub._sub_queue.close()
 
     def test_21(self, queue_name):
-        """Test one pub, multiple subs, unordered"""
+        """Test one pub, multiple subs, unordered."""
         pub = Queue(self.backend, name=queue_name)
-        for data in DATA_LIST*10:
+        for data in DATA_LIST * 10:
             pub.send(data)
             print(f"SEND :: {data}")
 
@@ -84,7 +91,7 @@ class PubSub:
         with ThreadPool(3) as p:
             received_data = p.map(recv_thread, range(3))
 
-        assert len(DATA_LIST)*10 == sum(len(x) for x in received_data)
+        assert len(DATA_LIST) * 10 == sum(len(x) for x in received_data)
 
     def test_30(self, queue_name):
         """Test multiple pubs, one subs."""
@@ -95,5 +102,5 @@ class PubSub:
         pass
 
     def test_50(self, queue_name):
-        """Test prefetching"""
+        """Test prefetching."""
         pass

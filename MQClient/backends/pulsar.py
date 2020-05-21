@@ -104,8 +104,7 @@ def send_message(queue: PulsarPub, msg: bytes) -> None:
 
 
 def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[Message]:
-    """
-    Get a single message from a queue.
+    """Get a single message from a queue.
 
     To endlessly block until a message is available, set `timeout_millis=None`.
     """
@@ -122,8 +121,7 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
     except Exception as e:
         if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
             return None
-        else:
-            raise
+        raise
 
     raise Exception('Pulsar connection error')
 
@@ -146,14 +144,15 @@ def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
 
 def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True,
                       propagate_error: bool = True) -> typing.Generator[Message, None, None]:
-    """
-    Yield Messages.
+    """Yield Messages.
 
-    Args:
-        queue (PulsarSub): queue object
-        timeout (int): timeout in seconds for inactivity
-        auto_ack (bool): Ack each message after successful processing
-        propagate_error (bool): should errors from downstream code kill the generator?
+    Arguments:
+        queue {PulsarSub} -- queue object
+
+    Keyword Arguments:
+        timeout {int} -- timeout in seconds for inactivity (default: {60})
+        auto_ack {bool} -- Ack each message after successful processing (default: {True})
+        propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
     """
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
@@ -166,12 +165,11 @@ def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True
                 break
             try:
                 yield msg
-            except Exception as e:
+            except Exception as e:  # pylint: disable=W0703
                 reject_message(queue, msg.msg_id)
                 if propagate_error:
                     raise
-                else:
-                    logging.warning('error downstream: %r', e, exc_info=True)
+                logging.warning('error downstream: %r', e, exc_info=True)
             else:
                 if auto_ack:
                     ack_message(queue, msg.msg_id)
