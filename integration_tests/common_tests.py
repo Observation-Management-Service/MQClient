@@ -17,7 +17,7 @@ DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
              1,
              '2',
              [1, 2, 3, 4],
-             0
+             False
              ]
 
 
@@ -131,7 +131,7 @@ class PubSub:
     def test_22(self, queue_name):
         """Test one pub, multiple subs, unordered.
 
-        Use as many subs as number of messages.
+        Use the same number of subs as number of messages.
         """
         pub = Queue(self.backend, name=queue_name)
         for data in DATA_LIST:
@@ -141,21 +141,50 @@ class PubSub:
         def recv_thread(_):
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                recv_data_list = [d]
+                recv_data = d
             sub.close()
-            _print_recv(recv_data_list)
-            return recv_data_list
+            _print_recv(recv_data)
+            return recv_data
 
         with ThreadPool(len(DATA_LIST)) as p:
             received_data = p.map(recv_thread, range(len(DATA_LIST)))
-        received_data = [item for sublist in received_data for item in sublist]
+
+        assert len(DATA_LIST) == len(received_data)
+        for data in DATA_LIST:
+            assert data in received_data
+
+    def test_23(self, queue_name):
+        """Failure-test one pub, and too many subs.
+
+        More subs than messages with `recv_one()` will raise an exception.
+        """
+        pub = Queue(self.backend, name=queue_name)
+        for data in DATA_LIST:
+            pub.send(data)
+            _print_send(data)
+
+        def recv_thread(_):
+            sub = Queue(self.backend, name=queue_name)
+            with sub.recv_one() as d:
+                recv_data = d
+            sub.close()
+            _print_recv(recv_data)
+            return recv_data
+
+        with ThreadPool(len(DATA_LIST)) as p:
+            received_data = p.map(recv_thread, range(len(DATA_LIST)))
+
+        # Extra Sub
+        with pytest.raises(Exception) as excinfo:
+            recv_thread(0)
+            assert "No message available" in str(excinfo.value)
 
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
             assert data in received_data
 
     def test_30(self, queue_name):
-        """Test multiple pubs, one subs."""
+        """Test multiple pubs, one sub."""
         pass
 
     def test_40(self, queue_name):
