@@ -30,7 +30,11 @@ class Pulsar(RawQueue):
     def close(self):
         """Close client."""
         if self.client:
-            self.client.close()
+            try:
+                self.client.close()
+            except Exception as e:  # pylint: disable=W0703
+                if str(e) != "Pulsar error: AlreadyClosed":
+                    raise
 
 
 class PulsarPub(Pulsar):
