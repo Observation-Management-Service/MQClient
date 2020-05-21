@@ -101,7 +101,7 @@ class PubSub:
             with sub.recv_one() as d:
                 _print_recv(d)
                 assert d == data
-            sub.close()
+            # sub.close() -- no longer needed
 
     def test_21(self, queue_name):
         """Test one pub, multiple subs, unordered (front-loaded sending).
@@ -146,7 +146,7 @@ class PubSub:
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
                 recv_data = d
-            sub.close()
+            # sub.close() -- no longer needed
             _print_recv(recv_data)
             return recv_data
 
@@ -171,7 +171,7 @@ class PubSub:
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
                 recv_data = d
-            sub.close()
+            # sub.close() -- no longer needed
             _print_recv(recv_data)
 
         with ThreadPool(len(DATA_LIST)) as p:
@@ -243,7 +243,7 @@ class PubSub:
             with sub.recv_one() as d:
                 _print_recv(d)
                 received_data.append(d)
-            sub.close()
+            # sub.close() -- no longer needed
 
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
@@ -267,7 +267,7 @@ class PubSub:
             with sub.recv_one() as d:
                 _print_recv(d)
                 received_data.append(d)
-            sub.close()
+            # sub.close() -- no longer needed
 
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
@@ -291,7 +291,7 @@ class PubSub:
             with sub.recv_one() as d:
                 _print_recv(d)
                 received_data.append(d)
-            sub.close()
+            # sub.close() -- no longer needed
 
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
@@ -314,7 +314,7 @@ class PubSub:
                 with sub.recv_one() as d:
                     _print_recv(d)
                     assert d == data
-                sub.close()
+                # sub.close() -- no longer needed
 
     def test_51(self, queue_name):
         """One pub, multiple subs, with prefetching.
@@ -336,7 +336,7 @@ class PubSub:
         with sub.recv_one() as d:
             _print_recv(d)
             received_data.append(d)
-        sub.close()
+        # sub.close() -- no longer needed
 
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)
         for i, d in enumerate(sub2.recv(timeout=1)):

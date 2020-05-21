@@ -128,3 +128,5 @@ class Queue:
             raise
         else:
             self._backend.ack_message(self.raw_sub_queue, msg.msg_id)
+        finally:
+            self.close()
