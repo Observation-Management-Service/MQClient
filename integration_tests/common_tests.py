@@ -29,6 +29,21 @@ def queue_name():
     return name
 
 
+def _print_recv(data):
+    _print_data("RECV", data)
+
+
+def _print_send(data):
+    _print_data("SEND", data)
+
+
+def _print_data(_type, data):
+    if isinstance(data, list):
+        print(f"{_type} - {len(data)} :: {data}")
+    else:
+        print(f"{_type} :: {data}")
+
+
 class PubSub:
     """Integration test suite."""
 
@@ -38,29 +53,37 @@ class PubSub:
         """Test one pub, one sub."""
         pub_sub = Queue(self.backend, name=queue_name)
         pub_sub.send(DATA_LIST[0])
+        _print_send(DATA_LIST[0])
 
         with pub_sub.recv_one() as d:
+            _print_recv(d)
             assert d == DATA_LIST[0]
 
         for d in DATA_LIST:
             pub_sub.send(d)
+            _print_send(d)
 
         for i, d in enumerate(pub_sub.recv(timeout=1)):
+            _print_recv(d)
             assert d == DATA_LIST[i]
 
     def test_11(self, queue_name):
         """Test an individual pub and and an individual sub."""
         pub = Queue(self.backend, name=queue_name)
         pub.send(DATA_LIST[0])
+        _print_send(DATA_LIST[0])
 
         sub = Queue(self.backend, name=queue_name)
         with sub.recv_one() as d:
+            _print_recv(d)
             assert d == DATA_LIST[0]
 
         for d in DATA_LIST:
             pub.send(d)
+            _print_send(d)
 
         for i, d in enumerate(sub.recv(timeout=1)):
+            _print_recv(d)
             assert d == DATA_LIST[i]
 
     def test_20(self, queue_name):
@@ -70,11 +93,11 @@ class PubSub:
         # for each send, create and receive message via a new sub
         for data in DATA_LIST:
             pub.send(data)
-            print(f"SEND :: {data}")
+            _print_send(data)
 
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                print(f"RECV :: {d}")
+                _print_recv(d)
                 assert d == data
             sub.close()
 
@@ -89,12 +112,12 @@ class PubSub:
             pub = Queue(self.backend, name=queue_name)
             for data in DATA_LIST:
                 pub.send(data)
-                print(f"SEND :: {data}")
+                _print_send(data)
 
             def recv_thread(_):
                 sub = Queue(self.backend, name=queue_name)
                 recv_data_list = list(sub.recv(timeout=1))
-                print(f"RECV - {len(recv_data_list)} :: {recv_data_list}")
+                _print_recv(recv_data_list)
                 return recv_data_list
 
             with ThreadPool(num_subs) as p:
