@@ -78,20 +78,31 @@ class PubSub:
             sub.close()
 
     def test_21(self, queue_name):
-        """Test one pub, multiple subs, unordered."""
-        pub = Queue(self.backend, name=queue_name)
-        for data in DATA_LIST * 10:
-            pub.send(data)
-            print(f"SEND :: {data}")
+        """Test one pub, multiple subs, unordered.
 
-        def recv_thread(_):
-            sub = Queue(self.backend, name=queue_name)
-            return list(sub.recv(timeout=1))
+        Repeat process with increasing number of subs, so the ratio of messages and subs vary.
+        """
+        for i in range(1, len(DATA_LIST)):
+            num_subs = i**2
 
-        with ThreadPool(3) as p:
-            received_data = p.map(recv_thread, range(3))
+            pub = Queue(self.backend, name=queue_name)
+            for data in DATA_LIST:
+                pub.send(data)
+                print(f"SEND :: {data}")
 
-        assert len(DATA_LIST) * 10 == sum(len(x) for x in received_data)
+            def recv_thread(_):
+                sub = Queue(self.backend, name=queue_name)
+                recv_data_list = list(sub.recv(timeout=1))
+                print(f"RECV - {len(recv_data_list)} :: {recv_data_list}")
+                return recv_data_list
+
+            with ThreadPool(num_subs) as p:
+                received_data = p.map(recv_thread, range(num_subs))
+            received_data = [item for sublist in received_data for item in sublist]
+
+            assert len(DATA_LIST) == len(received_data)
+            for data in DATA_LIST:
+                assert data in received_data
 
     def test_30(self, queue_name):
         """Test multiple pubs, one subs."""
