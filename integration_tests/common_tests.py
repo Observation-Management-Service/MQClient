@@ -128,6 +128,32 @@ class PubSub:
             for data in DATA_LIST:
                 assert data in received_data
 
+    def test_22(self, queue_name):
+        """Test one pub, multiple subs, unordered.
+
+        Use as many subs as number of messages.
+        """
+        pub = Queue(self.backend, name=queue_name)
+        for data in DATA_LIST:
+            pub.send(data)
+            _print_send(data)
+
+        def recv_thread(_):
+            sub = Queue(self.backend, name=queue_name)
+            with sub.recv_one() as d:
+                recv_data_list = [d]
+            sub.close()
+            _print_recv(recv_data_list)
+            return recv_data_list
+
+        with ThreadPool(len(DATA_LIST)) as p:
+            received_data = p.map(recv_thread, range(len(DATA_LIST)))
+        received_data = [item for sublist in received_data for item in sublist]
+
+        assert len(DATA_LIST) == len(received_data)
+        for data in DATA_LIST:
+            assert data in received_data
+
     def test_30(self, queue_name):
         """Test multiple pubs, one subs."""
         pass
