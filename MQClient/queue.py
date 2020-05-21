@@ -75,6 +75,11 @@ class Queue:
             self._sub_queue.close()
             self._sub_queue = None
 
+    def close(self) -> None:
+        """Close all connections."""
+        del self.raw_sub_queue
+        del self.raw_pub_queue
+
     def send(self, data: typing.Any) -> None:
         """
         Send a message to the queue.

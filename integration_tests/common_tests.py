@@ -75,7 +75,7 @@ class PubSub:
             with sub.recv_one() as d:
                 print(f"RECV :: {d}")
                 assert d == data
-            sub._sub_queue.close()
+            sub.close()
 
     def test_21(self, queue_name):
         """Test one pub, multiple subs, unordered."""

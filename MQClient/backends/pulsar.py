@@ -73,6 +73,7 @@ class PulsarSub(Pulsar):
                                               initial_position=pulsar.InitialPosition.Earliest)
 
     def close(self):
+        """Close client and redeliver any unacknowledged messages."""
         if self.consumer:
             self.consumer.redeliver_unacknowledged_messages()
         super().close()
