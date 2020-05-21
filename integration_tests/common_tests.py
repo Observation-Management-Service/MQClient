@@ -38,7 +38,7 @@ def _print_send(data):
 
 
 def _print_data(_type, data):
-    if isinstance(data, list):
+    if (_type == "RECV") and (isinstance(data, list)):
         print(f"{_type} - {len(data)} :: {data}")
     else:
         print(f"{_type} :: {data}")
@@ -185,7 +185,18 @@ class PubSub:
 
     def test_30(self, queue_name):
         """Test multiple pubs, one sub."""
-        pass
+        for data in DATA_LIST:
+            pub = Queue(self.backend, name=queue_name)
+            pub.send(data)
+            _print_send(data)
+
+        sub = Queue(self.backend, name=queue_name)
+        received_data = list(sub.recv(timeout=1))
+        _print_recv(received_data)
+
+        assert len(DATA_LIST) == len(received_data)
+        for data in DATA_LIST:
+            assert data in received_data
 
     def test_40(self, queue_name):
         """Test multiple pubs, multiple subs."""
