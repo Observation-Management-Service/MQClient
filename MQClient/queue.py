@@ -136,3 +136,7 @@ class Queue:
             self._backend.ack_message(self.raw_sub_queue, msg.msg_id)
         finally:
             self.close()
+
+    def __repr__(self):
+        """Return string of basic properties/attributes."""
+        return f"Queue({self.backend.__name__}, address={self.address}, name={self.name}, prefetch={self.prefetch}, pub={bool(self._pub_queue)}, sub={bool(self._sub_queue)})"
