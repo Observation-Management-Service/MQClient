@@ -124,34 +124,47 @@ class PubSub:
                 assert d == data
             # sub.close() -- no longer needed
 
-    def test_21(self, queue_name):
+    def _test_21(self, queue_name, num_subs):
+        """Test one pub, multiple subs, unordered (front-loaded sending)."""
+        pub = Queue(self.backend, name=queue_name)
+        for data in DATA_LIST:
+            pub.send(data)
+            _print_send(data)
+
+        def recv_thread(_):
+            sub = Queue(self.backend, name=queue_name)
+            recv_data_list = list(sub.recv(timeout=1))
+            _print_recv_multiple(recv_data_list)
+            return recv_data_list
+
+        with ThreadPool(num_subs) as p:
+            received_data = p.map(recv_thread, range(num_subs))
+        received_data = [item for sublist in received_data for item in sublist]
+
+        assert len(DATA_LIST) == len(received_data)
+        for data in DATA_LIST:
+            assert data in received_data
+
+    def test_21_fewer(self, queue_name):
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
-        Repeat process with increasing number of subs, so the ratio of messages and subs vary.
+        Fewer subs than messages.
         """
-        for i in range(1, len(DATA_LIST)):
-            num_subs = i**2
+        self._test_21(queue_name, len(DATA_LIST) // 2)
 
-            pub = Queue(self.backend, name=queue_name)
-            for data in DATA_LIST:
-                pub.send(data)
-                _print_send(data)
+    def test_21_same(self, queue_name):
+        """Test one pub, multiple subs, unordered (front-loaded sending).
 
-            def recv_thread(_):
-                sub = Queue(self.backend, name=queue_name)
-                recv_data_list = list(sub.recv(timeout=1))
-                _print_recv_multiple(recv_data_list)
-                return recv_data_list
+        Same number of subs as messages.
+        """
+        self._test_21(queue_name, len(DATA_LIST))
 
-            with ThreadPool(num_subs) as p:
-                received_data = p.map(recv_thread, range(num_subs))
-            received_data = [item for sublist in received_data for item in sublist]
+    def test_21_more(self, queue_name):
+        """Test one pub, multiple subs, unordered (front-loaded sending).
 
-            assert len(DATA_LIST) == len(received_data)
-            for data in DATA_LIST:
-                assert data in received_data
-
-            time.sleep(1)  # wait for threads to cleanup before iterating
+        More subs than messages.
+        """
+        self._test_21(queue_name, len(DATA_LIST) ** 2)
 
     def test_22(self, queue_name):
         """Test one pub, multiple subs, unordered (front-loaded sending).
