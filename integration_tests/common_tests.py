@@ -35,12 +35,16 @@ def _print_recv(data):
     _print_data("RECV", data)
 
 
+def _print_recv_multiple(data):
+    _print_data("RECV", data, is_list=True)
+
+
 def _print_send(data):
     _print_data("SEND", data)
 
 
-def _print_data(_type, data):
-    if (_type == "RECV") and (isinstance(data, list)):
+def _print_data(_type, data, is_list=False):
+    if (_type == "RECV") and is_list and isinstance(data, list):
         print(f"{_type} - {len(data)} :: {data}")
     else:
         print(f"{_type} :: {data}")
@@ -70,7 +74,7 @@ class PubSub:
             assert d == DATA_LIST[i]
 
     def test_11(self, queue_name):
-        """Test an individual pub and and an individual sub."""
+        """Test an individual pub and an individual sub."""
         pub = Queue(self.backend, name=queue_name)
         pub.send(DATA_LIST[0])
         _print_send(DATA_LIST[0])
@@ -87,6 +91,23 @@ class PubSub:
         for i, d in enumerate(sub.recv(timeout=1)):
             _print_recv(d)
             assert d == DATA_LIST[i]
+
+    def test_12(self, queue_name):
+        """Failure-test one pub, one sub, and another sub subscribed to the wrong queue."""
+        pub = Queue(self.backend, name=queue_name)
+        pub.send(DATA_LIST[0])
+        _print_send(DATA_LIST[0])
+
+        sub_fail = Queue(self.backend, name=f"{queue_name}-fail")
+        with pytest.raises(Exception) as excinfo:
+            with sub_fail.recv_one() as d:
+                _print_recv(d)
+            assert "No message available" in str(excinfo.value)
+
+        sub = Queue(self.backend, name=queue_name)
+        with sub.recv_one() as d:
+            _print_recv(d)
+            assert d == DATA_LIST[0]
 
     def test_20(self, queue_name):
         """Test one pub, multiple subs, ordered/alternatingly."""
@@ -119,7 +140,7 @@ class PubSub:
             def recv_thread(_):
                 sub = Queue(self.backend, name=queue_name)
                 recv_data_list = list(sub.recv(timeout=1))
-                _print_recv(recv_data_list)
+                _print_recv_multiple(recv_data_list)
                 return recv_data_list
 
             with ThreadPool(num_subs) as p:
@@ -192,8 +213,9 @@ class PubSub:
             _print_send(data)
 
             received_data = list(sub.recv(timeout=1))
-            _print_recv(received_data)
+            _print_recv_multiple(received_data)
 
+            assert len(received_data) == 1
             assert data == received_data[0]
 
     def test_31(self, queue_name):
@@ -205,7 +227,7 @@ class PubSub:
 
         sub = Queue(self.backend, name=queue_name)
         received_data = list(sub.recv(timeout=1))
-        _print_recv(received_data)
+        _print_recv_multiple(received_data)
 
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
@@ -223,8 +245,9 @@ class PubSub:
 
             sub = Queue(self.backend, name=queue_name)
             received_data = list(sub.recv(timeout=1))
-            _print_recv(received_data)
+            _print_recv_multiple(received_data)
 
+            assert len(received_data) == 1
             assert data == received_data[0]
 
     def test_41(self, queue_name):
@@ -339,7 +362,7 @@ class PubSub:
         # sub.close() -- no longer needed
 
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)
-        for i, d in enumerate(sub2.recv(timeout=1)):
+        for _, d in enumerate(sub2.recv(timeout=1)):
             _print_recv(d)
             received_data.append(d)
 
