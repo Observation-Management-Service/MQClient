@@ -59,6 +59,9 @@ class Queue:
 
     @raw_pub_queue.deleter
     def raw_pub_queue(self) -> None:
+        self._close_pub_queue()
+
+    def _close_pub_queue(self):
         if self._pub_queue:
             self._pub_queue.close()
             self._pub_queue = None
@@ -71,14 +74,17 @@ class Queue:
 
     @raw_sub_queue.deleter
     def raw_sub_queue(self) -> None:
+        self._close_sub_queue()
+
+    def _close_sub_queue(self) -> None:
         if self._sub_queue:
             self._sub_queue.close()
             self._sub_queue = None
 
     def close(self) -> None:
         """Close all connections."""
-        del self.raw_sub_queue
-        del self.raw_pub_queue
+        self._close_sub_queue()
+        self._close_pub_queue()
 
     def send(self, data: typing.Any) -> None:
         """
