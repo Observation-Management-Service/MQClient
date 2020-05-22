@@ -5,7 +5,6 @@ Verify basic functionality.
 
 # pylint: disable=redefined-outer-name
 
-import time
 import typing  # pylint: disable=W0611
 import uuid
 from multiprocessing.dummy import Pool as ThreadPool
