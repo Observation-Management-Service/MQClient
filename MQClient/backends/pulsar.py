@@ -1,5 +1,6 @@
 """Back-end using Apache Pulsar."""
 import logging
+import time
 import typing
 
 import pulsar  # type: ignore
@@ -116,7 +117,7 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
-    while True:
+    for _ in range(3):
         try:
             msg = queue.consumer.receive(timeout_millis=timeout_millis)
             if msg:
@@ -129,11 +130,11 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
             if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
                 return None
             if str(e) == "Pulsar error: AlreadyClosed":
+                queue.close()
+                time.sleep(1)
                 queue.connect()
                 continue
             raise
-
-        break  # poor man's do-while loop
 
     raise Exception('Pulsar connection error')
 
