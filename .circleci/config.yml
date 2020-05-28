@@ -10,6 +10,8 @@ jobs:
         docker:
             - image: circleci/python:3.8
             - image: deadtrickster/rabbitmq_prometheus:3.7
+            - image: apachepulsar/pulsar:2.5.1
+              command: bin/pulsar standalone
         steps:
             - checkout
             - run:
@@ -18,11 +20,15 @@ jobs:
                 environment:
                   DOCKERIZE_VERSION: v0.3.0
             - run: dockerize -wait tcp://localhost:5672 -timeout 1m
-            - run: pip install --user tox && tox integration-tests
+            - run: dockerize -wait tcp://localhost:8080 -timeout 1m
+            - run: dockerize -wait tcp://localhost:6650 -timeout 1m
+            - run: pip install --user tox && tox integration_tests
     example_server:
         docker:
             - image: circleci/python:3.8
             - image: deadtrickster/rabbitmq_prometheus:3.7
+            - image: apachepulsar/pulsar:2.5.1
+              command: bin/pulsar standalone
         steps:
             - checkout
             - run:
@@ -31,6 +37,8 @@ jobs:
                 environment:
                   DOCKERIZE_VERSION: v0.3.0
             - run: dockerize -wait tcp://localhost:5672 -timeout 1m
+            - run: dockerize -wait tcp://localhost:8080 -timeout 1m
+            - run: dockerize -wait tcp://localhost:6650 -timeout 1m
             - run: |
                 pip install --user tox
                 tox --notest

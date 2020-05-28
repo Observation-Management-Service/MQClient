@@ -1,2 +1,4 @@
-from . import rabbitmq
-__all__ = ["rabbitmq"]
+"""Init."""
+from . import pulsar, rabbitmq
+
+__all__ = ["pulsar", "rabbitmq"]

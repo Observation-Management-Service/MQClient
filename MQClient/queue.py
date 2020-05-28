@@ -1,6 +1,10 @@
-import typing
-import pickle
+"""Queue class encapsulating a pub-sub messaging system."""
+
 import contextlib
+import pickle
+import typing
+import uuid
+
 
 class Queue:
     """
@@ -8,15 +12,16 @@ class Queue:
 
     Args:
         backend (module): the backend to use
-        address (str): address of queue (default: localhost)
-        name (str): name of queue (default: queue)
+        address (str): address of queue (default: 'localhost')
+        name (str): name of queue (default: random string)
         prefetch (int): size of prefetch buffer for receiving messages (default: 10)
     """
+
     def __init__(self, backend: typing.Any, address: str = 'localhost',
-                 name: str = 'queue', prefetch: int = 10) -> None:
+                 name: str = None, prefetch: int = 1) -> None:
         self._backend = backend
         self._address = address
-        self._name = name
+        self._name = name if name else uuid.uuid4().hex
         self._prefetch = prefetch
         self._pub_queue = None
         self._sub_queue = None
@@ -54,6 +59,9 @@ class Queue:
 
     @raw_pub_queue.deleter
     def raw_pub_queue(self) -> None:
+        self._close_pub_queue()
+
+    def _close_pub_queue(self):
         if self._pub_queue:
             self._pub_queue.close()
             self._pub_queue = None
@@ -66,9 +74,17 @@ class Queue:
 
     @raw_sub_queue.deleter
     def raw_sub_queue(self) -> None:
+        self._close_sub_queue()
+
+    def _close_sub_queue(self) -> None:
         if self._sub_queue:
             self._sub_queue.close()
             self._sub_queue = None
+
+    def close(self) -> None:
+        """Close all connections."""
+        self._close_sub_queue()
+        self._close_pub_queue()
 
     def send(self, data: typing.Any) -> None:
         """
@@ -118,3 +134,9 @@ class Queue:
             raise
         else:
             self._backend.ack_message(self.raw_sub_queue, msg.msg_id)
+        finally:
+            self.close()
+
+    def __repr__(self):
+        """Return string of basic properties/attributes."""
+        return f"Queue({self.backend.__name__}, address={self.address}, name={self.name}, prefetch={self.prefetch}, pub={bool(self._pub_queue)}, sub={bool(self._sub_queue)})"

@@ -1,19 +1,21 @@
 import logging
-import typing
 import time
+import typing
 from functools import partial
 
 import pika  # type: ignore
 
-from ..backend_interface import RawQueue, MessageID, Message
+from ..backend_interface import Message, MessageID, RawQueue
 
 # Private Classes
 
+
 class RabbitMQ(RawQueue):
+
     def __init__(self, address: str, queue: str) -> None:
         self.address = address
         if not self.address.startswith('ampq'):
-            self.address = 'amqp://'+self.address
+            self.address = 'amqp://' + self.address
         self.queue = queue
         self.connection = None
         self.channel = None
@@ -25,17 +27,21 @@ class RabbitMQ(RawQueue):
         self.channel = self.connection.channel()
 
     def close(self):
-        if self.connection and (not self.connection.is_closed) and (not self.connection.is_closing):
+        if (self.connection) and (not self.connection.is_closed):
             self.connection.close()
 
+
 class RabbitMQPub(RabbitMQ):
+
     def connect(self):
         super(RabbitMQPub, self).connect()
         # Turn on delivery confirmations
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.confirm_delivery()
 
+
 class RabbitMQSub(RabbitMQ):
+
     def __init__(self, *args, **kwargs) -> None:
         super(RabbitMQSub, self).__init__(*args, **kwargs)
         self.consumer_id = None
@@ -45,6 +51,7 @@ class RabbitMQSub(RabbitMQ):
         super(RabbitMQSub, self).connect()
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
+
 
 def try_call(queue: RabbitMQ, func: typing.Callable) -> typing.Any:
     for _ in range(3):
@@ -63,6 +70,7 @@ def try_call(queue: RabbitMQ, func: typing.Callable) -> typing.Any:
         time.sleep(1)
         queue.connect()
     raise Exception('RabbitMQ connection error')
+
 
 def try_yield(queue: RabbitMQ, func: typing.Callable) -> typing.Generator[typing.Any, None, None]:
     for _ in range(3):
@@ -85,6 +93,7 @@ def try_yield(queue: RabbitMQ, func: typing.Callable) -> typing.Generator[typing
 
 # Interface Methods
 
+
 def create_pub_queue(address: str, name: str) -> RabbitMQPub:
     """
     Create a publishing queue
@@ -100,6 +109,7 @@ def create_pub_queue(address: str, name: str) -> RabbitMQPub:
     q.connect()
     return q
 
+
 def create_sub_queue(address: str, name: str, prefetch: int = 1) -> RabbitMQSub:
     """Create a subscription queue
 
@@ -114,6 +124,7 @@ def create_sub_queue(address: str, name: str, prefetch: int = 1) -> RabbitMQSub:
     q.prefetch = prefetch
     q.connect()
     return q
+
 
 def send_message(queue: RabbitMQPub, msg: bytes) -> None:
     """
@@ -132,13 +143,16 @@ def send_message(queue: RabbitMQPub, msg: bytes) -> None:
     try_call(queue, partial(queue.channel.basic_publish, exchange='',
                             routing_key=queue.queue, body=msg))
 
+
 def get_message(queue: RabbitMQSub) -> typing.Optional[Message]:
     """Get a message from a queue"""
     if not queue.channel:
         raise RuntimeError("queue is not connected")
-    method_frame, header_frame, body = try_call(queue, partial(queue.channel.basic_get, queue.queue))
+    method_frame, header_frame, body = try_call(
+        queue, partial(queue.channel.basic_get, queue.queue))
     if method_frame:
         return Message(method_frame.delivery_tag, body)
+
 
 def ack_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
     """
@@ -155,6 +169,7 @@ def ack_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
         raise RuntimeError("queue is not connected")
     try_call(queue, partial(queue.channel.basic_ack, msg_id))
 
+
 def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
     """
     Reject (nack) a message from the queue.
@@ -169,6 +184,7 @@ def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
     if not queue.channel:
         raise RuntimeError("queue is not connected")
     try_call(queue, partial(queue.channel.basic_nack, msg_id))
+
 
 def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = True,
                       propagate_error: bool = True) -> typing.Generator[Message, None, None]:
