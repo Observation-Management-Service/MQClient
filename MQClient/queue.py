@@ -57,27 +57,33 @@ class Queue:
                 del self.raw_sub_queue
 
     @property
-    def raw_pub_queue(self) -> Any:
+    def raw_pub_queue(self) -> RawQueue:
         """Get publisher queue."""
         if not self._pub_queue:
             self._pub_queue = self._backend.create_pub_queue(self._address, self._name)
+
+        if not self._pub_queue:
+            raise Exception("Pub queue failed to be created.")
         return self._pub_queue
 
     @raw_pub_queue.deleter
     def raw_pub_queue(self) -> None:
         self._close_pub_queue()
 
-    def _close_pub_queue(self) -> Any:
+    def _close_pub_queue(self) -> None:
         if self._pub_queue:
             self._pub_queue.close()
             self._pub_queue = None
 
     @property
-    def raw_sub_queue(self) -> Any:
+    def raw_sub_queue(self) -> RawQueue:
         """Get subscriber queue."""
         if not self._sub_queue:
             self._sub_queue = self._backend.create_sub_queue(
                 self._address, self._name, self._prefetch)
+
+        if not self._sub_queue:
+            raise Exception("Sub queue failed to be created.")
         return self._sub_queue
 
     @raw_sub_queue.deleter
