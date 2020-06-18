@@ -8,7 +8,7 @@ Verify basic functionality.
 import typing  # pylint: disable=W0611
 import uuid
 from multiprocessing.dummy import Pool as ThreadPool
-from typing import Any
+from typing import Any, List
 
 import pytest  # type: ignore
 
@@ -25,7 +25,7 @@ DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
              ]
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore
 def queue_name() -> str:
     """Get random queue name."""
     name = uuid.uuid4().hex
@@ -133,7 +133,7 @@ class PubSub:
             pub.send(data)
             _print_send(data)
 
-        def recv_thread(_) -> list:
+        def recv_thread(_: int) -> List[Any]:
             sub = Queue(self.backend, name=queue_name)
             recv_data_list = list(sub.recv(timeout=1))
             _print_recv_multiple(recv_data_list)
@@ -178,7 +178,7 @@ class PubSub:
             pub.send(data)
             _print_send(data)
 
-        def recv_thread(_) -> Any:
+        def recv_thread(_: int) -> Any:
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
                 recv_data = d
@@ -203,7 +203,7 @@ class PubSub:
             pub.send(data)
             _print_send(data)
 
-        def recv_thread(_) -> Any:
+        def recv_thread(_: int) -> Any:
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
                 recv_data = d
