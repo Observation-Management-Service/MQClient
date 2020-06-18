@@ -2,23 +2,22 @@
 
 import contextlib
 import pickle
-import typing
 import uuid
+from typing import Any, Generator
 
 
 class Queue:
-    """
-    User-facing queue library.
+    """User-facing queue library.
 
     Args:
         backend (module): the backend to use
         address (str): address of queue (default: 'localhost')
-        name (str): name of queue (default: random string)
-        prefetch (int): size of prefetch buffer for receiving messages (default: 10)
+        name (str): name of queue (default: <random string>)
+        prefetch (int): size of prefetch buffer for receiving messages (default: 1)
     """
 
-    def __init__(self, backend: typing.Any, address: str = 'localhost',
-                 name: str = None, prefetch: int = 1) -> None:
+    def __init__(self, backend: Any, address: str = 'localhost',
+                 name: str = '', prefetch: int = 1) -> None:
         self._backend = backend
         self._address = address
         self._name = name if name else uuid.uuid4().hex
@@ -27,19 +26,23 @@ class Queue:
         self._sub_queue = None
 
     @property
-    def backend(self) -> typing.Any:
+    def backend(self) -> Any:
+        """Get backend instance responsible for managing queuing service."""
         return self._backend
 
     @property
     def address(self) -> str:
+        """Get address of the queuing daemon."""
         return self._address
 
     @property
     def name(self) -> str:
+        """Get name of queue."""
         return self._name
 
     @property
     def prefetch(self) -> int:
+        """Get size of prefetch buffer for receiving messages."""
         return self._prefetch
 
     @prefetch.setter
@@ -52,7 +55,8 @@ class Queue:
                 del self.raw_sub_queue
 
     @property
-    def raw_pub_queue(self) -> typing.Any:
+    def raw_pub_queue(self) -> Any:
+        """Get publisher queue."""
         if not self._pub_queue:
             self._pub_queue = self._backend.create_pub_queue(self._address, self._name)
         return self._pub_queue
@@ -61,15 +65,17 @@ class Queue:
     def raw_pub_queue(self) -> None:
         self._close_pub_queue()
 
-    def _close_pub_queue(self):
+    def _close_pub_queue(self) -> Any:
         if self._pub_queue:
             self._pub_queue.close()
             self._pub_queue = None
 
     @property
-    def raw_sub_queue(self) -> typing.Any:
+    def raw_sub_queue(self) -> Any:
+        """Get subscriber queue."""
         if not self._sub_queue:
-            self._sub_queue = self._backend.create_sub_queue(self._address, self._name, self._prefetch)
+            self._sub_queue = self._backend.create_sub_queue(
+                self._address, self._name, self._prefetch)
         return self._sub_queue
 
     @raw_sub_queue.deleter
@@ -86,9 +92,8 @@ class Queue:
         self._close_sub_queue()
         self._close_pub_queue()
 
-    def send(self, data: typing.Any) -> None:
-        """
-        Send a message to the queue.
+    def send(self, data: Any) -> None:
+        """Send a message to the queue.
 
         Args:
             data (Any): object of data to send (must be picklable)
@@ -96,33 +101,37 @@ class Queue:
         raw_data = pickle.dumps(data, protocol=4)
         self._backend.send_message(self.raw_pub_queue, raw_data)
 
-    def recv(self, timeout: int = 60) -> typing.Generator[typing.Any, None, None]:
-        """
-        Receive a stream of messages from the queue.
+    def recv(self, timeout: int = 60) -> Generator[Any, None, None]:
+        """Receive a stream of messages from the queue.
 
         This is a generator. It stops when no messages are received
         for `timeout` seconds. If an exception is raised, the message
         is rejected, but messages continue to be received.
 
-        Args:
-            timeout (int): seconds to wait idle before stopping (default: 60)
+        Keyword Arguments:
+            timeout {int} -- seconds to wait idle before stopping (default: {60})
+
         Yields:
-            Any: object of data received
+            Generator[Any, None, None] -- object of data received
         """
         for msg in self._backend.message_generator(self.raw_sub_queue, timeout=timeout, propagate_error=False):
             data = pickle.loads(msg.data)
             yield data
 
     @contextlib.contextmanager
-    def recv_one(self) -> typing.Generator[typing.Any, None, None]:
-        """
-        Receive one message from the queue.
+    def recv_one(self) -> Generator[Any, None, None]:
+        """Receive one message from the queue.
 
-        This is a context manager. If an exception is raised, the message
-        is rejected.
+        This is a context manager. If an exception is raised, the message is rejected.
 
-        Returns:
-            Any: object of data received, or None if queue is empty
+        Decorators:
+            contextlib.contextmanager
+
+        Yields:
+            Any -- object of data received, or None if queue is empty
+
+        Raises:
+            Exception -- [description]
         """
         msg = self._backend.get_message(self.raw_sub_queue)
         if not msg:
@@ -137,6 +146,6 @@ class Queue:
         finally:
             self.close()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
         return f"Queue({self.backend.__name__}, address={self.address}, name={self.name}, prefetch={self.prefetch}, pub={bool(self._pub_queue)}, sub={bool(self._sub_queue)})"

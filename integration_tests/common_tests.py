@@ -382,3 +382,10 @@ class PubSub:
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
             assert data in received_data
+
+    def test_60(self, queue_name: str) -> None:
+        """Failure-test
+
+        Generator should send nack.
+        """
+        pass

@@ -7,4 +7,4 @@ def test_import():
 
     m = importlib.import_module('MQClient.backends')
     assert hasattr(m, 'rabbitmq')
-    assert hasattr(m, 'pulsar')
+    assert hasattr(m, 'apachepulsar')

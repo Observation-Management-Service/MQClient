@@ -1,4 +1,5 @@
 """Back-end using Apache Pulsar."""
+
 import logging
 import time
 import typing
@@ -24,11 +25,11 @@ class Pulsar(RawQueue):
         self.topic = topic
         self.client = None  # type: pulsar.Client
 
-    def connect(self):
+    def connect(self) -> None:
         """Set up client."""
         self.client = pulsar.Client(self.address)
 
-    def close(self):
+    def close(self) -> None:
         """Close client."""
         if self.client:
             try:
@@ -49,7 +50,7 @@ class PulsarPub(Pulsar):
         super().__init__(address, topic)
         self.producer = None  # type: pulsar.Producer
 
-    def connect(self):
+    def connect(self) -> None:
         """Connect to producer."""
         super().connect()
         self.producer = self.client.create_producer(self.topic)
@@ -68,7 +69,7 @@ class PulsarSub(Pulsar):
         self.subscription_name = f'{self.topic}-subscription'  # single shared subscription
         self.prefetch = 1
 
-    def connect(self):
+    def connect(self) -> None:
         """Connect to subscriber."""
         super().connect()
         self.consumer = self.client.subscribe(self.topic,
@@ -77,11 +78,12 @@ class PulsarSub(Pulsar):
                                               consumer_type=pulsar.ConsumerType.Shared,
                                               initial_position=pulsar.InitialPosition.Earliest)
 
-    def close(self):
+    def close(self) -> None:
         """Close client and redeliver any unacknowledged messages."""
         if self.consumer:
             self.consumer.redeliver_unacknowledged_messages()
         super().close()
+
 
 # Interface Methods
 
@@ -176,6 +178,7 @@ def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True
             if not msg:
                 logging.info("no messages in idle timeout window")
                 break
+
             try:
                 yield msg
             except Exception as e:  # pylint: disable=W0703

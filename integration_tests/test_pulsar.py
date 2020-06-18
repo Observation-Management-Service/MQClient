@@ -3,7 +3,7 @@
 Verify basic functionality.
 """
 
-from MQClient.backends import pulsar
+from MQClient.backends import apachepulsar
 
 from .common_tests import PubSub, queue_name  # noqa: F401 # pylint: disable=W0611
 
@@ -11,4 +11,4 @@ from .common_tests import PubSub, queue_name  # noqa: F401 # pylint: disable=W06
 class TestPulsar(PubSub):
     """Run PubSub integration tests with Pulsar backend."""
 
-    backend = pulsar
+    backend = apachepulsar
