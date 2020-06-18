@@ -94,7 +94,7 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
             pass
         # Do not recover on channel errors
         except pika.exceptions.AMQPChannelError as err:
-            logging.error("Caught a channel error: {}, stopping...".format(err))
+            logging.error(f"Caught a channel error: {err}, stopping...")
             raise
         # Recover on all other connection errors
         except pika.exceptions.AMQPConnectionError:
@@ -118,7 +118,7 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
             pass
         # Do not recover on channel errors
         except pika.exceptions.AMQPChannelError as err:
-            logging.error("Caught a channel error: {}, stopping...".format(err))
+            logging.error(f"Caught a channel error: {err}, stopping...")
             raise
         # Recover on all other connection errors
         except pika.exceptions.AMQPConnectionError:
@@ -226,7 +226,7 @@ def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
 
 def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = True,
                       propagate_error: bool = True) -> Generator[Message, None, None]:
-    """A generator yielding a Message.
+    """Yield a Message.
 
     Args:
         queue (RabbitMQSub): queue object

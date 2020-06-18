@@ -45,7 +45,7 @@ def _print_send(data: Any) -> None:
     _print_data("SEND", data)
 
 
-def _print_data(_type: str, data: Any, is_list: bool=False) -> None:
+def _print_data(_type: str, data: Any, is_list: bool = False) -> None:
     if (_type == "RECV") and is_list and isinstance(data, list):
         print(f"{_type} - {len(data)} :: {data}")
     else:

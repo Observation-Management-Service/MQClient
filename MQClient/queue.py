@@ -3,7 +3,9 @@
 import contextlib
 import pickle
 import uuid
-from typing import Any, Generator
+from typing import Any, Generator, Optional
+
+from .backend_interface import RawQueue
 
 
 class Queue:
@@ -22,8 +24,8 @@ class Queue:
         self._address = address
         self._name = name if name else uuid.uuid4().hex
         self._prefetch = prefetch
-        self._pub_queue = None
-        self._sub_queue = None
+        self._pub_queue = None  # type: Optional[RawQueue]
+        self._sub_queue = None  # type: Optional[RawQueue]
 
     @property
     def backend(self) -> Any:
