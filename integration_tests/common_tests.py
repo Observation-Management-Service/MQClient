@@ -5,7 +5,6 @@ Verify basic functionality.
 
 # pylint: disable=redefined-outer-name
 
-import typing  # pylint: disable=W0611
 import uuid
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
@@ -15,7 +14,7 @@ import pytest  # type: ignore
 # local imports
 from MQClient import Queue
 
-# don't put in duplicates
+# Note: don't put in duplicates
 DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
              1,
              '2',
@@ -55,7 +54,7 @@ def _print_data(_type: str, data: Any, is_list: bool = False) -> None:
 class PubSub:
     """Integration test suite."""
 
-    backend = None  # type: typing.Any
+    backend = None  # type: Any
 
     def test_10(self, queue_name: str) -> None:
         """Test one pub, one sub."""
@@ -353,7 +352,7 @@ class PubSub:
                 # sub.close() -- no longer needed
 
     def test_51(self, queue_name: str) -> None:
-        """One pub, multiple subs, with prefetching.
+        """Test one pub, multiple subs, with prefetching.
 
         Prefetching should have no visible affect.
         """

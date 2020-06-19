@@ -1,5 +1,7 @@
 """Unit Tests for Pulsar Backend."""
 
+# pylint: disable=redefined-outer-name
+
 from typing import Any
 
 import pytest  # type: ignore
@@ -14,14 +16,14 @@ def mock_ap(mocker: Any) -> Any:
     return mocker.patch('pulsar.Client')
 
 
-def test_create_pub_queue(mock_ap: Any) -> None:  # pylint: disable=W0621
+def test_create_pub_queue(mock_ap: Any) -> None:
     """Test creating pub queue."""
     q = apachepulsar.create_pub_queue("localhost", "test")
     assert q.topic == "test"
     mock_ap.return_value.create_producer.assert_called()
 
 
-def test_create_sub_queue(mock_ap: Any) -> None:  # pylint: disable=W0621
+def test_create_sub_queue(mock_ap: Any) -> None:
     """Test creating sub queue."""
     q = apachepulsar.create_sub_queue("localhost", "test", prefetch=213)
     assert q.topic == "test"
@@ -29,14 +31,14 @@ def test_create_sub_queue(mock_ap: Any) -> None:  # pylint: disable=W0621
     mock_ap.return_value.subscribe.assert_called()
 
 
-def test_send_message(mock_ap: Any) -> None:  # pylint: disable=W0621
+def test_send_message(mock_ap: Any) -> None:
     """Test sending message."""
     q = apachepulsar.create_pub_queue("localhost", "test")
     apachepulsar.send_message(q, b"foo, bar, baz")
     mock_ap.return_value.create_producer.return_value.send.assert_called_with(b'foo, bar, baz')
 
 
-def test_get_message(mock_ap: Any) -> None:  # pylint: disable=W0621
+def test_get_message(mock_ap: Any) -> None:
     """Test getting message."""
     q = apachepulsar.create_sub_queue("localhost", "test")
     mock_ap.return_value.subscribe.return_value.receive.return_value.data.return_value = b'foo, bar'
@@ -47,21 +49,21 @@ def test_get_message(mock_ap: Any) -> None:  # pylint: disable=W0621
     assert m.data == b'foo, bar'
 
 
-def test_ack_message(mock_ap: Any) -> None:  # pylint: disable=W0621
+def test_ack_message(mock_ap: Any) -> None:
     """Test acking message."""
     q = apachepulsar.create_sub_queue("localhost", "test")
     apachepulsar.ack_message(q, 12)
     mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
 
 
-def test_reject_message(mock_ap: Any) -> None:  # pylint: disable=W0621
+def test_reject_message(mock_ap: Any) -> None:
     """Test rejecting message."""
     q = apachepulsar.create_sub_queue("localhost", "test")
     apachepulsar.reject_message(q, 12)
     mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(12)
 
 
-def test_consume(mock_ap: Any) -> None:  # pylint: disable=W0621
+def test_consume(mock_ap: Any) -> None:
     """Test message generator."""
     q = apachepulsar.create_sub_queue("localhost", "test")
     mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
@@ -80,7 +82,7 @@ def test_consume(mock_ap: Any) -> None:  # pylint: disable=W0621
     mock_ap.return_value.close.assert_called()
 
 
-def test_consume2(mock_ap: Any) -> None:  # pylint: disable=W0621
+def test_consume2(mock_ap: Any) -> None:
     """Test message generator."""
     q = apachepulsar.create_sub_queue("localhost", "test")
     mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
