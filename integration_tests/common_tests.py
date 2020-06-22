@@ -94,7 +94,7 @@ class PubSub:
             assert d == DATA_LIST[i]
 
     def test_12(self, queue_name: str) -> None:
-        """Failure-test one pub, one sub, and another sub subscribed to the wrong queue."""
+        """Failure-test one pub, two subs (one subscribed to wrong queue)."""
         pub = Queue(self.backend, name=queue_name)
         pub.send(DATA_LIST[0])
         _print_send(DATA_LIST[0])
@@ -195,7 +195,8 @@ class PubSub:
     def test_23(self, queue_name: str) -> None:
         """Failure-test one pub, and too many subs.
 
-        More subs than messages with `recv_one()` will raise an exception.
+        More subs than messages with `recv_one()` will raise an
+        exception.
         """
         pub = Queue(self.backend, name=queue_name)
         for data in DATA_LIST:
@@ -381,10 +382,3 @@ class PubSub:
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
             assert data in received_data
-
-    def test_60(self, queue_name: str) -> None:
-        """Failure-test
-
-        Generator should send nack.
-        """
-        pass
