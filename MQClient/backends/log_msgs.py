@@ -1,4 +1,4 @@
-"""House common logging strings."""
+"""Common logging strings."""
 
 SENDING_MESSAGE = "[send_message()] Sending message..."
 SENT_MESSAGE = "[send_message()] Sent message."

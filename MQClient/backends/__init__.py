@@ -1,4 +1,4 @@
 """Init."""
-from . import apachepulsar, logging_strings, rabbitmq
+from . import apachepulsar, log_msgs, rabbitmq
 
 __all__ = ["apachepulsar", "rabbitmq", "logging_strings"]

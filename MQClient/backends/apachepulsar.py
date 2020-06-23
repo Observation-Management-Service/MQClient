@@ -7,7 +7,7 @@ import typing
 import pulsar  # type: ignore
 
 from ..backend_interface import Message, MessageID, RawQueue
-from . import logging_strings
+from . import log_msgs
 
 # Private Classes
 
@@ -109,9 +109,9 @@ def send_message(queue: PulsarPub, msg: bytes) -> None:
     if not queue.producer:
         raise RuntimeError("queue is not connected")
 
-    logging.debug(logging_strings.SENDING_MESSAGE)
+    logging.debug(log_msgs.SENDING_MESSAGE)
     queue.producer.send(msg)
-    logging.debug(logging_strings.SENT_MESSAGE)
+    logging.debug(log_msgs.SENT_MESSAGE)
 
 
 def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[Message]:
@@ -123,32 +123,32 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
-    logging.debug(logging_strings.GETMSG_RECEIVE_MESSAGE)
+    logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
     for i in range(3):
         try:
             msg = queue.consumer.receive(timeout_millis=timeout_millis)
             if msg:
                 message_id, data = msg.message_id(), msg.data()
                 if message_id and data:
-                    logging.debug(f"{logging_strings.GETMSG_RECEIVED_MESSAGE} ({message_id}).")
+                    logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({message_id}).")
                     return Message(message_id, data)
-            logging.debug(logging_strings.GETMSG_NO_MESSAGE)
+            logging.debug(log_msgs.GETMSG_NO_MESSAGE)
             return None
 
         except Exception as e:
             if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
-                logging.debug(logging_strings.GETMSG_TIMEOUT_ERROR)
+                logging.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                 return None
             if str(e) == "Pulsar error: AlreadyClosed":
                 queue.close()
                 time.sleep(1)
                 queue.connect()
-                logging.debug(f"{logging_strings.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (try #{i+2})...")
+                logging.debug(f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (try #{i+2})...")
                 continue
-            logging.debug(logging_strings.GETMSG_RAISE_OTHER_ERROR)
+            logging.debug(log_msgs.GETMSG_RAISE_OTHER_ERROR)
             raise
 
-    logging.debug(logging_strings.GETMSG_CONNECTION_ERROR_MAX_RETRIES)
+    logging.debug(log_msgs.GETMSG_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception('Pulsar connection error')
 
 
@@ -157,9 +157,9 @@ def ack_message(queue: PulsarSub, msg_id: MessageID) -> None:
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
-    logging.debug(logging_strings.ACKING_MESSAGE)
+    logging.debug(log_msgs.ACKING_MESSAGE)
     queue.consumer.acknowledge(msg_id)
-    logging.debug(logging_strings.ACKD_MESSAGE)
+    logging.debug(log_msgs.ACKD_MESSAGE)
 
 
 def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
@@ -167,9 +167,9 @@ def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
     if not queue.consumer:
         raise RuntimeError("queue is not connected")
 
-    logging.debug(logging_strings.NACKING_MESSAGE)
+    logging.debug(log_msgs.NACKING_MESSAGE)
     queue.consumer.negative_acknowledge(msg_id)
-    logging.debug(logging_strings.NACKD_MESSAGE)
+    logging.debug(log_msgs.NACKD_MESSAGE)
 
 
 def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True,
@@ -189,24 +189,24 @@ def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True
 
     try:
         while True:
-            logging.debug(logging_strings.MSGGEN_GET_NEW_MESSAGE)
+            logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
             msg = None
             try:
                 msg = get_message(queue, timeout_millis=timeout * 1000)
                 if msg is None:
-                    logging.info(logging_strings.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
+                    logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                     break
                 yield msg
             except Exception as e:  # pylint: disable=W0703
                 if msg:
                     reject_message(queue, msg.msg_id)
                 if propagate_error:
-                    logging.debug(logging_strings.MSGGEN_PROPAGATING_ERROR)
+                    logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
                     raise
-                logging.warning(f"{logging_strings.MSGGEN_ERROR_DOWNSTREAM} {e}.", exc_info=True)
+                logging.warning(f"{log_msgs.MSGGEN_ERROR_DOWNSTREAM} {e}.", exc_info=True)
             else:
                 if auto_ack:
                     ack_message(queue, msg.msg_id)
     finally:
         queue.close()
-        logging.debug(logging_strings.MSGGEN_CLOSED_QUEUE)
+        logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
