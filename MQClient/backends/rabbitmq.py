@@ -8,6 +8,7 @@ from typing import Any, Callable, Generator, Optional
 import pika  # type: ignore
 
 from ..backend_interface import Message, MessageID, RawQueue
+from . import logging_strings
 
 # Private Classes
 
@@ -87,21 +88,25 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
 
     Try up to 3 times, for connection-related errors.
     """
-    for _ in range(3):
+    for i in range(3):
         try:
             return func()
         except pika.exceptions.ConnectionClosedByBroker:
-            pass
+            logging.debug(logging_strings.TRYCALL_CONNECTION_CLOSED_BY_BROKER)
         # Do not recover on channel errors
         except pika.exceptions.AMQPChannelError as err:
-            logging.error(f"Caught a channel error: {err}, stopping...")
+            logging.error(f"{logging_strings.TRYCALL_RAISE_AMQP_CHANNEL_ERROR} {err}.")
             raise
         # Recover on all other connection errors
         except pika.exceptions.AMQPConnectionError:
-            pass
+            logging.debug(logging_strings.TRYCALL_AMQP_CONNECTION_ERROR)
+
         queue.close()
         time.sleep(1)
         queue.connect()
+        logging.debug(f"{logging_strings.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (try #{i+2})...")
+
+    logging.debug(logging_strings.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception('RabbitMQ connection error')
 
 
@@ -110,22 +115,26 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
 
     Try up to 3 times, for connection-related errors.
     """
-    for _ in range(3):
+    for i in range(3):
         try:
             for x in func():
                 yield x
         except pika.exceptions.ConnectionClosedByBroker:
-            pass
+            logging.debug(logging_strings.TRYYIELD_CONNECTION_CLOSED_BY_BROKER)
         # Do not recover on channel errors
         except pika.exceptions.AMQPChannelError as err:
-            logging.error(f"Caught a channel error: {err}, stopping...")
+            logging.error(f"{logging_strings.TRYYIELD_RAISE_AMQP_CHANNEL_ERROR} {err}.")
             raise
         # Recover on all other connection errors
         except pika.exceptions.AMQPConnectionError:
-            pass
+            logging.debug(logging_strings.TRYYIELD_AMQP_CONNECTION_ERROR)
+
         queue.close()
         time.sleep(1)
         queue.connect()
+        logging.debug(f"{logging_strings.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (try #{i+2})...")
+
+    logging.debug(logging_strings.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception('RabbitMQ connection error')
 
 
@@ -176,8 +185,10 @@ def send_message(queue: RabbitMQPub, msg: bytes) -> None:
     if not queue.channel:
         raise RuntimeError("queue is not connected")
 
+    logging.debug(logging_strings.SENDING_MESSAGE)
     try_call(queue, partial(queue.channel.basic_publish, exchange='',
                             routing_key=queue.queue, body=msg))
+    logging.debug(logging_strings.SENT_MESSAGE)
 
 
 def get_message(queue: RabbitMQSub) -> Optional[Message]:
@@ -185,10 +196,15 @@ def get_message(queue: RabbitMQSub) -> Optional[Message]:
     if not queue.channel:
         raise RuntimeError("queue is not connected")
 
+    logging.debug(logging_strings.GETMSG_RECEIVE_MESSAGE)
     method_frame, _, body = try_call(queue, partial(queue.channel.basic_get, queue.queue))
 
     if method_frame:
-        return Message(method_frame.delivery_tag, body)
+        msg = Message(method_frame.delivery_tag, body)
+        logging.debug(f"{logging_strings.GETMSG_RECEIVED_MESSAGE} ({int(msg.msg_id)}).")
+        return msg
+
+    logging.debug(logging_strings.GETMSG_NO_MESSAGE)
     return None
 
 
@@ -205,7 +221,9 @@ def ack_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
     if not queue.channel:
         raise RuntimeError("queue is not connected")
 
+    logging.debug(logging_strings.ACKING_MESSAGE)
     try_call(queue, partial(queue.channel.basic_ack, msg_id))
+    logging.debug(logging_strings.ACKD_MESSAGE)
 
 
 def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
@@ -221,7 +239,9 @@ def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
     if not queue.channel:
         raise RuntimeError("queue is not connected")
 
+    logging.debug(logging_strings.NACKING_MESSAGE)
     try_call(queue, partial(queue.channel.basic_nack, msg_id))
+    logging.debug(logging_strings.NACKD_MESSAGE)
 
 
 def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = True,
@@ -241,8 +261,9 @@ def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = Tr
         gen = partial(queue.channel.consume, queue.queue, inactivity_timeout=timeout)
 
         for method_frame, _, body in try_yield(queue, gen):
+            logging.debug(logging_strings.MSGGEN_GET_NEW_MESSAGE)
             if not method_frame:
-                logging.info("no messages in idle timeout window")
+                logging.info(logging_strings.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                 break
 
             try:
@@ -250,10 +271,12 @@ def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = Tr
             except Exception as e:  # pylint: disable=W0703
                 try_call(queue, partial(queue.channel.basic_nack, method_frame.delivery_tag))
                 if propagate_error:
+                    logging.debug(logging_strings.MSGGEN_PROPAGATING_ERROR)
                     raise
-                logging.warning('error downstream: %r', e, exc_info=True)
+                logging.warning(f"{logging_strings.MSGGEN_ERROR_DOWNSTREAM} {e}.", exc_info=True)
             else:
                 if auto_ack:
                     try_call(queue, partial(queue.channel.basic_ack, method_frame.delivery_tag))
     finally:
         try_call(queue, queue.channel.cancel)
+        logging.debug(logging_strings.MSGGEN_CLOSED_QUEUE)

@@ -2,6 +2,7 @@
 
 # pylint: disable=redefined-outer-name
 
+import logging
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -9,6 +10,8 @@ import pytest  # type: ignore
 
 # local imports
 from MQClient.backends import rabbitmq
+
+logging.getLogger().setLevel(logging.DEBUG)
 
 
 @pytest.fixture  # type: ignore
@@ -68,7 +71,7 @@ def test_reject_message(mock_pika: Any) -> None:
     mock_pika.return_value.channel.return_value.basic_nack.assert_called_with(12)
 
 
-def test_consume(mock_pika: Any) -> None:
+def test_message_generator(mock_pika: Any) -> None:
     """Test message generator."""
     q = rabbitmq.create_sub_queue("localhost", "test")
     fake_message = (MagicMock(delivery_tag=12), None, b'foo, bar')
@@ -86,7 +89,7 @@ def test_consume(mock_pika: Any) -> None:
     mock_pika.return_value.channel.return_value.cancel.assert_called()
 
 
-def test_consume2(mock_pika: Any) -> None:
+def test_message_generator_2(mock_pika: Any) -> None:
     """Test message generator."""
     q = rabbitmq.create_sub_queue("localhost", "test")
     fake_message = (MagicMock(delivery_tag=12), None, b'foo, bar')

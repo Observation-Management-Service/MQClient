@@ -5,6 +5,7 @@ Verify basic functionality.
 
 # pylint: disable=redefined-outer-name
 
+import logging
 import uuid
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
@@ -13,6 +14,9 @@ import pytest  # type: ignore
 
 # local imports
 from MQClient import Queue
+
+logging.getLogger().setLevel(logging.DEBUG)
+
 
 # Note: don't put in duplicates
 DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
