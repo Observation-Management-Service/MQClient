@@ -6,11 +6,22 @@ MessageID = typing.Union[int, str, bytes]
 
 
 class Message:
-    """Message object. Holds msg_id and data."""
+    """Message object.
+
+    Holds msg_id and data.
+    """
 
     def __init__(self, msg_id: MessageID, data: bytes):
+        if not isinstance(msg_id, (int, str, bytes)):
+            raise TypeError("Message.msg_id must be type 'int', 'str', or 'bytes'.")
+        if not isinstance(data, bytes):
+            raise TypeError("Message.data must be type 'bytes'.")
         self.msg_id = msg_id
         self.data = data
+
+    def __repr__(self) -> str:
+        """Return string of basic properties/attributes."""
+        return f"Message(msg_id={self.msg_id!r}, data={self.data!r})"
 
 # -------------------
 # classes to override
