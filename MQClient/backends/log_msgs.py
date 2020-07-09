@@ -11,16 +11,19 @@ GETMSG_CONNECTION_ERROR_TRY_AGAIN = "[get_message()] Connection error. Trying ag
 GETMSG_RAISE_OTHER_ERROR = "[get_message()] Other error. Raising Exception."
 GETMSG_CONNECTION_ERROR_MAX_RETRIES = "[get_message()] Connection error. Reached max retries. Raising Exception."
 
-ACKING_MESSAGE = "[ack_message()] Acking message..."
-ACKD_MESSAGE = "[ack_message()] Ack'd message."
+ACKING_MESSAGE = "[ack_message()] Ack'ing message..."
+ACKED_MESSAGE = "[ack_message()] Ack'd message."
 
-NACKING_MESSAGE = "[reject_message()] Nacking message..."
-NACKD_MESSAGE = "[reject_message()] Nack'd message."
+NACKING_MESSAGE = "[reject_message()] Nack'ing message..."
+NACKED_MESSAGE = "[reject_message()] Nack'd message."
 
 MSGGEN_GET_NEW_MESSAGE = "[message_generator()] Getting a new message..."
 MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE = "[message_generator()] No messages in idle timeout window."
-MSGGEN_PROPAGATING_ERROR = "[message_generator()] Propagating error."
-MSGGEN_ERROR_DOWNSTREAM = "[message_generator()] Error downstream:"
+MSGGEN_YIELDING_MESSAGE = "[message_generator()] Yielding message..."
+MSGGEN_DOWNSTREAM_ERROR = "[message_generator()] There was a downstream error."
+MSGGEN_PROPAGATING_ERROR = "[message_generator()] Propagating error..."
+MSGGEN_EXCEPTED_DOWNSTREAM_ERROR = "[message_generator()] Excepted downstream error:"
+MSGGEN_GENERATOR_EXIT = "[message_generator()] GeneratorExit."
 MSGGEN_CLOSED_QUEUE = "[message_generator()] Closed queue."
 
 TRYCALL_CONNECTION_CLOSED_BY_BROKER = "[try_call()] ConnectionClosedByBroker..."

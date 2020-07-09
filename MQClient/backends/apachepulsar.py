@@ -143,7 +143,7 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> typing.Optional[
                 queue.close()
                 time.sleep(1)
                 queue.connect()
-                logging.debug(f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (try #{i+2})...")
+                logging.debug(f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
                 continue
             logging.debug(log_msgs.GETMSG_RAISE_OTHER_ERROR)
             raise
@@ -159,7 +159,7 @@ def ack_message(queue: PulsarSub, msg_id: MessageID) -> None:
 
     logging.debug(log_msgs.ACKING_MESSAGE)
     queue.consumer.acknowledge(msg_id)
-    logging.debug(log_msgs.ACKD_MESSAGE)
+    logging.debug(f"{log_msgs.ACKED_MESSAGE} {msg_id!r}")
 
 
 def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
@@ -169,7 +169,7 @@ def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
 
     logging.debug(log_msgs.NACKING_MESSAGE)
     queue.consumer.negative_acknowledge(msg_id)
-    logging.debug(log_msgs.NACKD_MESSAGE)
+    logging.debug(f"{log_msgs.NACKED_MESSAGE} {msg_id!r}")
 
 
 def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True,

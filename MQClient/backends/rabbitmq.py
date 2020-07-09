@@ -104,7 +104,7 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
         queue.close()
         time.sleep(1)
         queue.connect()
-        logging.debug(f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (try #{i+2})...")
+        logging.debug(f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
 
     logging.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception('RabbitMQ connection error')
@@ -132,7 +132,7 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
         queue.close()
         time.sleep(1)
         queue.connect()
-        logging.debug(f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (try #{i+2})...")
+        logging.debug(f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
 
     logging.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception('RabbitMQ connection error')
@@ -223,7 +223,7 @@ def ack_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
 
     logging.debug(log_msgs.ACKING_MESSAGE)
     try_call(queue, partial(queue.channel.basic_ack, msg_id))
-    logging.debug(log_msgs.ACKD_MESSAGE)
+    logging.debug(f"{log_msgs.ACKED_MESSAGE} {msg_id!r}")
 
 
 def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
@@ -241,7 +241,7 @@ def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
 
     logging.debug(log_msgs.NACKING_MESSAGE)
     try_call(queue, partial(queue.channel.basic_nack, msg_id))
-    logging.debug(log_msgs.NACKD_MESSAGE)
+    logging.debug(f"{log_msgs.NACKED_MESSAGE} {msg_id!r}")
 
 
 def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = True,
