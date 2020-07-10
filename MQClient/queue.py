@@ -5,7 +5,7 @@ import pickle
 import uuid
 from typing import Any, Generator, Optional
 
-from .backend_interface import RawQueue
+from .backend_interface import Message, RawQueue
 
 
 class Queue:
@@ -109,7 +109,7 @@ class Queue:
         raw_data = pickle.dumps(data, protocol=4)
         self._backend.send_message(self.raw_pub_queue, raw_data)
 
-    def recv(self, timeout: int = 60) -> Generator[Any, None, None]:
+    def recv(self, timeout: int = 60) -> Generator[Message, None, None]:
         """Receive a stream of messages from the queue.
 
         This is a generator. It stops when no messages are received
@@ -123,8 +123,13 @@ class Queue:
             Generator[Any, None, None] -- object of data received
         """
         for msg in self._backend.message_generator(self.raw_sub_queue, timeout=timeout, propagate_error=False):
+            # TODO try?
             data = pickle.loads(msg.data)
+            # TODO and/or try?
             yield data
+            # TODO except?
+            # TODO throw in order to nack?
+            # TODO break/return?
 
     @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:

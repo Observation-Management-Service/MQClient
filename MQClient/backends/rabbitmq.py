@@ -223,7 +223,7 @@ def ack_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
 
     logging.debug(log_msgs.ACKING_MESSAGE)
     try_call(queue, partial(queue.channel.basic_ack, msg_id))
-    logging.debug(f"{log_msgs.ACKED_MESSAGE} {msg_id!r}")
+    logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
 
 def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
@@ -241,11 +241,11 @@ def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
 
     logging.debug(log_msgs.NACKING_MESSAGE)
     try_call(queue, partial(queue.channel.basic_nack, msg_id))
-    logging.debug(f"{log_msgs.NACKED_MESSAGE} {msg_id!r}")
+    logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
 
 def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = True,
-                      propagate_error: bool = True) -> Generator[Message, None, None]:
+                      propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
     """Yield a Message.
 
     Args:
@@ -257,26 +257,49 @@ def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = Tr
     if not queue.channel:
         raise RuntimeError("queue is not connected")
 
+    msg = None
+    acked = False
     try:
         gen = partial(queue.channel.consume, queue.queue, inactivity_timeout=timeout)
 
         for method_frame, _, body in try_yield(queue, gen):
+            # get message
+            msg = None
             logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
             if not method_frame:
                 logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                 break
+            msg = Message(method_frame.delivery_tag, body)
+            acked = False
 
+            # yield message to consumer
             try:
-                yield Message(method_frame.delivery_tag, body)
+                logging.debug(f"{log_msgs.MSGGEN_YIELDING_MESSAGE} [{msg}]")
+                yield msg
+            # consumer throws Exception...
             except Exception as e:  # pylint: disable=W0703
-                try_call(queue, partial(queue.channel.basic_nack, method_frame.delivery_tag))
+                logging.debug(log_msgs.MSGGEN_DOWNSTREAM_ERROR)
+                if msg:
+                    reject_message(queue, msg.msg_id)
                 if propagate_error:
                     logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
                     raise
-                logging.warning(f"{log_msgs.MSGGEN_ERROR_DOWNSTREAM} {e}.", exc_info=True)
+                logging.warning(f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.", exc_info=True)
+                yield None
+            # consumer requests again, aka next()
             else:
                 if auto_ack:
-                    try_call(queue, partial(queue.channel.basic_ack, method_frame.delivery_tag))
+                    ack_message(queue, msg.msg_id)
+                    acked = True
+
+    # generator exit (explicit close(), or break in consumer's loop)
+    except GeneratorExit:
+        logging.debug(log_msgs.MSGGEN_GENERATOR_EXIT)
+        if auto_ack and (not acked) and msg:
+            ack_message(queue, msg.msg_id)
+            acked = True
+
+    # generator is closed (also, garbage collected)
     finally:
         try_call(queue, queue.channel.cancel)
         logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)

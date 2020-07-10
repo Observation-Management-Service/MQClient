@@ -1,8 +1,8 @@
 """Define an interface that backends will adhere to."""
 
-import typing
+from typing import Generator, Optional, Union
 
-MessageID = typing.Union[int, str, bytes]
+MessageID = Union[int, str, bytes]
 
 
 class Message:
@@ -55,7 +55,7 @@ def send_message(queue: RawQueue, msg: bytes) -> None:
     raise NotImplementedError()
 
 
-def get_message(queue: RawQueue) -> typing.Optional[Message]:
+def get_message(queue: RawQueue) -> Optional[Message]:
     """Get a single message from a queue."""
     raise NotImplementedError()
 
@@ -71,7 +71,7 @@ def reject_message(queue: RawQueue, msg_id: MessageID) -> None:
 
 
 def message_generator(queue: RawQueue, timeout: int = 60, auto_ack: bool = True,
-                      propagate_error: bool = True) -> typing.Generator[Message, None, None]:
+                      propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
     """Yield a Message.
 
     Args:
