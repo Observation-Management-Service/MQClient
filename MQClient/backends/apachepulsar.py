@@ -131,7 +131,7 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> Optional[Message
                 message_id, data = msg.message_id(), msg.data()
                 if (message_id is not None) and (data is not None):  # message_id may be 0; data may be b''
                     logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({message_id}).")
-                    return Message(message_id, data)
+                    return Message(message_id.serialize(), data)  # message_id.serialize() -> bytes
             logging.debug(log_msgs.GETMSG_NO_MESSAGE)
             return None
 
@@ -158,7 +158,10 @@ def ack_message(queue: PulsarSub, msg_id: MessageID) -> None:
         raise RuntimeError("queue is not connected")
 
     logging.debug(log_msgs.ACKING_MESSAGE)
-    queue.consumer.acknowledge(msg_id)
+    if type(msg_id) == bytes:
+        queue.consumer.acknowledge(pulsar.MessageId.deserialize(msg_id))
+    else:
+        queue.consumer.acknowledge(msg_id)
     logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
 
@@ -168,7 +171,10 @@ def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
         raise RuntimeError("queue is not connected")
 
     logging.debug(log_msgs.NACKING_MESSAGE)
-    queue.consumer.negative_acknowledge(msg_id)
+    if type(msg_id) == bytes:
+        queue.consumer.negative_acknowledge(pulsar.MessageId.deserialize(msg_id))
+    else:
+        queue.consumer.negative_acknowledge(msg_id)
     logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
 
