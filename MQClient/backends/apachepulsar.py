@@ -131,7 +131,7 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> Optional[Message
                 message_id, data = msg.message_id(), msg.data()
                 if (message_id is not None) and (data is not None):  # message_id may be 0; data may be b''
                     logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({message_id}).")
-                    if type(message_id) == pulsar.MessageId:
+                    if isinstance(message_id, pulsar._pulsar.MessageId):  # pylint: disable=I1101,W0212
                         return Message(message_id.serialize(), data)  # message_id.serialize() -> bytes
                     return Message(message_id, data)
             logging.debug(log_msgs.GETMSG_NO_MESSAGE)
