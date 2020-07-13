@@ -13,9 +13,9 @@ class Message:
 
     def __init__(self, msg_id: MessageID, data: bytes):
         if not isinstance(msg_id, (int, str, bytes)):
-            raise TypeError("Message.msg_id must be type 'int', 'str', or 'bytes'.")
+            raise TypeError(f"Message.msg_id must be type 'int', 'str', or 'bytes' (not '{type(msg_id)}').")
         if not isinstance(data, bytes):
-            raise TypeError("Message.data must be type 'bytes'.")
+            raise TypeError(f"Message.data must be type 'bytes' (not '{type(data)}').")
         self.msg_id = msg_id
         self.data = data
 
