@@ -160,7 +160,7 @@ def ack_message(queue: PulsarSub, msg_id: MessageID) -> None:
         raise RuntimeError("queue is not connected")
 
     logging.debug(log_msgs.ACKING_MESSAGE)
-    if type(msg_id) == bytes:
+    if isinstance(msg_id, bytes):
         queue.consumer.acknowledge(pulsar.MessageId.deserialize(msg_id))
     else:
         queue.consumer.acknowledge(msg_id)
@@ -173,7 +173,7 @@ def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
         raise RuntimeError("queue is not connected")
 
     logging.debug(log_msgs.NACKING_MESSAGE)
-    if type(msg_id) == bytes:
+    if isinstance(msg_id, bytes):
         queue.consumer.negative_acknowledge(pulsar.MessageId.deserialize(msg_id))
     else:
         queue.consumer.negative_acknowledge(msg_id)
