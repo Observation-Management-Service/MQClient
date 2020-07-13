@@ -164,7 +164,32 @@ def test_message_generator_propagate_error(mock_ap: Any) -> None:
     Generator should raise Exception, nack, and close. Unlike in an
     integration test, nacked messages are not put back on the queue.
     """
-    pass
+    q = apachepulsar.create_sub_queue("localhost", "test")
+
+    fake_data = [b'baz-0', b'baz-1', b'baz-2']
+    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+    fake_ids = [0, 1, 2]
+    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+
+    gen = apachepulsar.message_generator(q)  # propagate_error=True
+    i = 0
+    for msg in gen:
+        logging.debug(i)
+        assert i < 3
+        if i > 0:  # see if previous msg was acked
+            mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with(i - 1)
+
+        assert msg is not None
+        assert msg.msg_id == i
+        assert msg.data == fake_data[i]
+
+        if i == 2:
+            with pytest.raises(Exception):
+                gen.throw(Exception)
+            mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(i)
+            mock_ap.return_value.close.assert_called()
+
+        i += 1
 
 
 def test_message_generator_suppress_error(mock_ap: Any) -> None:
@@ -173,4 +198,38 @@ def test_message_generator_suppress_error(mock_ap: Any) -> None:
     Generator should not raise Exception. Unlike in an integration test,
     nacked messages are not put back on the queue.
     """
-    pass
+    q = apachepulsar.create_sub_queue("localhost", "test")
+    num_msgs = 11
+    if num_msgs % 2 == 0:
+        raise RuntimeError("`num_msgs` must be odd, so last message is nacked")
+
+    fake_data = [f'baz-{i}'.encode('utf-8') for i in range(num_msgs)]  # type: List[Optional[bytes]]
+    fake_data += [None]  # signifies end of stream -- not actually a message
+    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+
+    fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
+    fake_ids += [None]  # signifies end of stream -- not actually a message
+    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+
+    gen = apachepulsar.message_generator(q, propagate_error=False)
+    i = 0
+    # odds are acked and evens are nacked
+    for msg in gen:
+        logging.debug(i)
+        if i > 0:
+            if i % 2 == 0:  # see if previous EVEN msg was acked
+                mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
+            else:  # see if previous ODD msg was NOT acked
+                with pytest.raises(AssertionError):
+                    mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
+
+        assert msg is not None
+        assert msg.msg_id == i * 10
+        assert msg.data == fake_data[i]
+
+        if i % 2 == 0:
+            gen.throw(Exception)
+            mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(i * 10)
+
+        i += 1
+    mock_ap.return_value.close.assert_called()
