@@ -42,40 +42,51 @@ class RawQueue:
 # ---------------------------------------
 
 
-def create_pub_queue(address: str, name: str) -> Pub:
-    """Create a publishing queue."""
-    raise NotImplementedError()
+class Pub(RawQueue):
+    """Publisher queue."""
 
-def create_sub_queue(address: str, name: str, prefetch: int = 1) -> Sub:
-    """Create a subscription queue."""
-    raise NotImplementedError()
-
-
-def send_message(self, msg: bytes) -> None:
-    """Send a message on a queue."""
-    raise NotImplementedError()
+    def send_message(self, msg: bytes) -> None:
+        """Send a message on a queue."""
+        raise NotImplementedError()
 
 
-def get_message(self) -> Optional[Message]:
-    """Get a single message from a queue."""
-    raise NotImplementedError()
+class Sub(RawQueue):
+    """Subscriber queue."""
 
-def ack_message(self, msg_id: MessageID) -> None:
-    """Ack a message from the queue."""
-    raise NotImplementedError()
+    def get_message(self) -> Optional[Message]:
+        """Get a single message from a queue."""
+        raise NotImplementedError()
 
-def reject_message(self, msg_id: MessageID) -> None:
-    """Reject (nack) a message from the queue."""
-    raise NotImplementedError()
+    def ack_message(self, msg_id: MessageID) -> None:
+        """Ack a message from the queue."""
+        raise NotImplementedError()
 
-def message_generator(self, timeout: int = 60, auto_ack: bool = True,
-                      propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
-    """Yield a Message.
+    def reject_message(self, msg_id: MessageID) -> None:
+        """Reject (nack) a message from the queue."""
+        raise NotImplementedError()
 
-    Args:
-        queue (RabbitMQSub): queue object
-        timeout (int): timeout in seconds for inactivity
-        auto_ack (bool): Ack each message after successful processing
-        propagate_error (bool): should errors from downstream code kill the generator?
-    """
-    raise NotImplementedError()
+    def message_generator(self, timeout: int = 60, auto_ack: bool = True,
+                          propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
+        """Yield a Message.
+
+        Args:
+            queue (RabbitMQSub): queue object
+            timeout (int): timeout in seconds for inactivity
+            auto_ack (bool): Ack each message after successful processing
+            propagate_error (bool): should errors from downstream code kill the generator?
+        """
+        raise NotImplementedError()
+
+
+class Backend:
+    """Backend Pub-Sub Factory."""
+
+    @staticmethod
+    def create_pub_queue(address: str, name: str) -> Pub:
+        """Create a publishing queue."""
+        raise NotImplementedError()
+
+    @staticmethod
+    def create_sub_queue(address: str, name: str, prefetch: int = 1) -> Sub:
+        """Create a subscription queue."""
+        raise NotImplementedError()
