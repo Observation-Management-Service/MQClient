@@ -7,7 +7,7 @@ from typing import Any, Callable, Generator, Optional
 
 import pika  # type: ignore
 
-from ..backend_interface import Message, MessageID, RawQueue
+from ..backend_interface import Backend, Message, MessageID, Pub, RawQueue, Sub
 from . import log_msgs
 
 # Private Classes
@@ -41,7 +41,7 @@ class RabbitMQ(RawQueue):
             self.connection.close()
 
 
-class RabbitMQPub(RabbitMQ):
+class RabbitMQPub(RabbitMQ, Pub):
     """Wrapper around queue with delivery-confirm mode in the channel.
 
     Extends:
@@ -58,8 +58,26 @@ class RabbitMQPub(RabbitMQ):
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.confirm_delivery()
 
+    def send_message(self, msg: bytes) -> None:
+        """Send a message on a queue.
 
-class RabbitMQSub(RabbitMQ):
+        Args:
+            address (str): address of queue
+            name (str): name of queue on address
+
+        Returns:
+            RawQueue: queue
+        """
+        if not self.channel:
+            raise RuntimeError("queue is not connected")
+
+        logging.debug(log_msgs.SENDING_MESSAGE)
+        try_call(self, partial(self.channel.basic_publish, exchange='',
+                               routing_key=self.queue, body=msg))
+        logging.debug(log_msgs.SENT_MESSAGE)
+
+
+class RabbitMQSub(RabbitMQ, Sub):
     """Wrapper around queue with prefetch-queue QoS.
 
     Extends:
@@ -81,6 +99,151 @@ class RabbitMQSub(RabbitMQ):
 
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
+
+def get_message(self) -> Optional[Message]:
+    """Get a message from a queue."""
+    if not self.channel:
+        raise RuntimeError("queue is not connected")
+
+    logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
+    method_frame, _, body = try_call(self, partial(self.channel.basic_get, self.queue))
+
+    if method_frame:
+        msg = Message(method_frame.delivery_tag, body)
+        logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(msg.msg_id)}).")
+        return msg
+
+    logging.debug(log_msgs.GETMSG_NO_MESSAGE)
+    return None
+
+def ack_message(self, msg_id: MessageID) -> None:
+    """Ack a message from the queue.
+
+    Note that RabbitMQ acks messages in-order, so acking message
+    3 of 3 in-progress messages will ack them all.
+
+    Args:
+        queue (RabbitMQSub): queue object
+        msg_id (MessageID): message id
+    """
+    if not self.channel:
+        raise RuntimeError("queue is not connected")
+
+    logging.debug(log_msgs.ACKING_MESSAGE)
+    try_call(self, partial(self.channel.basic_ack, msg_id))
+    logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
+
+def reject_message(self, msg_id: MessageID) -> None:
+    """Reject (nack) a message from the queue.
+
+    Note that RabbitMQ acks messages in-order, so nacking message
+    3 of 3 in-progress messages will nack them all.
+
+    Args:
+        queue (RabbitMQSub): queue object
+        msg_id (MessageID): message id
+    """
+    if not self.channel:
+        raise RuntimeError("queue is not connected")
+
+    logging.debug(log_msgs.NACKING_MESSAGE)
+    try_call(self, partial(self.channel.basic_nack, msg_id))
+    logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
+
+def message_generator(self, timeout: int = 60, auto_ack: bool = True,
+                      propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
+    """Yield a Message.
+
+    Args:
+        queue (RabbitMQSub): queue object
+        timeout (int): timeout in seconds for inactivity
+        auto_ack (bool): Ack each message after successful processing
+        propagate_error (bool): should errors from downstream code kill the generator?
+    """
+    if not self.channel:
+        raise RuntimeError("queue is not connected")
+
+    msg = None
+    acked = False
+    try:
+        gen = partial(self.channel.consume, self.queue, inactivity_timeout=timeout)
+
+        for method_frame, _, body in try_yield(self, gen):
+            # get message
+            msg = None
+            logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
+            if not method_frame:
+                logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
+                break
+            msg = Message(method_frame.delivery_tag, body)
+            acked = False
+
+            # yield message to consumer
+            try:
+                logging.debug(f"{log_msgs.MSGGEN_YIELDING_MESSAGE} [{msg}]")
+                yield msg
+            # consumer throws Exception...
+            except Exception as e:  # pylint: disable=W0703
+                logging.debug(log_msgs.MSGGEN_DOWNSTREAM_ERROR)
+                if msg:
+                    self.reject_message(msg.msg_id)
+                if propagate_error:
+                    logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
+                    raise
+                logging.warning(f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.", exc_info=True)
+                yield None
+            # consumer requests again, aka next()
+            else:
+                if auto_ack:
+                    self.ack_message(msg.msg_id)
+                    acked = True
+
+    # generator exit (explicit close(), or break in consumer's loop)
+    except GeneratorExit:
+        logging.debug(log_msgs.MSGGEN_GENERATOR_EXIT)
+        if auto_ack and (not acked) and msg:
+            self.ack_message(msg.msg_id)
+            acked = True
+
+    # generator is closed (also, garbage collected)
+    finally:
+        try_call(self, self.channel.cancel)
+        logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
+
+
+class RabbitMQBackend(Backend):
+    """RabbitMQ Pub-Sub Backend Factory."""
+
+    @staticmethod
+    def create_pub_queue(address: str, name: str) -> RabbitMQPub:
+        """Create a publishing queue.
+
+        Args:
+            address (str): address of queue
+            name (str): name of queue on address
+
+        Returns:
+            RawQueue: queue
+        """
+        q = RabbitMQPub(address, name)
+        q.connect()
+        return q
+
+    @staticmethod
+    def create_sub_queue(address: str, name: str, prefetch: int = 1) -> RabbitMQSub:
+        """Create a subscription queue.
+
+        Args:
+            address (str): address of queue
+            name (str): name of queue on address
+
+        Returns:
+            RawQueue: queue
+        """
+        q = RabbitMQSub(address, name)
+        q.prefetch = prefetch
+        q.connect()
+        return q
 
 
 def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
@@ -136,170 +299,3 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
 
     logging.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception('RabbitMQ connection error')
-
-
-# Interface Methods
-
-
-def create_pub_queue(address: str, name: str) -> RabbitMQPub:
-    """Create a publishing queue.
-
-    Args:
-        address (str): address of queue
-        name (str): name of queue on address
-
-    Returns:
-        RawQueue: queue
-    """
-    q = RabbitMQPub(address, name)
-    q.connect()
-    return q
-
-
-def create_sub_queue(address: str, name: str, prefetch: int = 1) -> RabbitMQSub:
-    """Create a subscription queue.
-
-    Args:
-        address (str): address of queue
-        name (str): name of queue on address
-
-    Returns:
-        RawQueue: queue
-    """
-    q = RabbitMQSub(address, name)
-    q.prefetch = prefetch
-    q.connect()
-    return q
-
-
-def send_message(queue: RabbitMQPub, msg: bytes) -> None:
-    """Send a message on a queue.
-
-    Args:
-        address (str): address of queue
-        name (str): name of queue on address
-
-    Returns:
-        RawQueue: queue
-    """
-    if not queue.channel:
-        raise RuntimeError("queue is not connected")
-
-    logging.debug(log_msgs.SENDING_MESSAGE)
-    try_call(queue, partial(queue.channel.basic_publish, exchange='',
-                            routing_key=queue.queue, body=msg))
-    logging.debug(log_msgs.SENT_MESSAGE)
-
-
-def get_message(queue: RabbitMQSub) -> Optional[Message]:
-    """Get a message from a queue."""
-    if not queue.channel:
-        raise RuntimeError("queue is not connected")
-
-    logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
-    method_frame, _, body = try_call(queue, partial(queue.channel.basic_get, queue.queue))
-
-    if method_frame:
-        msg = Message(method_frame.delivery_tag, body)
-        logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(msg.msg_id)}).")
-        return msg
-
-    logging.debug(log_msgs.GETMSG_NO_MESSAGE)
-    return None
-
-
-def ack_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
-    """Ack a message from the queue.
-
-    Note that RabbitMQ acks messages in-order, so acking message
-    3 of 3 in-progress messages will ack them all.
-
-    Args:
-        queue (RabbitMQSub): queue object
-        msg_id (MessageID): message id
-    """
-    if not queue.channel:
-        raise RuntimeError("queue is not connected")
-
-    logging.debug(log_msgs.ACKING_MESSAGE)
-    try_call(queue, partial(queue.channel.basic_ack, msg_id))
-    logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
-
-
-def reject_message(queue: RabbitMQSub, msg_id: MessageID) -> None:
-    """Reject (nack) a message from the queue.
-
-    Note that RabbitMQ acks messages in-order, so nacking message
-    3 of 3 in-progress messages will nack them all.
-
-    Args:
-        queue (RabbitMQSub): queue object
-        msg_id (MessageID): message id
-    """
-    if not queue.channel:
-        raise RuntimeError("queue is not connected")
-
-    logging.debug(log_msgs.NACKING_MESSAGE)
-    try_call(queue, partial(queue.channel.basic_nack, msg_id))
-    logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
-
-
-def message_generator(queue: RabbitMQSub, timeout: int = 60, auto_ack: bool = True,
-                      propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
-    """Yield a Message.
-
-    Args:
-        queue (RabbitMQSub): queue object
-        timeout (int): timeout in seconds for inactivity
-        auto_ack (bool): Ack each message after successful processing
-        propagate_error (bool): should errors from downstream code kill the generator?
-    """
-    if not queue.channel:
-        raise RuntimeError("queue is not connected")
-
-    msg = None
-    acked = False
-    try:
-        gen = partial(queue.channel.consume, queue.queue, inactivity_timeout=timeout)
-
-        for method_frame, _, body in try_yield(queue, gen):
-            # get message
-            msg = None
-            logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
-            if not method_frame:
-                logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
-                break
-            msg = Message(method_frame.delivery_tag, body)
-            acked = False
-
-            # yield message to consumer
-            try:
-                logging.debug(f"{log_msgs.MSGGEN_YIELDING_MESSAGE} [{msg}]")
-                yield msg
-            # consumer throws Exception...
-            except Exception as e:  # pylint: disable=W0703
-                logging.debug(log_msgs.MSGGEN_DOWNSTREAM_ERROR)
-                if msg:
-                    reject_message(queue, msg.msg_id)
-                if propagate_error:
-                    logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
-                    raise
-                logging.warning(f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.", exc_info=True)
-                yield None
-            # consumer requests again, aka next()
-            else:
-                if auto_ack:
-                    ack_message(queue, msg.msg_id)
-                    acked = True
-
-    # generator exit (explicit close(), or break in consumer's loop)
-    except GeneratorExit:
-        logging.debug(log_msgs.MSGGEN_GENERATOR_EXIT)
-        if auto_ack and (not acked) and msg:
-            ack_message(queue, msg.msg_id)
-            acked = True
-
-    # generator is closed (also, garbage collected)
-    finally:
-        try_call(queue, queue.channel.cancel)
-        logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)

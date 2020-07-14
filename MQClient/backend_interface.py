@@ -23,6 +23,7 @@ class Message:
         """Return string of basic properties/attributes."""
         return f"Message(msg_id={self.msg_id!r}, data={self.data!r})"
 
+
 # -------------------
 # classes to override
 # -------------------
@@ -35,42 +36,39 @@ class RawQueue:
         """Close interface to queue."""
         raise NotImplementedError()
 
+
 # ---------------------------------------
 # Functions to be implemented in backends
 # ---------------------------------------
 
 
-def create_pub_queue(address: str, name: str) -> RawQueue:
+def create_pub_queue(address: str, name: str) -> Pub:
     """Create a publishing queue."""
     raise NotImplementedError()
 
-
-def create_sub_queue(address: str, name: str, prefetch: int = 1) -> RawQueue:
+def create_sub_queue(address: str, name: str, prefetch: int = 1) -> Sub:
     """Create a subscription queue."""
     raise NotImplementedError()
 
 
-def send_message(queue: RawQueue, msg: bytes) -> None:
+def send_message(self, msg: bytes) -> None:
     """Send a message on a queue."""
     raise NotImplementedError()
 
 
-def get_message(queue: RawQueue) -> Optional[Message]:
+def get_message(self) -> Optional[Message]:
     """Get a single message from a queue."""
     raise NotImplementedError()
 
-
-def ack_message(queue: RawQueue, msg_id: MessageID) -> None:
+def ack_message(self, msg_id: MessageID) -> None:
     """Ack a message from the queue."""
     raise NotImplementedError()
 
-
-def reject_message(queue: RawQueue, msg_id: MessageID) -> None:
+def reject_message(self, msg_id: MessageID) -> None:
     """Reject (nack) a message from the queue."""
     raise NotImplementedError()
 
-
-def message_generator(queue: RawQueue, timeout: int = 60, auto_ack: bool = True,
+def message_generator(self, timeout: int = 60, auto_ack: bool = True,
                       propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
     """Yield a Message.
 

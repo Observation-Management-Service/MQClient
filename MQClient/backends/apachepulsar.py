@@ -6,7 +6,7 @@ from typing import Generator, Optional
 
 import pulsar  # type: ignore
 
-from ..backend_interface import Message, MessageID, RawQueue
+from ..backend_interface import Backend, Message, MessageID, Pub, RawQueue, Sub
 from . import log_msgs
 
 # Private Classes
@@ -40,7 +40,7 @@ class Pulsar(RawQueue):
                     raise
 
 
-class PulsarPub(Pulsar):
+class PulsarPub(Pulsar, Pub):
     """Wrapper around pulsar.Producer.
 
     Extends:
@@ -56,8 +56,17 @@ class PulsarPub(Pulsar):
         super().connect()
         self.producer = self.client.create_producer(self.topic)
 
+    def send_message(self, msg: bytes) -> None:
+        """Send a message on a queue."""
+        if not self.producer:
+            raise RuntimeError("queue is not connected")
 
-class PulsarSub(Pulsar):
+        logging.debug(log_msgs.SENDING_MESSAGE)
+        self.producer.send(msg)
+        logging.debug(log_msgs.SENT_MESSAGE)
+
+
+class PulsarSub(Pulsar, Sub):
     """Wrapper around pulsar.Consumer.
 
     Extends:
@@ -85,48 +94,19 @@ class PulsarSub(Pulsar):
             self.consumer.redeliver_unacknowledged_messages()
         super().close()
 
-
-# Interface Methods
-
-
-def create_pub_queue(address: str, name: str) -> PulsarPub:
-    """Create a publishing queue."""
-    q = PulsarPub(address, name)
-    q.connect()
-    return q
-
-
-def create_sub_queue(address: str, name: str, prefetch: int = 1) -> PulsarSub:
-    """Create a subscription queue."""
-    q = PulsarSub(address, name)
-    q.prefetch = prefetch
-    q.connect()
-    return q
-
-
-def send_message(queue: PulsarPub, msg: bytes) -> None:
-    """Send a message on a queue."""
-    if not queue.producer:
-        raise RuntimeError("queue is not connected")
-
-    logging.debug(log_msgs.SENDING_MESSAGE)
-    queue.producer.send(msg)
-    logging.debug(log_msgs.SENT_MESSAGE)
-
-
-def get_message(queue: PulsarSub, timeout_millis: int = 100) -> Optional[Message]:
+def get_message(self, timeout_millis: int = 100) -> Optional[Message]:
     """Get a single message from a queue.
 
     To endlessly block until a message is available, set
     `timeout_millis=None`.
     """
-    if not queue.consumer:
+    if not self.consumer:
         raise RuntimeError("queue is not connected")
 
     logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
     for i in range(3):
         try:
-            msg = queue.consumer.receive(timeout_millis=timeout_millis)
+            msg = self.consumer.receive(timeout_millis=timeout_millis)
             if msg:
                 message_id, data = msg.message_id(), msg.data()
                 if (message_id is not None) and (data is not None):  # message_id may be 0; data may be b''
@@ -142,9 +122,9 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> Optional[Message
                 logging.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                 return None
             if str(e) == "Pulsar error: AlreadyClosed":
-                queue.close()
+                self.close()
                 time.sleep(1)
-                queue.connect()
+                self.connect()
                 logging.debug(f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
                 continue
             logging.debug(f"{log_msgs.GETMSG_RAISE_OTHER_ERROR} ({e.__class__.__name__}).")
@@ -153,34 +133,31 @@ def get_message(queue: PulsarSub, timeout_millis: int = 100) -> Optional[Message
     logging.debug(log_msgs.GETMSG_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception('Pulsar connection error')
 
-
-def ack_message(queue: PulsarSub, msg_id: MessageID) -> None:
+def ack_message(self, msg_id: MessageID) -> None:
     """Ack a message from the queue."""
-    if not queue.consumer:
+    if not self.consumer:
         raise RuntimeError("queue is not connected")
 
     logging.debug(log_msgs.ACKING_MESSAGE)
     if isinstance(msg_id, bytes):
-        queue.consumer.acknowledge(pulsar.MessageId.deserialize(msg_id))
+        self.consumer.acknowledge(pulsar.MessageId.deserialize(msg_id))
     else:
-        queue.consumer.acknowledge(msg_id)
+        self.consumer.acknowledge(msg_id)
     logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
-
-def reject_message(queue: PulsarSub, msg_id: MessageID) -> None:
+def reject_message(self, msg_id: MessageID) -> None:
     """Reject (nack) a message from the queue."""
-    if not queue.consumer:
+    if not self.consumer:
         raise RuntimeError("queue is not connected")
 
     logging.debug(log_msgs.NACKING_MESSAGE)
     if isinstance(msg_id, bytes):
-        queue.consumer.negative_acknowledge(pulsar.MessageId.deserialize(msg_id))
+        self.consumer.negative_acknowledge(pulsar.MessageId.deserialize(msg_id))
     else:
-        queue.consumer.negative_acknowledge(msg_id)
+        self.consumer.negative_acknowledge(msg_id)
     logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
-
-def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True,
+def message_generator(self, timeout: int = 60, auto_ack: bool = True,
                       propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
     """Yield Messages.
 
@@ -192,7 +169,7 @@ def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True
         auto_ack {bool} -- Ack each message after successful processing (default: {True})
         propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
     """
-    if not queue.consumer:
+    if not self.consumer:
         raise RuntimeError("queue is not connected")
 
     msg = None
@@ -201,7 +178,7 @@ def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True
         while True:
             # get message
             logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
-            msg = get_message(queue, timeout_millis=timeout * 1000)
+            msg = self.get_message(timeout_millis=timeout * 1000)
             acked = False
             if msg is None:
                 logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
@@ -215,7 +192,7 @@ def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True
             except Exception as e:  # pylint: disable=W0703
                 logging.debug(log_msgs.MSGGEN_DOWNSTREAM_ERROR)
                 if msg:
-                    reject_message(queue, msg.msg_id)
+                    self.reject_message(msg.msg_id)
                 if propagate_error:
                     logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
                     raise
@@ -224,17 +201,36 @@ def message_generator(queue: PulsarSub, timeout: int = 60, auto_ack: bool = True
             # consumer requests again, aka next()
             else:
                 if auto_ack:
-                    ack_message(queue, msg.msg_id)
+                    self.ack_message(msg.msg_id)
                     acked = True
 
     # generator exit (explicit close(), or break in consumer's loop)
     except GeneratorExit:
         logging.debug(log_msgs.MSGGEN_GENERATOR_EXIT)
         if auto_ack and (not acked) and msg:
-            ack_message(queue, msg.msg_id)
+            self.ack_message(msg.msg_id)
             acked = True
 
     # generator is closed (also, garbage collected)
     finally:
-        queue.close()
+        self.close()
         logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
+
+
+class PulsarBackend(Backend):
+    """Pulsar Pub-Sub Backend Factory."""
+
+    @staticmethod
+    def create_pub_queue(address: str, name: str) -> PulsarPub:
+        """Create a publishing queue."""
+        q = PulsarPub(address, name)
+        q.connect()
+        return q
+
+    @staticmethod
+    def create_sub_queue(address: str, name: str, prefetch: int = 1) -> PulsarSub:
+        """Create a subscription queue."""
+        q = PulsarSub(address, name)
+        q.prefetch = prefetch
+        q.connect()
+        return q
