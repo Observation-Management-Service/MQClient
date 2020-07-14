@@ -5,7 +5,7 @@ import pickle
 import uuid
 from typing import Any, Generator, Optional
 
-from .backend_interface import Backend, Message, Pub, RawQueue, Sub
+from .backend_interface import Backend, Message, Pub, Sub
 
 
 class Queue:
@@ -124,7 +124,8 @@ class Queue:
         """
         for msg in self.raw_sub_queue.message_generator(timeout=timeout, propagate_error=False):
             # TODO try?
-            data = pickle.loads(msg.data)
+            if msg:
+                data = pickle.loads(msg.data)
             # TODO and/or try?
             yield data
             # TODO except?

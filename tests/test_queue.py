@@ -25,21 +25,15 @@ def test_Queue_init() -> None:
 def test_Queue_pub() -> None:
     """Test pub."""
     backend = MagicMock()
-
     q = Queue(backend)
-
-    raw_q = q.raw_pub_queue
-    assert raw_q == backend.create_pub_queue.return_value
+    assert q.raw_pub_queue == backend.create_pub_queue.return_value
 
 
 def test_Queue_sub() -> None:
     """Test sub."""
     backend = MagicMock()
-
     q = Queue(backend)
-
-    raw_q = q.raw_sub_queue
-    assert raw_q == backend.create_sub_queue.return_value
+    assert q.raw_sub_queue == backend.create_sub_queue.return_value
 
 
 def test_Queue_send() -> None:
@@ -51,7 +45,7 @@ def test_Queue_send() -> None:
     data = {'a': 1234}
     q.send(data)
 
-    q.raw_pub_queue.send_message.assert_called_with(pickle.dumps(data, protocol=4))
+    q.raw_pub_queue.send_message.assert_called_with(pickle.dumps(data, protocol=4))  # type: ignore
 
 
 def test_Queue_recv() -> None:
@@ -66,7 +60,7 @@ def test_Queue_recv() -> None:
     q = Queue(backend)
 
     data = ['a', {'b': 100}, ['foo', 'bar']]
-    q.raw_sub_queue.message_generator.side_effect = partial(gen, data)
+    q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
 
     recv_data = list(q.recv())
 
@@ -81,10 +75,10 @@ def test_Queue_recv_one() -> None:
 
     data = {'b': 100}
     msg = Message(0, pickle.dumps(data, protocol=4))
-    q.raw_sub_queue.get_message.return_value = msg
+    q.raw_sub_queue.get_message.return_value = msg  # type: ignore
 
     with q.recv_one() as d:
         recv_data = d
 
     assert data == recv_data
-    q.raw_sub_queue.ack_message.assert_called_with(0)
+    q.raw_sub_queue.ack_message.assert_called_with(0)  # type: ignore
