@@ -5,30 +5,30 @@ import pickle
 import uuid
 from typing import Any, Generator, Optional
 
-from .backend_interface import Message, RawQueue
+from .backend_interface import Backend, Message, Pub, RawQueue, Sub
 
 
 class Queue:
     """User-facing queue library.
 
     Args:
-        backend (module): the backend to use
+        backend (Backend): the backend to use
         address (str): address of queue (default: 'localhost')
         name (str): name of queue (default: <random string>)
         prefetch (int): size of prefetch buffer for receiving messages (default: 1)
     """
 
-    def __init__(self, backend: Any, address: str = 'localhost',
+    def __init__(self, backend: Backend, address: str = 'localhost',
                  name: str = '', prefetch: int = 1) -> None:
         self._backend = backend
         self._address = address
         self._name = name if name else uuid.uuid4().hex
         self._prefetch = prefetch
-        self._pub_queue = None  # type: Optional[RawQueue]
-        self._sub_queue = None  # type: Optional[RawQueue]
+        self._pub_queue = None  # type: Optional[Pub]
+        self._sub_queue = None  # type: Optional[Sub]
 
     @property
-    def backend(self) -> Any:
+    def backend(self) -> Backend:
         """Get backend instance responsible for managing queuing service."""
         return self._backend
 
@@ -57,7 +57,7 @@ class Queue:
                 del self.raw_sub_queue
 
     @property
-    def raw_pub_queue(self) -> RawQueue:
+    def raw_pub_queue(self) -> Pub:
         """Get publisher queue."""
         if not self._pub_queue:
             self._pub_queue = self._backend.create_pub_queue(self._address, self._name)
@@ -76,7 +76,7 @@ class Queue:
             self._pub_queue = None
 
     @property
-    def raw_sub_queue(self) -> RawQueue:
+    def raw_sub_queue(self) -> Sub:
         """Get subscriber queue."""
         if not self._sub_queue:
             self._sub_queue = self._backend.create_sub_queue(
@@ -107,7 +107,7 @@ class Queue:
             data (Any): object of data to send (must be picklable)
         """
         raw_data = pickle.dumps(data, protocol=4)
-        self._backend.send_message(self.raw_pub_queue, raw_data)
+        self.raw_pub_queue.send_message(raw_data)
 
     def recv(self, timeout: int = 60) -> Generator[Message, None, None]:
         """Receive a stream of messages from the queue.
@@ -122,7 +122,7 @@ class Queue:
         Yields:
             Generator[Any, None, None] -- object of data received
         """
-        for msg in self._backend.message_generator(self.raw_sub_queue, timeout=timeout, propagate_error=False):
+        for msg in self.raw_sub_queue.message_generator(timeout=timeout, propagate_error=False):
             # TODO try?
             data = pickle.loads(msg.data)
             # TODO and/or try?
@@ -146,19 +146,19 @@ class Queue:
         Raises:
             Exception -- [description]
         """
-        msg = self._backend.get_message(self.raw_sub_queue)
+        msg = self.raw_sub_queue.get_message()
         if not msg:
             raise Exception('No message available')
         try:
             yield pickle.loads(msg.data)
         except Exception:
-            self._backend.reject_message(self.raw_sub_queue, msg.msg_id)
+            self.raw_sub_queue.reject_message(msg.msg_id)
             raise
         else:
-            self._backend.ack_message(self.raw_sub_queue, msg.msg_id)
+            self.raw_sub_queue.ack_message(msg.msg_id)
         finally:
             self.close()
 
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
-        return f"Queue({self.backend.__name__}, address={self.address}, name={self.name}, prefetch={self.prefetch}, pub={bool(self._pub_queue)}, sub={bool(self._sub_queue)})"
+        return f"Queue({self.backend.__class__.__name__}, address={self.address}, name={self.name}, prefetch={self.prefetch}, pub={bool(self._pub_queue)}, sub={bool(self._sub_queue)})"

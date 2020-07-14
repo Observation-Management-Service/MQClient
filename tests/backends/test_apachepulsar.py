@@ -21,14 +21,14 @@ def mock_ap(mocker: Any) -> Any:
 
 def test_create_pub_queue(mock_ap: Any) -> None:
     """Test creating pub queue."""
-    q = apachepulsar.create_pub_queue("localhost", "test")
+    q = apachepulsar.PulsarBackend().create_pub_queue("localhost", "test")
     assert q.topic == "test"
     mock_ap.return_value.create_producer.assert_called()
 
 
 def test_create_sub_queue(mock_ap: Any) -> None:
     """Test creating sub queue."""
-    q = apachepulsar.create_sub_queue("localhost", "test", prefetch=213)
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test", prefetch=213)
     assert q.topic == "test"
     assert q.prefetch == 213
     mock_ap.return_value.subscribe.assert_called()
@@ -36,17 +36,17 @@ def test_create_sub_queue(mock_ap: Any) -> None:
 
 def test_send_message(mock_ap: Any) -> None:
     """Test sending message."""
-    q = apachepulsar.create_pub_queue("localhost", "test")
-    apachepulsar.send_message(q, b"foo, bar, baz")
+    q = apachepulsar.PulsarBackend().create_pub_queue("localhost", "test")
+    q.send_message(b"foo, bar, baz")
     mock_ap.return_value.create_producer.return_value.send.assert_called_with(b'foo, bar, baz')
 
 
 def test_get_message(mock_ap: Any) -> None:
     """Test getting message."""
-    q = apachepulsar.create_sub_queue("localhost", "test")
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test")
     mock_ap.return_value.subscribe.return_value.receive.return_value.data.return_value = b'foo, bar'
     mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.return_value = 12
-    m = apachepulsar.get_message(q)
+    m = q.get_message()
 
     assert m is not None
     assert m.msg_id == 12
@@ -55,21 +55,21 @@ def test_get_message(mock_ap: Any) -> None:
 
 def test_ack_message(mock_ap: Any) -> None:
     """Test acking message."""
-    q = apachepulsar.create_sub_queue("localhost", "test")
-    apachepulsar.ack_message(q, 12)
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test")
+    q.ack_message(12)
     mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
 
 
 def test_reject_message(mock_ap: Any) -> None:
     """Test rejecting message."""
-    q = apachepulsar.create_sub_queue("localhost", "test")
-    apachepulsar.reject_message(q, 12)
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test")
+    q.reject_message(12)
     mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(12)
 
 
 def test_message_generator_0(mock_ap: Any) -> None:
     """Test message generator."""
-    q = apachepulsar.create_sub_queue("localhost", "test")
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test")
     num_msgs = 100
 
     fake_data = [f'baz-{i}'.encode('utf-8') for i in range(num_msgs)]  # type: List[Optional[bytes]]
@@ -80,7 +80,7 @@ def test_message_generator_0(mock_ap: Any) -> None:
     fake_ids += [None]  # signifies end of stream -- not actually a message
     mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
-    for i, msg in enumerate(apachepulsar.message_generator(q)):
+    for i, msg in enumerate(q.message_generator()):
         logging.debug(i)
         if i > 0:  # see if previous msg was acked
             mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
@@ -93,14 +93,14 @@ def test_message_generator_0(mock_ap: Any) -> None:
 
 def test_message_generator_1(mock_ap: Any) -> None:
     """Test message generator."""
-    q = apachepulsar.create_sub_queue("localhost", "test")
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test")
     mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
         b'foo, bar', b'baz']
     mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [
         12, 20]
 
     m = None
-    for i, x in enumerate(apachepulsar.message_generator(q)):
+    for i, x in enumerate(q.message_generator()):
         m = x
         if i == 0:
             break
@@ -115,7 +115,7 @@ def test_message_generator_1(mock_ap: Any) -> None:
 
 def test_message_generator_2(mock_ap: Any) -> None:
     """Test message generator."""
-    q = apachepulsar.create_sub_queue("localhost", "test")
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test")
     mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
         b'foo, bar',
         None  # signifies end of stream -- not actually a message
@@ -126,7 +126,7 @@ def test_message_generator_2(mock_ap: Any) -> None:
     ]
 
     m = None
-    for i, x in enumerate(apachepulsar.message_generator(q)):
+    for i, x in enumerate(q.message_generator()):
         assert i < 1
         m = x
 
@@ -144,17 +144,17 @@ def test_message_generator_upstream_error(mock_ap: Any) -> None:
     Generator should raise Exception originating upstream (a.k.a. from
     pulsar-package code).
     """
-    q = apachepulsar.create_sub_queue("localhost", "test")
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test")
 
     mock_ap.return_value.subscribe.return_value.receive.side_effect = Exception()
     with pytest.raises(Exception):
-        _ = list(apachepulsar.message_generator(q))
+        _ = list(q.message_generator())
     mock_ap.return_value.close.assert_called()
 
     # `propagate_error` attribute has no affect (b/c it deals w/ *downstream* errors)
     mock_ap.return_value.subscribe.return_value.receive.side_effect = Exception()
     with pytest.raises(Exception):
-        _ = list(apachepulsar.message_generator(q, propagate_error=False))
+        _ = list(q.message_generator(propagate_error=False))
     mock_ap.return_value.close.assert_called()
 
 
@@ -164,14 +164,14 @@ def test_message_generator_propagate_error(mock_ap: Any) -> None:
     Generator should raise Exception, nack, and close. Unlike in an
     integration test, nacked messages are not put back on the queue.
     """
-    q = apachepulsar.create_sub_queue("localhost", "test")
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test")
 
     fake_data = [b'baz-0', b'baz-1', b'baz-2']
     mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
     fake_ids = [0, 1, 2]
     mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
-    gen = apachepulsar.message_generator(q)  # propagate_error=True
+    gen = q.message_generator()  # propagate_error=True
     i = 0
     for msg in gen:
         logging.debug(i)
@@ -198,7 +198,7 @@ def test_message_generator_suppress_error(mock_ap: Any) -> None:
     Generator should not raise Exception. Unlike in an integration test,
     nacked messages are not put back on the queue.
     """
-    q = apachepulsar.create_sub_queue("localhost", "test")
+    q = apachepulsar.PulsarBackend().create_sub_queue("localhost", "test")
     num_msgs = 11
     if num_msgs % 2 == 0:
         raise RuntimeError("`num_msgs` must be odd, so last message is nacked")
@@ -211,7 +211,7 @@ def test_message_generator_suppress_error(mock_ap: Any) -> None:
     fake_ids += [None]  # signifies end of stream -- not actually a message
     mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
-    gen = apachepulsar.message_generator(q, propagate_error=False)
+    gen = q.message_generator(propagate_error=False)
     i = 0
     # odds are acked and evens are nacked
     for msg in gen:

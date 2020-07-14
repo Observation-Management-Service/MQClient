@@ -23,14 +23,14 @@ def mock_pika(mocker: Any) -> Any:
 
 def test_create_pub_queue(mock_pika: Any) -> None:
     """Test creating pub queue."""
-    q = rabbitmq.create_pub_queue("localhost", "test")
+    q = rabbitmq.RabbitMQBackend().create_pub_queue("localhost", "test")
     assert q.queue == "test"
     mock_pika.return_value.channel.assert_called()
 
 
 def test_create_sub_queue(mock_pika: Any) -> None:
     """Test creating sub queue."""
-    q = rabbitmq.create_sub_queue("localhost", "test", prefetch=213)
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test", prefetch=213)
     assert q.queue == "test"
     assert q.prefetch == 213
     mock_pika.return_value.channel.assert_called()
@@ -38,8 +38,8 @@ def test_create_sub_queue(mock_pika: Any) -> None:
 
 def test_send_message(mock_pika: Any) -> None:
     """Test sending message."""
-    q = rabbitmq.create_pub_queue("localhost", "test")
-    rabbitmq.send_message(q, b"foo, bar, baz")
+    q = rabbitmq.RabbitMQBackend().create_pub_queue("localhost", "test")
+    q.send_message(b"foo, bar, baz")
     mock_pika.return_value.channel.return_value.basic_publish.assert_called_with(
         exchange='',
         routing_key='test',
@@ -49,10 +49,10 @@ def test_send_message(mock_pika: Any) -> None:
 
 def test_get_message(mock_pika: Any) -> None:
     """Test getting message."""
-    q = rabbitmq.create_sub_queue("localhost", "test")
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test")
     fake_message = (MagicMock(delivery_tag=12), None, b'foo, bar')
     mock_pika.return_value.channel.return_value.basic_get.return_value = fake_message
-    m = rabbitmq.get_message(q)
+    m = q.get_message()
     assert m is not None
     assert m.msg_id == 12
     assert m.data == b'foo, bar'
@@ -60,28 +60,28 @@ def test_get_message(mock_pika: Any) -> None:
 
 def test_ack_message(mock_pika: Any) -> None:
     """Test acking message."""
-    q = rabbitmq.create_sub_queue("localhost", "test")
-    rabbitmq.ack_message(q, 12)
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test")
+    q.ack_message(12)
     mock_pika.return_value.channel.return_value.basic_ack.assert_called_with(12)
 
 
 def test_reject_message(mock_pika: Any) -> None:
     """Test rejecting message."""
-    q = rabbitmq.create_sub_queue("localhost", "test")
-    rabbitmq.reject_message(q, 12)
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test")
+    q.reject_message(12)
     mock_pika.return_value.channel.return_value.basic_nack.assert_called_with(12)
 
 
 def test_message_generator_0(mock_pika: Any) -> None:
     """Test message generator."""
-    q = rabbitmq.create_sub_queue("localhost", "test")
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test")
     num_msgs = 100
 
     fake_messages = [(MagicMock(delivery_tag=i * 10), None, f'baz-{i}'.encode('utf-8')) for i in range(num_msgs)]  # type: List[Tuple[Optional[MagicMock], None, Optional[bytes]]]
     fake_messages += [(None, None, None)]  # signifies end of stream -- not actually a message
     mock_pika.return_value.channel.return_value.consume.return_value = fake_messages
 
-    for i, msg in enumerate(rabbitmq.message_generator(q)):
+    for i, msg in enumerate(q.message_generator()):
         logging.debug(i)
         if i > 0:  # see if previous msg was acked
             mock_pika.return_value.channel.return_value.basic_ack.assert_called_with((i - 1) * 10)
@@ -94,12 +94,12 @@ def test_message_generator_0(mock_pika: Any) -> None:
 
 def test_message_generator_1(mock_pika: Any) -> None:
     """Test message generator."""
-    q = rabbitmq.create_sub_queue("localhost", "test")
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test")
     fake_message = (MagicMock(delivery_tag=12), None, b'foo, bar')
     fake_message2 = (MagicMock(delivery_tag=20), None, b'baz')
     mock_pika.return_value.channel.return_value.consume.return_value = [fake_message, fake_message2]
     m = None
-    for i, x in enumerate(rabbitmq.message_generator(q)):
+    for i, x in enumerate(q.message_generator()):
         m = x
         if i == 0:
             break
@@ -113,12 +113,12 @@ def test_message_generator_1(mock_pika: Any) -> None:
 
 def test_message_generator_2(mock_pika: Any) -> None:
     """Test message generator."""
-    q = rabbitmq.create_sub_queue("localhost", "test")
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test")
     fake_message = (MagicMock(delivery_tag=12), None, b'foo, bar')
     fake_message2 = (None, None, None)  # signifies end of stream -- not actually a message
     mock_pika.return_value.channel.return_value.consume.return_value = [fake_message, fake_message2]
     m = None
-    for i, x in enumerate(rabbitmq.message_generator(q)):
+    for i, x in enumerate(q.message_generator()):
         assert i < 1
         m = x
     assert m is not None
@@ -134,19 +134,19 @@ def test_message_generator_upstream_error(mock_pika: Any) -> None:
     Generator should raise Exception originating upstream (a.k.a. from
     pika-package code).
     """
-    q = rabbitmq.create_sub_queue("localhost", "test")
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test")
 
     err_msg = (unittest.mock.ANY, None, b'foo, bar')
     mock_pika.return_value.channel.return_value.consume.return_value = [err_msg]
     with pytest.raises(Exception):
-        _ = list(rabbitmq.message_generator(q))
+        _ = list(q.message_generator())
     mock_pika.return_value.channel.return_value.cancel.assert_called()
 
     # `propagate_error` attribute has no affect (b/c it deals w/ *downstream* errors)
     err_msg = (unittest.mock.ANY, None, b'foo, bar')
     mock_pika.return_value.channel.return_value.consume.return_value = [err_msg]
     with pytest.raises(Exception):
-        _ = list(rabbitmq.message_generator(q, propagate_error=False))
+        _ = list(q.message_generator(propagate_error=False))
     mock_pika.return_value.channel.return_value.cancel.assert_called()
 
 
@@ -156,7 +156,7 @@ def test_message_generator_propagate_error(mock_pika: Any) -> None:
     Generator should raise Exception, nack, and close. Unlike in an
     integration test, nacked messages are not put back on the queue.
     """
-    q = rabbitmq.create_sub_queue("localhost", "test")
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test")
 
     fake_messages = [
         (MagicMock(delivery_tag=0), None, b'baz-0'),
@@ -165,7 +165,7 @@ def test_message_generator_propagate_error(mock_pika: Any) -> None:
     ]
     mock_pika.return_value.channel.return_value.consume.return_value = fake_messages
 
-    gen = rabbitmq.message_generator(q)  # propagate_error=True
+    gen = q.message_generator()  # propagate_error=True
     i = 0
     for msg in gen:
         logging.debug(i)
@@ -192,7 +192,7 @@ def test_message_generator_suppress_error(mock_pika: Any) -> None:
     Generator should not raise Exception. Unlike in an integration test,
     nacked messages are not put back on the queue.
     """
-    q = rabbitmq.create_sub_queue("localhost", "test")
+    q = rabbitmq.RabbitMQBackend().create_sub_queue("localhost", "test")
     num_msgs = 11
     if num_msgs % 2 == 0:
         raise RuntimeError("`num_msgs` must be odd, so last message is nacked")
@@ -201,7 +201,7 @@ def test_message_generator_suppress_error(mock_pika: Any) -> None:
     fake_messages += [(None, None, None)]  # signifies end of stream -- not actually a message
     mock_pika.return_value.channel.return_value.consume.return_value = fake_messages
 
-    gen = rabbitmq.message_generator(q, propagate_error=False)
+    gen = q.message_generator(propagate_error=False)
     i = 0
     # odds are acked and evens are nacked
     for msg in gen:

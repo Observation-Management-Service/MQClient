@@ -14,6 +14,7 @@ import pytest  # type: ignore
 
 # local imports
 from MQClient import Queue
+from MQClient.backend_interface import Backend
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -58,7 +59,7 @@ def _print_data(_type: str, data: Any, is_list: bool = False) -> None:
 class PubSub:
     """Integration test suite."""
 
-    backend = None  # type: Any
+    backend = None  # type: Backend
 
     def test_10(self, queue_name: str) -> None:
         """Test one pub, one sub."""
