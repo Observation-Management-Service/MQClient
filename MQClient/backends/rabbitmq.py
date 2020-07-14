@@ -7,10 +7,9 @@ from typing import Any, Callable, Generator, Optional
 
 import pika  # type: ignore
 
-from ..backend_interface import Backend, Message, MessageID, Pub, RawQueue, Sub
+from .. import backend_interface
+from ..backend_interface import Message, MessageID, Pub, RawQueue, Sub
 from . import log_msgs
-
-# Private Classes
 
 
 class RabbitMQ(RawQueue):
@@ -46,6 +45,7 @@ class RabbitMQPub(RabbitMQ, Pub):
 
     Extends:
         RabbitMQ
+        Pub
     """
 
     def connect(self) -> None:
@@ -82,6 +82,7 @@ class RabbitMQSub(RabbitMQ, Sub):
 
     Extends:
         RabbitMQ
+        Sub
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -152,13 +153,14 @@ class RabbitMQSub(RabbitMQ, Sub):
 
     def message_generator(self, timeout: int = 60, auto_ack: bool = True,
                           propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
-        """Yield a Message.
+        """Yield Messages.
 
-        Args:
-            queue (RabbitMQSub): queue object
-            timeout (int): timeout in seconds for inactivity
-            auto_ack (bool): Ack each message after successful processing
-            propagate_error (bool): should errors from downstream code kill the generator?
+        Generate messages with variable timeout. Close instance on exit and error.
+
+        Keyword Arguments:
+            timeout {int} -- timeout in seconds for inactivity (default: {60})
+            auto_ack {bool} -- Ack each message after successful processing (default: {True})
+            propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
         if not self.channel:
             raise RuntimeError("queue is not connected")
@@ -266,8 +268,12 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
     raise Exception('RabbitMQ connection error')
 
 
-class RabbitMQBackend(Backend):
-    """RabbitMQ Pub-Sub Backend Factory."""
+class Backend(backend_interface.Backend):
+    """RabbitMQ Pub-Sub Backend Factory.
+
+    Extends:
+        Backend
+    """
 
     @staticmethod
     def create_pub_queue(address: str, name: str) -> RabbitMQPub:

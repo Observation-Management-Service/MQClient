@@ -1,23 +1,26 @@
-"""
-A server sends work out on one queue, and receives results on another.
-"""
+"""A server sends work out on one queue, and receives results on another."""
 import typing
 
-from MQClient import backends, Queue
+# local imports
+from MQClient import Queue, backends
+
 
 def server(work_queue: Queue, result_queue: Queue) -> None:
+    """Demo example server."""
     for i in range(100):
         m = {'id': i, 'cmd': f'echo "{i}"'}
         work_queue.send(m)
 
     results = {}
-    for m in result_queue.recv(timeout=5):
-        results[typing.cast(int, m['id'])] = typing.cast(str, m['out'])
+    for data in result_queue.recv(timeout=5):
+        assert isinstance(data, dict)
+        results[typing.cast(int, data['id'])] = typing.cast(str, data['out'])
 
     print(results)
     assert len(results) == 100
     for i in results:
         assert results[i].strip() == str(i)
+
 
 if __name__ == '__main__':
     import argparse
@@ -28,7 +31,8 @@ if __name__ == '__main__':
     parser.add_argument('--prefetch', type=int, default=10, help='result queue prefetch')
     args = parser.parse_args()
 
-    workq = Queue(backends.rabbitmq, args.address, args.work_queue)
-    resultq = Queue(backends.rabbitmq, args.address, args.result_queue, args.prefetch)
+    backend = backends.rabbitmq.Backend()
+    workq = Queue(backend, address=args.address, name=args.work_queue)
+    resultq = Queue(backend, address=args.address, name=args.result_queue, prefetch=args.prefetch)
 
     server(workq, resultq)

@@ -6,10 +6,9 @@ from typing import Generator, Optional
 
 import pulsar  # type: ignore
 
-from ..backend_interface import Backend, Message, MessageID, Pub, RawQueue, Sub
+from .. import backend_interface
+from ..backend_interface import Message, MessageID, Pub, RawQueue, Sub
 from . import log_msgs
-
-# Private Classes
 
 
 class Pulsar(RawQueue):
@@ -45,6 +44,7 @@ class PulsarPub(Pulsar, Pub):
 
     Extends:
         Pulsar
+        Pub
     """
 
     def __init__(self, address: str, topic: str) -> None:
@@ -71,6 +71,7 @@ class PulsarSub(Pulsar, Sub):
 
     Extends:
         Pulsar
+        Sub
     """
 
     def __init__(self, address: str, topic: str) -> None:
@@ -161,8 +162,7 @@ class PulsarSub(Pulsar, Sub):
                           propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
-        Arguments:
-            queue {PulsarSub} -- queue object
+        Generate messages with variable timeout. Close instance on exit and error.
 
         Keyword Arguments:
             timeout {int} -- timeout in seconds for inactivity (default: {60})
@@ -217,8 +217,12 @@ class PulsarSub(Pulsar, Sub):
             logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
 
 
-class PulsarBackend(Backend):
-    """Pulsar Pub-Sub Backend Factory."""
+class Backend(backend_interface.Backend):
+    """Pulsar Pub-Sub Backend Factory.
+
+    Extends:
+        Backend
+    """
 
     @staticmethod
     def create_pub_queue(address: str, name: str) -> PulsarPub:

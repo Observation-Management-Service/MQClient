@@ -24,9 +24,9 @@ class Message:
         return f"Message(msg_id={self.msg_id!r}, data={self.data!r})"
 
 
-# -------------------
-# classes to override
-# -------------------
+# -----------------------------
+# classes to override/implement
+# -----------------------------
 
 
 class RawQueue:
@@ -35,11 +35,6 @@ class RawQueue:
     def close(self) -> None:
         """Close interface to queue."""
         raise NotImplementedError()
-
-
-# ---------------------------------------
-# Functions to be implemented in backends
-# ---------------------------------------
 
 
 class Pub(RawQueue):
@@ -70,7 +65,6 @@ class Sub(RawQueue):
         """Yield a Message.
 
         Args:
-            queue (RabbitMQSub): queue object
             timeout (int): timeout in seconds for inactivity
             auto_ack (bool): Ack each message after successful processing
             propagate_error (bool): should errors from downstream code kill the generator?
