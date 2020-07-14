@@ -1,5 +1,4 @@
 """A server sends work out on one queue, and receives results on another."""
-
 import typing
 
 # local imports
@@ -15,25 +14,25 @@ def server(work_queue: Queue, result_queue: Queue) -> None:
     results = {}
     for data in result_queue.recv(timeout=5):
         assert isinstance(data, dict)
-        results[typing.cast(int, data['id'])] = typing.cast(str, data['cmd'])
+        results[typing.cast(int, data['id'])] = typing.cast(str, data['out'])
 
     print(results)
     assert len(results) == 100
-    for i, res in enumerate(results):
-        assert res == i
-        assert results[res] == f'echo "{i}"'
+    for i in results:
+        assert results[i].strip() == str(i)
 
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Worker')
     parser.add_argument('--address', default='localhost', help='queue address')
-    parser.add_argument('--queue', default='queue', help='name of global queue')
+    parser.add_argument('--work-queue', default='queue1', help='work queue')
+    parser.add_argument('--result-queue', default='queue2', help='result queue')
     parser.add_argument('--prefetch', type=int, default=10, help='result queue prefetch')
     args = parser.parse_args()
 
     backend = backends.rabbitmq.Backend()
-    workq = Queue(backend, address=args.address, name=args.queue)
-    resultq = Queue(backend, address=args.address, name=args.queue, prefetch=args.prefetch)
+    workq = Queue(backend, address=args.address, name=args.work_queue)
+    resultq = Queue(backend, address=args.address, name=args.result_queue, prefetch=args.prefetch)
 
     server(workq, resultq)
