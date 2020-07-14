@@ -12,4 +12,4 @@ from .common_tests import PubSub, queue_name  # noqa: F401 # pylint: disable=W06
 class TestRabbitMQ(PubSub):
     """Run PubSub integration tests with RabbitMQ backend."""
 
-    backend = rabbitmq.RabbitMQBackend()
+    backend = rabbitmq.Backend()
