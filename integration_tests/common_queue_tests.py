@@ -1,4 +1,4 @@
-"""Run integration tests for given backend.
+"""Run integration tests for given backend, on Queue class.
 
 Verify basic functionality.
 """
