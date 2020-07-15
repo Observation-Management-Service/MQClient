@@ -6,10 +6,10 @@ Verify basic functionality.
 # local imports
 from MQClient.backends import rabbitmq
 
-from .common_tests import PubSub, queue_name  # noqa: F401 # pylint: disable=W0611
+from .common_queue_tests import PubSubQueue, queue_name  # noqa: F401 # pylint: disable=W0611
 
 
-class TestRabbitMQ(PubSub):
-    """Run PubSub integration tests with RabbitMQ backend."""
+class TestRabbitMQQueue(PubSubQueue):
+    """Run PubSubQueue integration tests with RabbitMQ backend."""
 
     backend = rabbitmq.Backend()
