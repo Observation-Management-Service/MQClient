@@ -6,7 +6,7 @@ Verify basic functionality.
 # local imports
 from MQClient.backends import apachepulsar
 
-from .common_backend_tests import PubSubBackendInterface
+from .common_backend_interface_tests import PubSubBackendInterface
 from .common_queue_tests import PubSubQueue, queue_name  # noqa: F401 # pylint: disable=W0611
 
 
