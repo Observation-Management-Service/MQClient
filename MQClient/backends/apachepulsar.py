@@ -111,9 +111,11 @@ class PulsarSub(Pulsar, Sub):
                 if msg:
                     message_id, data = msg.message_id(), msg.data()
                     if (message_id is not None) and (data is not None):  # message_id may be 0; data may be b''
-                        logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({message_id}).")
                         if isinstance(message_id, pulsar._pulsar.MessageId):  # pylint: disable=I1101,W0212
-                            return Message(message_id.serialize(), data)  # message_id.serialize() -> bytes
+                            _id = message_id.serialize()  # message_id.serialize() -> bytes
+                            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({_id!r}).")
+                            return Message(_id, data)
+                        logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({message_id}).")
                         return Message(message_id, data)
                 logging.debug(log_msgs.GETMSG_NO_MESSAGE)
                 return None
