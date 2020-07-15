@@ -6,7 +6,6 @@ Verify basic functionality.
 # pylint: disable=redefined-outer-name
 
 import logging
-import uuid
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
 

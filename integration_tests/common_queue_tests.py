@@ -6,7 +6,6 @@ Verify basic functionality.
 # pylint: disable=redefined-outer-name
 
 import logging
-import uuid
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
 
@@ -16,17 +15,9 @@ import pytest  # type: ignore
 from MQClient import Queue
 from MQClient.backend_interface import Backend
 
-from .utils import DATA_LIST, _print_recv, _print_recv_multiple, _print_send
+from .utils import DATA_LIST, _print_recv, _print_recv_multiple, _print_send, queue_name
 
 logging.getLogger().setLevel(logging.DEBUG)
-
-
-@pytest.fixture  # type: ignore
-def queue_name() -> str:
-    """Get random queue name."""
-    name = uuid.uuid4().hex
-    print(f"NAME :: {name}")
-    return name
 
 
 class PubSubQueue:

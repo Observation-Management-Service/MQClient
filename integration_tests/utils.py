@@ -1,6 +1,18 @@
 """Utility data and functions."""
 
+import uuid
 from typing import Any
+
+import pytest  # type: ignore
+
+
+@pytest.fixture  # type: ignore
+def queue_name() -> str:
+    """Get random queue name."""
+    name = uuid.uuid4().hex
+    print(f"NAME :: {name}")
+    return name
+
 
 # Note: don't put in duplicates
 DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
