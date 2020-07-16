@@ -219,6 +219,9 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
     Try up to 3 times, for connection-related errors.
     """
     for i in range(3):
+        if i > 0:
+            logging.debug(f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})...")
+
         try:
             return func()
         except pika.exceptions.ConnectionClosedByBroker:
@@ -234,7 +237,6 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
         queue.close()
         time.sleep(1)
         queue.connect()
-        logging.debug(f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
 
     logging.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception('RabbitMQ connection error')
@@ -246,6 +248,9 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
     Try up to 3 times, for connection-related errors.
     """
     for i in range(3):
+        if i > 0:
+            logging.debug(f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})...")
+
         try:
             for x in func():
                 yield x
@@ -262,7 +267,6 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
         queue.close()
         time.sleep(1)
         queue.connect()
-        logging.debug(f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
 
     logging.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception('RabbitMQ connection error')

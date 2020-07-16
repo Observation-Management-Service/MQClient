@@ -107,6 +107,9 @@ class PulsarSub(Pulsar, Sub):
 
         logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         for i in range(3):
+            if i > 0:
+                logging.debug(f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})...")
+
             try:
                 msg = self.consumer.receive(timeout_millis=timeout_millis)
                 if msg:
@@ -129,7 +132,6 @@ class PulsarSub(Pulsar, Sub):
                     self.close()
                     time.sleep(1)
                     self.connect()
-                    logging.debug(f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
                     continue
                 logging.debug(f"{log_msgs.GETMSG_RAISE_OTHER_ERROR} ({e.__class__.__name__}).")
                 raise
