@@ -19,7 +19,7 @@ class RabbitMQ(RawQueue):
         RawQueue
     """
 
-    def __init__(self, address: str, queue: str) -> None:
+    def __init__(self, address: str, queue: str, max_retries: int) -> None:
         self.address = address
         if not self.address.startswith('ampq'):
             self.address = 'amqp://' + self.address
@@ -28,6 +28,7 @@ class RabbitMQ(RawQueue):
         self.channel = None  # type: pika.adapters.blocking_connection.BlockingChannel
         self.consumer_id = None
         self.prefetch = 1
+        self.max_retries = max_retries
 
     def connect(self) -> None:
         """Set up connection and channel."""
@@ -38,6 +39,61 @@ class RabbitMQ(RawQueue):
         """Close connection."""
         if (self.connection) and (not self.connection.is_closed):
             self.connection.close()
+
+    def try_call(self, func: Callable[..., Any]) -> Any:
+        """Try to call `func` and return value.
+
+        Retry up to `self.max_retries` times, for connection-related
+        errors.
+        """
+        for i in range(self.max_retries + 1):
+            try:
+                return func()
+            except pika.exceptions.ConnectionClosedByBroker:
+                logging.debug(log_msgs.TRYCALL_CONNECTION_CLOSED_BY_BROKER)
+            # Do not recover on channel errors
+            except pika.exceptions.AMQPChannelError as err:
+                logging.error(f"{log_msgs.TRYCALL_RAISE_AMQP_CHANNEL_ERROR} {err}.")
+                raise
+            # Recover on all other connection errors
+            except pika.exceptions.AMQPConnectionError:
+                logging.debug(log_msgs.TRYCALL_AMQP_CONNECTION_ERROR)
+
+            self.close()
+            time.sleep(1)
+            self.connect()
+            logging.debug(f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
+
+        logging.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
+        raise Exception('RabbitMQ connection error')
+
+    def try_yield(self, func: Callable[..., Any]) -> Generator[Any, None, None]:
+        """Try to call `func` and yield value(s).
+
+        Retry up to `self.max_retries` times, for connection-related
+        errors.
+        """
+        for i in range(self.max_retries + 1):
+            try:
+                for x in func():
+                    yield x
+            except pika.exceptions.ConnectionClosedByBroker:
+                logging.debug(log_msgs.TRYYIELD_CONNECTION_CLOSED_BY_BROKER)
+            # Do not recover on channel errors
+            except pika.exceptions.AMQPChannelError as err:
+                logging.error(f"{log_msgs.TRYYIELD_RAISE_AMQP_CHANNEL_ERROR} {err}.")
+                raise
+            # Recover on all other connection errors
+            except pika.exceptions.AMQPConnectionError:
+                logging.debug(log_msgs.TRYYIELD_AMQP_CONNECTION_ERROR)
+
+            self.close()
+            time.sleep(1)
+            self.connect()
+            logging.debug(f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
+
+        logging.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
+        raise Exception('RabbitMQ connection error')
 
 
 class RabbitMQPub(RabbitMQ, Pub):
@@ -72,8 +128,8 @@ class RabbitMQPub(RabbitMQ, Pub):
             raise RuntimeError("queue is not connected")
 
         logging.debug(log_msgs.SENDING_MESSAGE)
-        try_call(self, partial(self.channel.basic_publish, exchange='',
-                               routing_key=self.queue, body=msg))
+        self.try_call(partial(self.channel.basic_publish, exchange='',
+                              routing_key=self.queue, body=msg))
         logging.debug(log_msgs.SENT_MESSAGE)
 
 
@@ -107,7 +163,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise RuntimeError("queue is not connected")
 
         logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
-        method_frame, _, body = try_call(self, partial(self.channel.basic_get, self.queue))
+        method_frame, _, body = self.try_call(partial(self.channel.basic_get, self.queue))
 
         if method_frame:
             msg = Message(method_frame.delivery_tag, body)
@@ -131,7 +187,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise RuntimeError("queue is not connected")
 
         logging.debug(log_msgs.ACKING_MESSAGE)
-        try_call(self, partial(self.channel.basic_ack, msg_id))
+        self.try_call(partial(self.channel.basic_ack, msg_id))
         logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
     def reject_message(self, msg_id: MessageID) -> None:
@@ -148,7 +204,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise RuntimeError("queue is not connected")
 
         logging.debug(log_msgs.NACKING_MESSAGE)
-        try_call(self, partial(self.channel.basic_nack, msg_id))
+        self.try_call(partial(self.channel.basic_nack, msg_id))
         logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
     def message_generator(self, timeout: int = 60, auto_ack: bool = True,
@@ -170,7 +226,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         try:
             gen = partial(self.channel.consume, self.queue, inactivity_timeout=timeout)
 
-            for method_frame, _, body in try_yield(self, gen):
+            for method_frame, _, body in self.try_yield(gen):
                 # get message
                 msg = None
                 logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
@@ -209,63 +265,8 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         # generator is closed (also, garbage collected)
         finally:
-            try_call(self, self.channel.cancel)
+            self.try_call(self.channel.cancel)
             logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
-
-
-def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
-    """Try to call `func` and return value.
-
-    Try up to 3 times, for connection-related errors.
-    """
-    for i in range(3):
-        try:
-            return func()
-        except pika.exceptions.ConnectionClosedByBroker:
-            logging.debug(log_msgs.TRYCALL_CONNECTION_CLOSED_BY_BROKER)
-        # Do not recover on channel errors
-        except pika.exceptions.AMQPChannelError as err:
-            logging.error(f"{log_msgs.TRYCALL_RAISE_AMQP_CHANNEL_ERROR} {err}.")
-            raise
-        # Recover on all other connection errors
-        except pika.exceptions.AMQPConnectionError:
-            logging.debug(log_msgs.TRYCALL_AMQP_CONNECTION_ERROR)
-
-        queue.close()
-        time.sleep(1)
-        queue.connect()
-        logging.debug(f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
-
-    logging.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception('RabbitMQ connection error')
-
-
-def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None, None]:
-    """Try to call `func` and yield value(s).
-
-    Try up to 3 times, for connection-related errors.
-    """
-    for i in range(3):
-        try:
-            for x in func():
-                yield x
-        except pika.exceptions.ConnectionClosedByBroker:
-            logging.debug(log_msgs.TRYYIELD_CONNECTION_CLOSED_BY_BROKER)
-        # Do not recover on channel errors
-        except pika.exceptions.AMQPChannelError as err:
-            logging.error(f"{log_msgs.TRYYIELD_RAISE_AMQP_CHANNEL_ERROR} {err}.")
-            raise
-        # Recover on all other connection errors
-        except pika.exceptions.AMQPConnectionError:
-            logging.debug(log_msgs.TRYYIELD_AMQP_CONNECTION_ERROR)
-
-        queue.close()
-        time.sleep(1)
-        queue.connect()
-        logging.debug(f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+2})...")
-
-    logging.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception('RabbitMQ connection error')
 
 
 class Backend(backend_interface.Backend):
@@ -286,7 +287,7 @@ class Backend(backend_interface.Backend):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQPub(address, name)
+        q = RabbitMQPub(address, name, max_retries=Backend.max_retries)
         q.connect()
         return q
 
@@ -301,7 +302,7 @@ class Backend(backend_interface.Backend):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQSub(address, name)
+        q = RabbitMQSub(address, name, max_retries=Backend.max_retries)
         q.prefetch = prefetch
         q.connect()
         return q
