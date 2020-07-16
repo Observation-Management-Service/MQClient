@@ -83,9 +83,6 @@ class Sub(RawQueue):
 class Backend:
     """Backend Pub-Sub Factory."""
 
-    DEFAULT_MAX_RETRIES = 3
-    max_retries = DEFAULT_MAX_RETRIES
-
     @staticmethod
     def create_pub_queue(address: str, name: str) -> Pub:
         """Create a publishing queue."""

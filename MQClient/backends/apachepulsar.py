@@ -74,12 +74,11 @@ class PulsarSub(Pulsar, Sub):
         Sub
     """
 
-    def __init__(self, address: str, topic: str, max_retries: int) -> None:
+    def __init__(self, address: str, topic: str) -> None:
         super().__init__(address, topic)
         self.consumer = None  # type: pulsar.Consumer
         self.subscription_name = f'{self.topic}-subscription'  # single shared subscription
         self.prefetch = 1
-        self.max_retries = max_retries
 
     def connect(self) -> None:
         """Connect to subscriber."""
@@ -100,15 +99,14 @@ class PulsarSub(Pulsar, Sub):
     def get_message(self, timeout_millis: int = 100) -> Optional[Message]:
         """Get a single message from a queue.
 
-        Retry up to `self.max_retries` times, for connection-related
-        errors. To endlessly block until a message is available, set
+        To endlessly block until a message is available, set
         `timeout_millis=None`.
         """
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
         logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
-        for i in range(self.max_retries + 1):
+        for i in range(3):
             try:
                 msg = self.consumer.receive(timeout_millis=timeout_millis)
                 if msg:
@@ -239,7 +237,7 @@ class Backend(backend_interface.Backend):
     @staticmethod
     def create_sub_queue(address: str, name: str, prefetch: int = 1) -> PulsarSub:
         """Create a subscription queue."""
-        q = PulsarSub(address, name, max_retries=Backend.max_retries)
+        q = PulsarSub(address, name)
         q.prefetch = prefetch
         q.connect()
         return q
