@@ -150,6 +150,35 @@ def test_message_generator_upstream_error(mock_pika: Any) -> None:
     mock_pika.return_value.channel.return_value.cancel.assert_called()
 
 
+def test_message_generator_no_auto_ack(mock_pika: Any) -> None:
+    """Test message generator.
+
+    Generator should not ack messages.
+    """
+    q = rabbitmq.Backend().create_sub_queue("localhost", "test")
+
+    fake_messages = [
+        (MagicMock(delivery_tag=0), None, b'baz-0'),
+        (MagicMock(delivery_tag=1), None, b'baz-1'),
+        (MagicMock(delivery_tag=2), None, b'baz-2'),
+        (None, None, None)  # signifies end of stream -- not actually a message
+    ]
+    mock_pika.return_value.channel.return_value.consume.return_value = fake_messages
+
+    gen = q.message_generator(auto_ack=False)
+    i = 0
+    for msg in gen:
+        logging.debug(i)
+        if i > 0:  # see if previous msg was acked
+            mock_pika.return_value.channel.return_value.basic_ack.assert_not_called()
+
+        assert msg is not None
+        assert msg.msg_id == i
+        assert msg.data == fake_messages[i][2]
+
+        i += 1
+
+
 def test_message_generator_propagate_error(mock_pika: Any) -> None:
     """Failure-test message generator.
 

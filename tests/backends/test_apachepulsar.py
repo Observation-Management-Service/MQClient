@@ -158,6 +158,34 @@ def test_message_generator_upstream_error(mock_ap: Any) -> None:
     mock_ap.return_value.close.assert_called()
 
 
+def test_message_generator_no_auto_ack(mock_ap: Any) -> None:
+    """Test message generator.
+
+    Generator should not ack messages.
+    """
+    q = apachepulsar.Backend().create_sub_queue("localhost", "test")
+
+    fake_data = [b'baz-0', b'baz-1', b'baz-2']  # type: List[Optional[bytes]]
+    fake_data += [None]  # signifies end of stream -- not actually a message
+    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+    fake_ids = [0, 1, 2]  # type: List[Optional[int]]
+    fake_ids += [None]  # signifies end of stream -- not actually a message
+    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+
+    gen = q.message_generator(auto_ack=False)
+    i = 0
+    for msg in gen:
+        logging.debug(i)
+        if i > 0:  # see if previous msg was acked
+            mock_ap.return_value.subscribe.return_value.acknowledge.assert_not_called()
+
+        assert msg is not None
+        assert msg.msg_id == i
+        assert msg.data == fake_data[i]
+
+        i += 1
+
+
 def test_message_generator_propagate_error(mock_ap: Any) -> None:
     """Failure-test message generator.
 
