@@ -7,7 +7,8 @@ Verify basic functionality.
 from MQClient.backends import apachepulsar
 
 from .common_backend_interface_tests import PubSubBackendInterface
-from .common_queue_tests import PubSubQueue, queue_name  # noqa: F401 # pylint: disable=W0611
+from .common_queue_tests import PubSubQueue
+from .utils import queue_name  # pytest.fixture # noqa: F401 # pylint: disable=W0611
 
 
 class TestPulsarQueue(PubSubQueue):

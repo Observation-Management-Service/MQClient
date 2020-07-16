@@ -23,6 +23,14 @@ class Message:
         """Return string of basic properties/attributes."""
         return f"Message(msg_id={self.msg_id!r}, data={self.data!r})"
 
+    def __eq__(self, other: object) -> bool:
+        """Return True if self's and other's `data` are equal.
+
+        On redelivery, `msg_id` may differ from its original, so
+        `msg_id` is not a reliable source for testing equality.
+        """
+        return bool(other) and isinstance(other, Message) and (self.data == other.data)
+
 
 # -----------------------------
 # classes to override/implement

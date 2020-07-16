@@ -87,7 +87,8 @@ class PulsarSub(Pulsar, Sub):
                                               self.subscription_name,
                                               receiver_queue_size=self.prefetch,
                                               consumer_type=pulsar.ConsumerType.Shared,
-                                              initial_position=pulsar.InitialPosition.Earliest)
+                                              initial_position=pulsar.InitialPosition.Earliest,
+                                              negative_ack_redelivery_delay_ms=0)
 
     def close(self) -> None:
         """Close client and redeliver any unacknowledged messages."""

@@ -3,23 +3,17 @@
 Verify functionality that is abstracted away from the Queue class.
 """
 
-# pylint: disable=redefined-outer-name
-
 import itertools
-import logging
 import pickle
-from multiprocessing.dummy import Pool as ThreadPool
-from typing import Any, List
-
-import pytest  # type: ignore
+from typing import List, Optional
 
 # local imports
 from MQClient.backend_interface import Backend, Message
 
-from .utils import DATA_LIST, _print_recv, _print_recv_multiple, _print_send
+from .utils import DATA_LIST, _print_recv, _print_send
 
 
-def _print_recv_message(recv_msg: Message) -> str:
+def _print_recv_message(recv_msg: Optional[Message]) -> None:
     recv_data = None
     if recv_msg:
         recv_data = pickle.loads(recv_msg.data)
@@ -60,7 +54,10 @@ class PubSubBackendInterface:
             assert DATA_LIST[i] == pickle.loads(recv_msg.data)
 
     def test_10(self, queue_name: str) -> None:
-        """Test nacking."""
+        """Test nacking.
+
+        Order is not preserved on redelivery.
+        """
         pub = self.backend.create_pub_queue('localhost', queue_name)
         sub = self.backend.create_sub_queue('localhost', queue_name)
 
@@ -70,20 +67,28 @@ class PubSubBackendInterface:
             pub.send_message(raw_data)
             _print_send(msg)
 
-        # receive -- nack each message, once
+        # receive -- nack each message, once, and wait for its redelivery
+        nacked_msgs = []  # type: List[Message]
+        redelivered_msgs = []  # type: List[Message]
         for i in itertools.count():
             print(i)
-            assert i <= len(DATA_LIST) * 2
+            if len(redelivered_msgs) == len(DATA_LIST):
+                break
+
             recv_msg = sub.get_message()
             _print_recv_message(recv_msg)
 
-            # check received message
-            if i == len(DATA_LIST) * 2:
-                assert not recv_msg  # None signifies end of stream
-                break
-            assert recv_msg
-            assert DATA_LIST[i//2] == pickle.loads(recv_msg.data)
+            if not recv_msg:
+                print('waiting...')
+                continue
 
-            if i % 2 == 0:
-                sub.reject_message(recv_msg.msg_id)
-                print('NACK!')
+            # message was redelivered
+            if recv_msg in nacked_msgs:
+                print('REDELIVERED!')
+                nacked_msgs.remove(recv_msg)
+                redelivered_msgs.append(recv_msg)
+                continue
+            # nack message
+            nacked_msgs.append(recv_msg)
+            sub.reject_message(recv_msg.msg_id)
+            print('NACK!')

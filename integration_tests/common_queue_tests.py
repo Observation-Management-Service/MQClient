@@ -3,8 +3,6 @@
 Verify basic functionality.
 """
 
-# pylint: disable=redefined-outer-name
-
 import logging
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
@@ -15,7 +13,7 @@ import pytest  # type: ignore
 from MQClient import Queue
 from MQClient.backend_interface import Backend
 
-from .utils import DATA_LIST, _print_recv, _print_recv_multiple, _print_send, queue_name
+from .utils import DATA_LIST, _print_recv, _print_recv_multiple, _print_send
 
 logging.getLogger().setLevel(logging.DEBUG)
 
