@@ -84,20 +84,14 @@ class Backend:
     """Backend Pub-Sub Factory."""
 
     DEFAULT_MAX_RETRIES = 3
+    max_retries = DEFAULT_MAX_RETRIES
 
-    def __init__(self) -> None:
-        self.max_retries = Backend.DEFAULT_MAX_RETRIES
-
-    def create_pub_queue(self, address: str, name: str) -> Pub:
+    @staticmethod
+    def create_pub_queue(address: str, name: str) -> Pub:
         """Create a publishing queue."""
         raise NotImplementedError()
 
-    def create_sub_queue(self, address: str, name: str, prefetch: int = 1) -> Sub:
+    @staticmethod
+    def create_sub_queue(address: str, name: str, prefetch: int = 1) -> Sub:
         """Create a subscription queue."""
         raise NotImplementedError()
-
-    def reset_max_retries(self) -> int:
-        """Reset `Backend.max_retries` to the default."""
-        print(f"{self.max_retries} -- {Backend.DEFAULT_MAX_RETRIES}")
-        self.max_retries = Backend.DEFAULT_MAX_RETRIES
-        return self.max_retries

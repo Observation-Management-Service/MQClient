@@ -229,15 +229,17 @@ class Backend(backend_interface.Backend):
         Backend
     """
 
-    def create_pub_queue(self, address: str, name: str) -> PulsarPub:
+    @staticmethod
+    def create_pub_queue(address: str, name: str) -> PulsarPub:
         """Create a publishing queue."""
         q = PulsarPub(address, name)
         q.connect()
         return q
 
-    def create_sub_queue(self, address: str, name: str, prefetch: int = 1) -> PulsarSub:
+    @staticmethod
+    def create_sub_queue(address: str, name: str, prefetch: int = 1) -> PulsarSub:
         """Create a subscription queue."""
-        q = PulsarSub(address, name, max_retries=self.max_retries)
+        q = PulsarSub(address, name, max_retries=Backend.max_retries)
         q.prefetch = prefetch
         q.connect()
         return q
