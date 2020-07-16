@@ -3,6 +3,7 @@
 Verify functionality that is abstracted away from the Queue class.
 """
 
+import copy
 import itertools
 import pickle
 from typing import List, Optional
@@ -27,6 +28,7 @@ class PubSubBackendInterface:
     """
 
     backend = None  # type: Backend
+    timeout = 1
 
     def test_00(self, queue_name: str) -> None:
         """Sanity test."""
@@ -54,9 +56,9 @@ class PubSubBackendInterface:
             assert DATA_LIST[i] == pickle.loads(recv_msg.data)
 
     def test_10(self, queue_name: str) -> None:
-        """Test nacking.
+        """Test nacking, front-loaded sending.
 
-        Order is not preserved on redelivery.
+        Order is not guaranteed on redelivery.
         """
         pub = self.backend.create_pub_queue('localhost', queue_name)
         sub = self.backend.create_sub_queue('localhost', queue_name)
@@ -67,12 +69,15 @@ class PubSubBackendInterface:
             pub.send_message(raw_data)
             _print_send(msg)
 
-        # receive -- nack each message, once, and wait for its redelivery
+        # receive -- nack each message, once, and anticipate its redelivery
         nacked_msgs = []  # type: List[Message]
         redelivered_msgs = []  # type: List[Message]
         for i in itertools.count():
             print(i)
+            # all messages have been acked and redelivered
             if len(redelivered_msgs) == len(DATA_LIST):
+                redelivered_data = [pickle.loads(m.data) for m in redelivered_msgs]
+                assert all((d in DATA_LIST) for d in redelivered_data)
                 break
 
             recv_msg = sub.get_message()
@@ -81,6 +86,7 @@ class PubSubBackendInterface:
             if not recv_msg:
                 print('waiting...')
                 continue
+            assert pickle.loads(recv_msg.data) in DATA_LIST
 
             # message was redelivered
             if recv_msg in nacked_msgs:
@@ -92,3 +98,72 @@ class PubSubBackendInterface:
             nacked_msgs.append(recv_msg)
             sub.reject_message(recv_msg.msg_id)
             print('NACK!')
+
+    def test_11(self, queue_name: str) -> None:
+        """Test nacking, mixed sending and receiving.
+
+        Order is not guaranteed on redelivery.
+        """
+        pub = self.backend.create_pub_queue('localhost', queue_name)
+        sub = self.backend.create_sub_queue('localhost', queue_name)
+
+        data_to_send = copy.deepcopy(DATA_LIST)
+        nacked_msgs = []  # type: List[Message]
+        redelivered_msgs = []  # type: List[Message]
+        for i in itertools.count():
+            print(i)
+            # all messages have been acked and redelivered
+            if len(redelivered_msgs) == len(DATA_LIST):
+                redelivered_data = [pickle.loads(m.data) for m in redelivered_msgs]
+                assert all((d in DATA_LIST) for d in redelivered_data)
+                break
+
+            # send a message
+            if data_to_send:
+                msg = data_to_send[0]
+                raw_data = pickle.dumps(msg, protocol=4)
+                pub.send_message(raw_data)
+                _print_send(msg)
+                data_to_send.remove(msg)
+
+            # get a message
+            recv_msg = sub.get_message()
+            _print_recv_message(recv_msg)
+
+            if not recv_msg:
+                print('waiting...')
+                continue
+            assert pickle.loads(recv_msg.data) in DATA_LIST
+
+            # message was redelivered
+            if recv_msg in nacked_msgs:
+                print('REDELIVERED!')
+                nacked_msgs.remove(recv_msg)
+                redelivered_msgs.append(recv_msg)
+                continue
+            # nack message
+            nacked_msgs.append(recv_msg)
+            sub.reject_message(recv_msg.msg_id)
+            print('NACK!')
+
+    def test_20(self, queue_name: str) -> None:
+        """Sanity test message generator."""
+        pub = self.backend.create_pub_queue('localhost', queue_name)
+        sub = self.backend.create_sub_queue('localhost', queue_name)
+
+        # send
+        for msg in DATA_LIST:
+            raw_data = pickle.dumps(msg, protocol=4)
+            pub.send_message(raw_data)
+            _print_send(msg)
+
+        # receive
+        last = 0
+        for i, recv_msg in enumerate(sub.message_generator(timeout=self.timeout)):
+            print(i)
+            _print_recv_message(recv_msg)
+            assert recv_msg
+            assert pickle.loads(recv_msg.data) in DATA_LIST
+            last = i
+
+        assert last == len(DATA_LIST) - 1
