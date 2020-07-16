@@ -276,8 +276,7 @@ class Backend(backend_interface.Backend):
         Backend
     """
 
-    @staticmethod
-    def create_pub_queue(address: str, name: str) -> RabbitMQPub:
+    def create_pub_queue(self, address: str, name: str) -> RabbitMQPub:
         """Create a publishing queue.
 
         Args:
@@ -287,12 +286,11 @@ class Backend(backend_interface.Backend):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQPub(address, name, max_retries=Backend.max_retries)
+        q = RabbitMQPub(address, name, max_retries=self.max_retries)
         q.connect()
         return q
 
-    @staticmethod
-    def create_sub_queue(address: str, name: str, prefetch: int = 1) -> RabbitMQSub:
+    def create_sub_queue(self, address: str, name: str, prefetch: int = 1) -> RabbitMQSub:
         """Create a subscription queue.
 
         Args:
@@ -302,7 +300,7 @@ class Backend(backend_interface.Backend):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQSub(address, name, max_retries=Backend.max_retries)
+        q = RabbitMQSub(address, name, max_retries=self.max_retries)
         q.prefetch = prefetch
         q.connect()
         return q
