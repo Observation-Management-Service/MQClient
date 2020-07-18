@@ -5,6 +5,7 @@ Verify functionality that is abstracted away from the Queue class.
 
 import copy
 import itertools
+import logging
 import pickle
 from typing import List, Optional
 
@@ -43,7 +44,7 @@ class PubSubBackendInterface:
 
         # receive
         for i in itertools.count():
-            print(i)
+            logging.info(i)
             assert i <= len(DATA_LIST)
             recv_msg = sub.get_message()
             _print_recv_message(recv_msg)
@@ -73,7 +74,7 @@ class PubSubBackendInterface:
         nacked_msgs = []  # type: List[Message]
         redelivered_msgs = []  # type: List[Message]
         for i in itertools.count():
-            print(i)
+            logging.info(i)
             # all messages have been acked and redelivered
             if len(redelivered_msgs) == len(DATA_LIST):
                 redelivered_data = [pickle.loads(m.data) for m in redelivered_msgs]
@@ -84,20 +85,20 @@ class PubSubBackendInterface:
             _print_recv_message(recv_msg)
 
             if not recv_msg:
-                print('waiting...')
+                logging.info('waiting...')
                 continue
             assert pickle.loads(recv_msg.data) in DATA_LIST
 
             # message was redelivered
             if recv_msg in nacked_msgs:
-                print('REDELIVERED!')
+                logging.info('REDELIVERED!')
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
                 continue
             # nack message
             nacked_msgs.append(recv_msg)
             sub.reject_message(recv_msg.msg_id)
-            print('NACK!')
+            logging.info('NACK!')
 
     def test_11(self, queue_name: str) -> None:
         """Test nacking, mixed sending and receiving.
@@ -111,7 +112,7 @@ class PubSubBackendInterface:
         nacked_msgs = []  # type: List[Message]
         redelivered_msgs = []  # type: List[Message]
         for i in itertools.count():
-            print(i)
+            logging.info(i)
             # all messages have been acked and redelivered
             if len(redelivered_msgs) == len(DATA_LIST):
                 redelivered_data = [pickle.loads(m.data) for m in redelivered_msgs]
@@ -131,20 +132,20 @@ class PubSubBackendInterface:
             _print_recv_message(recv_msg)
 
             if not recv_msg:
-                print('waiting...')
+                logging.info('waiting...')
                 continue
             assert pickle.loads(recv_msg.data) in DATA_LIST
 
             # message was redelivered
             if recv_msg in nacked_msgs:
-                print('REDELIVERED!')
+                logging.info('REDELIVERED!')
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
                 continue
             # nack message
             nacked_msgs.append(recv_msg)
             sub.reject_message(recv_msg.msg_id)
-            print('NACK!')
+            logging.info('NACK!')
 
     def test_20(self, queue_name: str) -> None:
         """Sanity test message generator."""
@@ -160,7 +161,7 @@ class PubSubBackendInterface:
         # receive
         last = 0
         for i, recv_msg in enumerate(sub.message_generator(timeout=self.timeout)):
-            print(i)
+            logging.info(i)
             _print_recv_message(recv_msg)
             assert recv_msg
             assert pickle.loads(recv_msg.data) in DATA_LIST

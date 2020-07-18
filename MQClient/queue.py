@@ -1,6 +1,7 @@
 """Queue class encapsulating a pub-sub messaging system."""
 
 import contextlib
+import logging
 import pickle
 import uuid
 from typing import Any, Generator, Optional
@@ -68,10 +69,12 @@ class Queue:
 
     @raw_pub_queue.deleter
     def raw_pub_queue(self) -> None:
+        logging.debug("Deleter Queue.raw_pub_queue")
         self._close_pub_queue()
 
     def _close_pub_queue(self) -> None:
         if self._pub_queue:
+            logging.debug("Closing Queue._pub_queue")
             self._pub_queue.close()
             self._pub_queue = None
 
@@ -88,10 +91,12 @@ class Queue:
 
     @raw_sub_queue.deleter
     def raw_sub_queue(self) -> None:
+        logging.debug("Deleter Queue.raw_sub_queue")
         self._close_sub_queue()
 
     def _close_sub_queue(self) -> None:
         if self._sub_queue:
+            logging.debug("Closing Queue._sub_queue")
             self._sub_queue.close()
             self._sub_queue = None
 

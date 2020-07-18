@@ -24,7 +24,7 @@ def mock_ap(mocker: Any) -> Any:
 def queue_name() -> str:
     """Get random queue name."""
     name = uuid.uuid4().hex
-    print(f"NAME :: {name}")
+    logging.info(f"NAME :: {name}")
     return name
 
 

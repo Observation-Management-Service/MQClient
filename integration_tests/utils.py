@@ -1,5 +1,6 @@
 """Utility data and functions."""
 
+import logging
 import uuid
 from typing import Any
 
@@ -10,7 +11,7 @@ import pytest  # type: ignore
 def queue_name() -> str:
     """Get random queue name."""
     name = uuid.uuid4().hex
-    print(f"NAME :: {name}")
+    logging.info(f"NAME :: {name}")
     return name
 
 
@@ -38,6 +39,6 @@ def _print_send(data: Any) -> None:
 
 def _print_data(_type: str, data: Any, is_list: bool = False) -> None:
     if (_type == "RECV") and is_list and isinstance(data, list):
-        print(f"{_type} - {len(data)} :: {data}")
+        logging.info(f"{_type} - {len(data)} :: {data}")
     else:
-        print(f"{_type} :: {data}")
+        logging.info(f"{_type} :: {data}")
