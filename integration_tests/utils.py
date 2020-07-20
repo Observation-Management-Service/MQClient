@@ -25,19 +25,19 @@ DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
              ]
 
 
-def _print_recv(data: Any) -> None:
-    _print_data("RECV", data)
+def _log_recv(data: Any) -> None:
+    _log_data("RECV", data)
 
 
-def _print_recv_multiple(data: Any) -> None:
-    _print_data("RECV", data, is_list=True)
+def _log_recv_multiple(data: Any) -> None:
+    _log_data("RECV", data, is_list=True)
 
 
-def _print_send(data: Any) -> None:
-    _print_data("SEND", data)
+def _log_send(data: Any) -> None:
+    _log_data("SEND", data)
 
 
-def _print_data(_type: str, data: Any, is_list: bool = False) -> None:
+def _log_data(_type: str, data: Any, is_list: bool = False) -> None:
     if (_type == "RECV") and is_list and isinstance(data, list):
         logging.info(f"{_type} - {len(data)} :: {data}")
     else:

@@ -13,7 +13,7 @@ import pytest  # type: ignore
 from MQClient import Queue
 from MQClient.backend_interface import Backend
 
-from .utils import DATA_LIST, _print_recv, _print_recv_multiple, _print_send
+from .utils import DATA_LIST, _log_recv, _log_recv_multiple, _log_send
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -27,54 +27,54 @@ class PubSubQueue:
         """Test one pub, one sub."""
         pub_sub = Queue(self.backend, name=queue_name)
         pub_sub.send(DATA_LIST[0])
-        _print_send(DATA_LIST[0])
+        _log_send(DATA_LIST[0])
 
         with pub_sub.recv_one() as d:
-            _print_recv(d)
+            _log_recv(d)
             assert d == DATA_LIST[0]
 
         for d in DATA_LIST:
             pub_sub.send(d)
-            _print_send(d)
+            _log_send(d)
 
         for i, d in enumerate(pub_sub.recv(timeout=1)):
-            _print_recv(d)
+            _log_recv(d)
             assert d == DATA_LIST[i]
 
     def test_11(self, queue_name: str) -> None:
         """Test an individual pub and an individual sub."""
         pub = Queue(self.backend, name=queue_name)
         pub.send(DATA_LIST[0])
-        _print_send(DATA_LIST[0])
+        _log_send(DATA_LIST[0])
 
         sub = Queue(self.backend, name=queue_name)
         with sub.recv_one() as d:
-            _print_recv(d)
+            _log_recv(d)
             assert d == DATA_LIST[0]
 
         for d in DATA_LIST:
             pub.send(d)
-            _print_send(d)
+            _log_send(d)
 
         for i, d in enumerate(sub.recv(timeout=1)):
-            _print_recv(d)
+            _log_recv(d)
             assert d == DATA_LIST[i]
 
     def test_12(self, queue_name: str) -> None:
         """Failure-test one pub, two subs (one subscribed to wrong queue)."""
         pub = Queue(self.backend, name=queue_name)
         pub.send(DATA_LIST[0])
-        _print_send(DATA_LIST[0])
+        _log_send(DATA_LIST[0])
 
         sub_fail = Queue(self.backend, name=f"{queue_name}-fail")
         with pytest.raises(Exception) as excinfo:
             with sub_fail.recv_one() as d:
-                _print_recv(d)
+                _log_recv(d)
             assert "No message available" in str(excinfo.value)
 
         sub = Queue(self.backend, name=queue_name)
         with sub.recv_one() as d:
-            _print_recv(d)
+            _log_recv(d)
             assert d == DATA_LIST[0]
 
     def test_20(self, queue_name: str) -> None:
@@ -84,11 +84,11 @@ class PubSubQueue:
         # for each send, create and receive message via a new sub
         for data in DATA_LIST:
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                _print_recv(d)
+                _log_recv(d)
                 assert d == data
             # sub.close() -- no longer needed
 
@@ -97,12 +97,12 @@ class PubSubQueue:
         pub = Queue(self.backend, name=queue_name)
         for data in DATA_LIST:
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
         def recv_thread(_: int) -> List[Any]:
             sub = Queue(self.backend, name=queue_name)
             recv_data_list = list(sub.recv(timeout=1))
-            _print_recv_multiple(recv_data_list)
+            _log_recv_multiple(recv_data_list)
             return recv_data_list
 
         with ThreadPool(num_subs) as p:
@@ -142,14 +142,14 @@ class PubSubQueue:
         pub = Queue(self.backend, name=queue_name)
         for data in DATA_LIST:
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
         def recv_thread(_: int) -> Any:
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
                 recv_data = d
             # sub.close() -- no longer needed
-            _print_recv(recv_data)
+            _log_recv(recv_data)
             return recv_data
 
         with ThreadPool(len(DATA_LIST)) as p:
@@ -168,14 +168,14 @@ class PubSubQueue:
         pub = Queue(self.backend, name=queue_name)
         for data in DATA_LIST:
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
         def recv_thread(_: int) -> Any:
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
                 recv_data = d
             # sub.close() -- no longer needed
-            _print_recv(recv_data)
+            _log_recv(recv_data)
 
         with ThreadPool(len(DATA_LIST)) as p:
             p.map(recv_thread, range(len(DATA_LIST)))
@@ -192,11 +192,11 @@ class PubSubQueue:
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
             with sub.recv(timeout=1) as gen:
                 received_data = list(gen)
-            _print_recv_multiple(received_data)
+            _log_recv_multiple(received_data)
 
             assert len(received_data) == 1
             assert data == received_data[0]
@@ -206,11 +206,11 @@ class PubSubQueue:
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
         sub = Queue(self.backend, name=queue_name)
         received_data = list(sub.recv(timeout=1))
-        _print_recv_multiple(received_data)
+        _log_recv_multiple(received_data)
 
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
@@ -224,11 +224,11 @@ class PubSubQueue:
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
             sub = Queue(self.backend, name=queue_name)
             received_data = list(sub.recv(timeout=1))
-            _print_recv_multiple(received_data)
+            _log_recv_multiple(received_data)
 
             assert len(received_data) == 1
             assert data == received_data[0]
@@ -241,13 +241,13 @@ class PubSubQueue:
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
         received_data = []
         for _ in range(len(DATA_LIST)):
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                _print_recv(d)
+                _log_recv(d)
                 received_data.append(d)
             # sub.close() -- no longer needed
 
@@ -263,14 +263,14 @@ class PubSubQueue:
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
         received_data = []
         for i in range(len(DATA_LIST)):
             if i % 2 == 0:
                 sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                _print_recv(d)
+                _log_recv(d)
                 received_data.append(d)
             # sub.close() -- no longer needed
 
@@ -287,13 +287,13 @@ class PubSubQueue:
             if i % 2 == 0:
                 pub = Queue(self.backend, name=queue_name)
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
         received_data = []
         for _ in range(len(DATA_LIST)):
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                _print_recv(d)
+                _log_recv(d)
                 received_data.append(d)
             # sub.close() -- no longer needed
 
@@ -312,11 +312,11 @@ class PubSubQueue:
             # for each send, create and receive message via a new sub
             for data in DATA_LIST:
                 pub.send(data)
-                _print_send(data)
+                _log_send(data)
 
                 sub = Queue(self.backend, name=queue_name, prefetch=i)
                 with sub.recv_one() as d:
-                    _print_recv(d)
+                    _log_recv(d)
                     assert d == data
                 # sub.close() -- no longer needed
 
@@ -328,23 +328,23 @@ class PubSubQueue:
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
-            _print_send(data)
+            _log_send(data)
 
         received_data = []
 
         # this should not eat up the whole queue
         sub = Queue(self.backend, name=queue_name, prefetch=20)
         with sub.recv_one() as d:
-            _print_recv(d)
+            _log_recv(d)
             received_data.append(d)
         with sub.recv_one() as d:
-            _print_recv(d)
+            _log_recv(d)
             received_data.append(d)
         # sub.close() -- no longer needed
 
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)
         for _, d in enumerate(sub2.recv(timeout=1)):
-            _print_recv(d)
+            _log_recv(d)
             received_data.append(d)
 
         assert len(DATA_LIST) == len(received_data)

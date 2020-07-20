@@ -12,14 +12,14 @@ from typing import List, Optional
 # local imports
 from MQClient.backend_interface import Backend, Message
 
-from .utils import DATA_LIST, _print_recv, _print_send
+from .utils import DATA_LIST, _log_recv, _log_send
 
 
-def _print_recv_message(recv_msg: Optional[Message]) -> None:
+def _log_recv_message(recv_msg: Optional[Message]) -> None:
     recv_data = None
     if recv_msg:
         recv_data = pickle.loads(recv_msg.data)
-    _print_recv(f"{recv_msg} -> {recv_data}")
+    _log_recv(f"{recv_msg} -> {recv_data}")
 
 
 class PubSubBackendInterface:
@@ -40,14 +40,14 @@ class PubSubBackendInterface:
         for msg in DATA_LIST:
             raw_data = pickle.dumps(msg, protocol=4)
             pub.send_message(raw_data)
-            _print_send(msg)
+            _log_send(msg)
 
         # receive
         for i in itertools.count():
             logging.info(i)
             assert i <= len(DATA_LIST)
             recv_msg = sub.get_message()
-            _print_recv_message(recv_msg)
+            _log_recv_message(recv_msg)
 
             # check received message
             if i == len(DATA_LIST):
@@ -68,7 +68,7 @@ class PubSubBackendInterface:
         for msg in DATA_LIST:
             raw_data = pickle.dumps(msg, protocol=4)
             pub.send_message(raw_data)
-            _print_send(msg)
+            _log_send(msg)
 
         # receive -- nack each message, once, and anticipate its redelivery
         nacked_msgs = []  # type: List[Message]
@@ -82,7 +82,7 @@ class PubSubBackendInterface:
                 break
 
             recv_msg = sub.get_message()
-            _print_recv_message(recv_msg)
+            _log_recv_message(recv_msg)
 
             if not recv_msg:
                 logging.info('waiting...')
@@ -124,12 +124,12 @@ class PubSubBackendInterface:
                 msg = data_to_send[0]
                 raw_data = pickle.dumps(msg, protocol=4)
                 pub.send_message(raw_data)
-                _print_send(msg)
+                _log_send(msg)
                 data_to_send.remove(msg)
 
             # get a message
             recv_msg = sub.get_message()
-            _print_recv_message(recv_msg)
+            _log_recv_message(recv_msg)
 
             if not recv_msg:
                 logging.info('waiting...')
@@ -156,13 +156,13 @@ class PubSubBackendInterface:
         for msg in DATA_LIST:
             raw_data = pickle.dumps(msg, protocol=4)
             pub.send_message(raw_data)
-            _print_send(msg)
+            _log_send(msg)
 
         # receive
         last = 0
         for i, recv_msg in enumerate(sub.message_generator(timeout=self.timeout)):
             logging.info(i)
-            _print_recv_message(recv_msg)
+            _log_recv_message(recv_msg)
             assert recv_msg
             assert pickle.loads(recv_msg.data) in DATA_LIST
             last = i
