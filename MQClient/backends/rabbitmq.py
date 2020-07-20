@@ -20,6 +20,7 @@ class RabbitMQ(RawQueue):
     """
 
     def __init__(self, address: str, queue: str) -> None:
+        super().__init__()
         self.address = address
         if not self.address.startswith('ampq'):
             self.address = 'amqp://' + self.address
@@ -31,11 +32,13 @@ class RabbitMQ(RawQueue):
 
     def connect(self) -> None:
         """Set up connection and channel."""
+        super().connect()
         self.connection = pika.BlockingConnection(pika.connection.URLParameters(self.address))
         self.channel = self.connection.channel()
 
     def close(self) -> None:
         """Close connection."""
+        super().close()
         if (self.connection) and (not self.connection.is_closed):
             self.connection.close()
 
@@ -53,7 +56,7 @@ class RabbitMQPub(RabbitMQ, Pub):
 
         Turn on delivery confirmations.
         """
-        super(RabbitMQPub, self).connect()
+        super().connect()
 
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.confirm_delivery()
@@ -86,7 +89,7 @@ class RabbitMQSub(RabbitMQ, Sub):
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super(RabbitMQSub, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.consumer_id = None
         self.prefetch = 1
@@ -96,7 +99,7 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         Turn on prefetching.
         """
-        super(RabbitMQSub, self).connect()
+        super().connect()
 
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
@@ -211,6 +214,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         # generator is closed (also, garbage collected)
         finally:
             try_call(self, self.channel.cancel)
+            self.was_closed = True
             logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
 
 

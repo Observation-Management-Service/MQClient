@@ -43,9 +43,16 @@ class Message:
 class RawQueue:
     """Raw queue object, to hold queue state."""
 
+    def __init__(self) -> None:
+        self.was_closed = False
+
+    def connect(self) -> None:
+        """Set up connection."""
+        self.was_closed = False
+
     def close(self) -> None:
         """Close interface to queue."""
-        raise NotImplementedError()
+        self.was_closed = True
 
 
 class Pub(RawQueue):

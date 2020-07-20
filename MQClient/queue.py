@@ -128,7 +128,7 @@ class Queue:
         Returns:
             MessageGeneratorContext -- context manager and generator object
         """
-        if (not self.message_generator_context) or (not self._sub_queue):
+        if (not self.message_generator_context) or (not self._sub_queue) or self._sub_queue.was_closed:
             logging.debug("Creating new MessageGeneratorContext instance.")
             self.message_generator_context = MessageGeneratorContext(sub=self.raw_sub_queue,
                                                                      timeout=timeout,

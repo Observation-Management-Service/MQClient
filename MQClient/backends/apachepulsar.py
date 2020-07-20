@@ -19,6 +19,7 @@ class Pulsar(RawQueue):
     """
 
     def __init__(self, address: str, topic: str) -> None:
+        super().__init__()
         self.address = address
         if not self.address.startswith('pulsar'):
             self.address = 'pulsar://' + self.address
@@ -27,10 +28,12 @@ class Pulsar(RawQueue):
 
     def connect(self) -> None:
         """Set up client."""
+        super().connect()
         self.client = pulsar.Client(self.address)
 
     def close(self) -> None:
         """Close client."""
+        super().close()
         if self.client:
             try:
                 self.client.close()
