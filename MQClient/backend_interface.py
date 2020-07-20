@@ -1,6 +1,9 @@
 """Define an interface that backends will adhere to."""
 
-from typing import Generator, Optional, Union
+import logging
+import pickle
+import types
+from typing import Any, Generator, Optional, Type, Union
 
 MessageID = Union[int, str, bytes]
 
@@ -70,12 +73,15 @@ class Sub(RawQueue):
 
     def message_generator(self, timeout: int = 60, auto_ack: bool = True,
                           propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
-        """Yield a Message.
+        """Yield Messages.
 
-        Args:
-            timeout (int): timeout in seconds for inactivity
-            auto_ack (bool): Ack each message after successful processing
-            propagate_error (bool): should errors from downstream code kill the generator?
+        Generate messages with variable timeout. Close instance on exit and error.
+        Yield `None` on `throw()`.
+
+        Keyword Arguments:
+            timeout {int} -- timeout in seconds for inactivity (default: {60})
+            auto_ack {bool} -- Ack each message after successful processing (default: {True})
+            propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
         raise NotImplementedError()
 
@@ -92,3 +98,81 @@ class Backend:
     def create_sub_queue(address: str, name: str, prefetch: int = 1) -> Sub:
         """Create a subscription queue."""
         raise NotImplementedError()
+
+
+# --------------------------------------------------------------------------------
+# classes to interface between Queue and backend_interface's (implemented) classes
+# --------------------------------------------------------------------------------
+
+
+class MessageGeneratorContext:
+    """A context manager wrapping backend.message_generator()."""
+
+    RUNTIME_ERROR_CONTEXT_STRING = "'MessageGeneratorContext' object's runtime context has not been entered."
+
+    def __init__(self, sub: Sub, timeout: int, propagate_error: bool) -> None:
+        logging.debug("in __init__")
+        self.sub = sub
+        self.timeout = timeout
+        self.propagate_error = propagate_error
+        self.message_generator = self.sub.message_generator(timeout=self.timeout,
+                                                            propagate_error=self.propagate_error)
+
+    def __enter__(self) -> 'MessageGeneratorContext':
+        """Return instance.
+
+        Triggered with 'as'.
+        """
+        logging.debug("in __enter__")
+        return self
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                 exc_val: Optional[BaseException],
+                 exc_tb: Optional[types.TracebackType]) -> bool:
+        """[summary]
+
+        Return `True`
+
+        Arguments:
+            exc_type {Optional[BaseException]} -- [description]
+            exc_val {Optional[Type[BaseException]]} -- [description]
+            exc_tb {Optional[types.TracebackType]} -- [description]
+        """
+        logging.debug(f"in __exit__: {exc_type}")
+        if not self.message_generator:
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+
+        # Exception was raised
+        if exc_type and exc_val:
+            try:
+                self.message_generator.throw(exc_type, exc_val, exc_tb)
+            except exc_type:  # message_generator re-raised Exception
+                return False  # don't suppress the Exception
+        return True  # suppress any Exception
+
+    def __iter__(self) -> 'MessageGeneratorContext':
+        """Return instance.
+
+        Triggered with 'for'/'iter()'.
+        """
+        logging.debug("in __iter__")
+        if not self.message_generator:
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+        return self
+
+    def __next__(self) -> Any:
+        """Return next Message in queue."""
+        logging.debug("in __next__")
+        if not self.message_generator:
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+
+        try:
+            msg = next(self.message_generator)
+        except StopIteration:
+            logging.debug("StopIteration")
+            raise
+        if not msg:
+            raise RuntimeError("Yielded value is `None`. This should not have happened.")
+
+        data = pickle.loads(msg.data)
+        return data

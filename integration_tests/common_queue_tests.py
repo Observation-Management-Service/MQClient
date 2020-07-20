@@ -194,7 +194,8 @@ class PubSubQueue:
             pub.send(data)
             _print_send(data)
 
-            received_data = list(sub.recv(timeout=1))
+            with sub.recv(timeout=1) as gen:
+                received_data = list(gen)
             _print_recv_multiple(received_data)
 
             assert len(received_data) == 1

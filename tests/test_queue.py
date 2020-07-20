@@ -62,9 +62,9 @@ def test_Queue_recv() -> None:
     data = ['a', {'b': 100}, ['foo', 'bar']]
     q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
 
-    recv_data = list(q.recv())
-
-    assert data == recv_data
+    with q.recv() as recv_gen:
+        recv_data = list(recv_gen)
+        assert data == recv_data
 
 
 def test_Queue_recv_one() -> None:

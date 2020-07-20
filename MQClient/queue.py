@@ -6,7 +6,7 @@ import pickle
 import uuid
 from typing import Any, Generator, Optional
 
-from .backend_interface import Backend, Pub, Sub
+from .backend_interface import Backend, MessageGeneratorContext, Pub, Sub
 
 
 class Queue:
@@ -27,6 +27,7 @@ class Queue:
         self._prefetch = prefetch
         self._pub_queue = None  # type: Optional[Pub]
         self._sub_queue = None  # type: Optional[Sub]
+        self.message_generator_context = None  # type: Optional[MessageGeneratorContext]
 
     @property
     def backend(self) -> Backend:
@@ -114,7 +115,7 @@ class Queue:
         raw_data = pickle.dumps(data, protocol=4)
         self.raw_pub_queue.send_message(raw_data)
 
-    def recv(self, timeout: int = 60) -> Generator[Any, None, None]:
+    def recv(self, timeout: int = 60) -> MessageGeneratorContext:
         """Receive a stream of messages from the queue.
 
         This is a generator. It stops when no messages are received
@@ -124,18 +125,15 @@ class Queue:
         Keyword Arguments:
             timeout {int} -- seconds to wait idle before stopping (default: {60})
 
-        Yields:
-            Generator[Any, None, None] -- object of data received
+        Returns:
+            MessageGeneratorContext -- context manager and generator object
         """
-        for msg in self.raw_sub_queue.message_generator(timeout=timeout, propagate_error=False):
-            # TODO try?
-            if msg:
-                data = pickle.loads(msg.data)
-            # TODO and/or try?
-            yield data
-            # TODO except?
-            # TODO throw in order to nack?
-            # TODO break/return?
+        if (not self.message_generator_context) or (not self._sub_queue):
+            logging.debug("Creating new MessageGeneratorContext instance.")
+            self.message_generator_context = MessageGeneratorContext(sub=self.raw_sub_queue,
+                                                                     timeout=timeout,
+                                                                     propagate_error=False)
+        return self.message_generator_context
 
     @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:

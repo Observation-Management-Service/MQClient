@@ -168,6 +168,7 @@ class PulsarSub(Pulsar, Sub):
         """Yield Messages.
 
         Generate messages with variable timeout. Close instance on exit and error.
+        Yield `None` on `throw()`.
 
         Keyword Arguments:
             timeout {int} -- timeout in seconds for inactivity (default: {60})

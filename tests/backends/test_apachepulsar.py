@@ -3,12 +3,14 @@
 # pylint: disable=redefined-outer-name
 
 import logging
+import pickle
 import uuid
 from typing import Any, List, Optional
 
 import pytest  # type: ignore
 
 # local imports
+from MQClient import Queue
 from MQClient.backends import apachepulsar
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -269,4 +271,162 @@ def test_message_generator_suppress_error(mock_ap: Any, queue_name: str) -> None
             mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(i * 10)
 
         i += 1
+    mock_ap.return_value.close.assert_called()
+
+
+def test_message_generator_consumer_exception_0(mock_ap: Any, queue_name: str) -> None:
+    """Failure-test message generator.
+
+    Not so much a test, as an example of why MessageGeneratorContext is
+    needed.
+    """
+    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
+
+    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = [b'baz']
+    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [0]
+
+    excepted = False
+    try:
+        for msg in q.message_generator(propagate_error=False):
+            logging.debug(msg)
+            raise Exception
+    except Exception:
+        excepted = True  # MessageGeneratorContext would've suppressed the Exception
+    assert excepted
+
+    # MessageGeneratorContext would've guaranteed both of these
+    with pytest.raises(AssertionError):
+        mock_ap.return_value.close.assert_not_called()
+    with pytest.raises(AssertionError):
+        mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
+
+
+def test_queue_recv_consumer(mock_ap: Any, queue_name: str) -> None:
+    """Test Queue.recv()."""
+    q = Queue(apachepulsar.Backend(), address="localhost", name=queue_name)
+
+    data = [pickle.dumps('baz', protocol=4), None]
+    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = data
+    ids = [0, None]
+    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = ids
+
+    with q.recv() as gen:
+        for msg in gen:
+            logging.debug(msg)
+            assert data
+            assert msg == pickle.loads(data[0])  # type: ignore
+
+    mock_ap.return_value.close.assert_called()
+    mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with(0)
+
+
+def test_queue_recv_comsumer_exception_0(mock_ap: Any, queue_name: str) -> None:
+    """Failure-test Queue.recv().
+
+    When an Exception is raised in `with` block, the Queue should:
+    - NOT close (pub) on exit
+    - nack the message
+    - suppress the Exception
+    """
+    q = Queue(apachepulsar.Backend(), address="localhost", name=queue_name)
+
+    fake_data = [pickle.dumps('baz-0', protocol=4), pickle.dumps('baz-1', protocol=4)]
+    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+
+    fake_ids = [0, 1]
+    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+
+    class TestException(Exception):  # pylint: disable=C0115
+        pass
+
+    with q.recv() as gen:  # propagate_error=False
+        for i, msg in enumerate(gen):
+            assert i == 0
+            logging.debug(msg)
+            raise TestException
+
+    mock_ap.return_value.close.assert_not_called()
+    mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
+
+
+def test_queue_recv_comsumer_exception_1(mock_ap: Any, queue_name: str) -> None:
+    """Failure-test Queue.recv().
+
+    The Queue.recv()'s context manager should be reusable after
+    suppressing an Exception.
+    """
+    q = Queue(apachepulsar.Backend(), address="localhost", name=queue_name)
+    num_msgs = 12
+
+    fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]  # type: List[Optional[bytes]]
+    fake_data += [None]  # signifies end of stream -- not actually a message
+    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+
+    fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
+    fake_ids += [None]  # signifies end of stream -- not actually a message
+    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+
+    class TestException(Exception):  # pylint: disable=C0115
+        pass
+
+    g = q.recv()
+    with g as gen:  # propagate_error=False
+        for msg in gen:
+            logging.debug(msg)
+            raise TestException
+
+    mock_ap.return_value.close.assert_not_called()
+    mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
+
+    logging.info("Round 2")
+
+    with g as gen:  # propagate_error=False
+        mock_ap.return_value.subscribe.return_value.acknowledge.assert_not_called()
+        for i, msg in enumerate(gen, start=1):
+            logging.debug(f"{i} :: {msg}")
+            if i > 1:  # see if previous msg was acked
+                mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
+        mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((num_msgs - 1) * 10)
+
+    mock_ap.return_value.close.assert_called()
+
+
+def test_queue_recv_comsumer_exception_2(mock_ap: Any, queue_name: str) -> None:
+    """Failure-test Queue.recv().
+
+    Same as test_queue_recv_comsumer_exception_1() but with multiple
+    recv() calls.
+    """
+    q = Queue(apachepulsar.Backend(), address="localhost", name=queue_name)
+    num_msgs = 12
+
+    fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]  # type: List[Optional[bytes]]
+    fake_data += [None]  # signifies end of stream -- not actually a message
+    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+
+    fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
+    fake_ids += [None]  # signifies end of stream -- not actually a message
+    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+
+    class TestException(Exception):  # pylint: disable=C0115
+        pass
+
+    with q.recv() as gen:  # propagate_error=False
+        for msg in gen:
+            logging.debug(msg)
+            raise TestException
+
+    mock_ap.return_value.close.assert_not_called()
+    mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
+
+    logging.info("Round 2")
+
+    with q.recv() as gen:  # propagate_error=False
+        mock_ap.return_value.subscribe.return_value.acknowledge.assert_not_called()
+        for i, msg in enumerate(gen, start=1):
+            logging.debug(f"{i} :: {msg}")
+            if i > 1:  # see if previous msg was acked
+                mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
+        mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((num_msgs - 1) * 10)
+
     mock_ap.return_value.close.assert_called()

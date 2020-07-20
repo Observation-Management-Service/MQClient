@@ -22,7 +22,7 @@ MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE = "[message_generator()] No messages in idl
 MSGGEN_YIELDING_MESSAGE = "[message_generator()] Yielding message..."
 MSGGEN_DOWNSTREAM_ERROR = "[message_generator()] There was a downstream error."
 MSGGEN_PROPAGATING_ERROR = "[message_generator()] Propagating error..."
-MSGGEN_EXCEPTED_DOWNSTREAM_ERROR = "[message_generator()] Excepted downstream error:"
+MSGGEN_EXCEPTED_DOWNSTREAM_ERROR = "[message_generator()] Excepted downstream error (not re-raising):"
 MSGGEN_GENERATOR_EXIT = "[message_generator()] GeneratorExit."
 MSGGEN_CLOSED_QUEUE = "[message_generator()] Closed queue."
 
