@@ -1,10 +1,7 @@
 """Unit Tests for Pulsar Backend."""
 
-# pylint: disable=redefined-outer-name
-
 import logging
 import pickle
-import uuid
 from typing import Any, List, Optional
 
 import pytest  # type: ignore
@@ -13,420 +10,406 @@ import pytest  # type: ignore
 from MQClient import Queue
 from MQClient.backends import apachepulsar
 
-logging.getLogger().setLevel(logging.DEBUG)
+from .common_unit_tests import BackendUnitTest
 
 
-@pytest.fixture  # type: ignore
-def mock_ap(mocker: Any) -> Any:
-    """Patch mock_ap."""
-    return mocker.patch('pulsar.Client')
+class TestUnitApachePulsar(BackendUnitTest):
+    """Unit test suite interface for Apache Pulsar backend."""
 
+    backend = apachepulsar.Backend()
+    con_patch = 'pulsar.Client'
 
-@pytest.fixture  # type: ignore
-def queue_name() -> str:
-    """Get random queue name."""
-    name = uuid.uuid4().hex
-    logging.info(f"NAME :: {name}")
-    return name
+    def test_create_pub_queue(self, mock_con: Any, queue_name: str) -> None:
+        """Test creating pub queue."""
+        q = self.backend.create_pub_queue("localhost", queue_name)
+        assert q.topic == queue_name
+        mock_con.return_value.create_producer.assert_called()
 
+    def test_create_sub_queue(self, mock_con: Any, queue_name: str) -> None:
+        """Test creating sub queue."""
+        q = self.backend.create_sub_queue("localhost", queue_name, prefetch=213)
+        assert q.topic == queue_name
+        assert q.prefetch == 213
+        mock_con.return_value.subscribe.assert_called()
 
-def test_create_pub_queue(mock_ap: Any, queue_name: str) -> None:
-    """Test creating pub queue."""
-    q = apachepulsar.Backend().create_pub_queue("localhost", queue_name)
-    assert q.topic == queue_name
-    mock_ap.return_value.create_producer.assert_called()
+    def test_send_message(self, mock_con: Any, queue_name: str) -> None:
+        """Test sending message."""
+        q = self.backend.create_pub_queue("localhost", queue_name)
+        q.send_message(b"foo, bar, baz")
+        mock_con.return_value.create_producer.return_value.send.assert_called_with(b'foo, bar, baz')
 
+    def test_get_message(self, mock_con: Any, queue_name: str) -> None:
+        """Test getting message."""
+        q = self.backend.create_sub_queue("localhost", queue_name)
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.return_value = b'foo, bar'
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.return_value = 12
+        m = q.get_message()
 
-def test_create_sub_queue(mock_ap: Any, queue_name: str) -> None:
-    """Test creating sub queue."""
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name, prefetch=213)
-    assert q.topic == queue_name
-    assert q.prefetch == 213
-    mock_ap.return_value.subscribe.assert_called()
+        assert m is not None
+        assert m.msg_id == 12
+        assert m.data == b'foo, bar'
 
+    def test_ack_message(self, mock_con: Any, queue_name: str) -> None:
+        """Test acking message."""
+        q = self.backend.create_sub_queue("localhost", queue_name)
+        q.ack_message(12)
+        mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
 
-def test_send_message(mock_ap: Any, queue_name: str) -> None:
-    """Test sending message."""
-    q = apachepulsar.Backend().create_pub_queue("localhost", queue_name)
-    q.send_message(b"foo, bar, baz")
-    mock_ap.return_value.create_producer.return_value.send.assert_called_with(b'foo, bar, baz')
+    def test_reject_message(self, mock_con: Any, queue_name: str) -> None:
+        """Test rejecting message."""
+        q = self.backend.create_sub_queue("localhost", queue_name)
+        q.reject_message(12)
+        mock_con.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(12)
 
+    def test_message_generator_0(self, mock_con: Any, queue_name: str) -> None:
+        """Test message generator."""
+        q = self.backend.create_sub_queue("localhost", queue_name)
+        num_msgs = 100
 
-def test_get_message(mock_ap: Any, queue_name: str) -> None:
-    """Test getting message."""
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.return_value = b'foo, bar'
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.return_value = 12
-    m = q.get_message()
+        fake_data = [f'baz-{i}'.encode('utf-8') for i in range(num_msgs)]  # type: List[Optional[bytes]]
+        fake_data += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
 
-    assert m is not None
-    assert m.msg_id == 12
-    assert m.data == b'foo, bar'
+        fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
+        fake_ids += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
+        for i, msg in enumerate(q.message_generator()):
+            logging.debug(i)
+            if i > 0:  # see if previous msg was acked
+                prev_id = (i - 1) * 10
+                mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(prev_id)
+            assert msg is not None
+            assert msg.msg_id == i * 10
+            assert msg.data == fake_data[i]
 
-def test_ack_message(mock_ap: Any, queue_name: str) -> None:
-    """Test acking message."""
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
-    q.ack_message(12)
-    mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
+        last_id = (num_msgs - 1) * 10
+        mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(last_id)
+        mock_con.return_value.close.assert_called()
 
+    def test_message_generator_1(self, mock_con: Any, queue_name: str) -> None:
+        """Test message generator."""
+        q = self.backend.create_sub_queue("localhost", queue_name)
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
+            b'foo, bar', b'baz']
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [
+            12, 20]
 
-def test_reject_message(mock_ap: Any, queue_name: str) -> None:
-    """Test rejecting message."""
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
-    q.reject_message(12)
-    mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(12)
+        m = None
+        for i, x in enumerate(q.message_generator()):
+            m = x
+            if i == 0:
+                break
 
+        assert m is not None
+        assert m.msg_id == 12
+        assert m.data == b'foo, bar'
 
-def test_message_generator_0(mock_ap: Any, queue_name: str) -> None:
-    """Test message generator."""
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
-    num_msgs = 100
+        mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
+        mock_con.return_value.close.assert_called()
 
-    fake_data = [f'baz-{i}'.encode('utf-8') for i in range(num_msgs)]  # type: List[Optional[bytes]]
-    fake_data += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+    def test_message_generator_2(self, mock_con: Any, queue_name: str) -> None:
+        """Test message generator."""
+        q = self.backend.create_sub_queue("localhost", queue_name)
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
+            b'foo, bar',
+            None  # signifies end of stream -- not actually a message
+        ]
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [
+            12,
+            None  # signifies end of stream -- not actually a message
+        ]
 
-    fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
-    fake_ids += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+        m = None
+        for i, x in enumerate(q.message_generator()):
+            assert i < 1
+            m = x
 
-    for i, msg in enumerate(q.message_generator()):
-        logging.debug(i)
-        if i > 0:  # see if previous msg was acked
-            mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
-        assert msg is not None
-        assert msg.msg_id == i * 10
-        assert msg.data == fake_data[i]
-    mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((num_msgs - 1) * 10)
-    mock_ap.return_value.close.assert_called()
+        assert m is not None
+        assert m.msg_id == 12
+        assert m.data == b'foo, bar'
 
+        mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
+        mock_con.return_value.close.assert_called()
 
-def test_message_generator_1(mock_ap: Any, queue_name: str) -> None:
-    """Test message generator."""
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
-        b'foo, bar', b'baz']
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [
-        12, 20]
+    def test_message_generator_upstream_error(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test message generator.
 
-    m = None
-    for i, x in enumerate(q.message_generator()):
-        m = x
-        if i == 0:
-            break
+        Generator should raise Exception originating upstream (a.k.a.
+        from pulsar-package code).
+        """
+        q = self.backend.create_sub_queue("localhost", queue_name)
 
-    assert m is not None
-    assert m.msg_id == 12
-    assert m.data == b'foo, bar'
+        mock_con.return_value.subscribe.return_value.receive.side_effect = Exception()
+        with pytest.raises(Exception):
+            _ = list(q.message_generator())
+        mock_con.return_value.close.assert_called()
 
-    mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
-    mock_ap.return_value.close.assert_called()
+        # `propagate_error` attribute has no affect (b/c it deals w/ *downstream* errors)
+        mock_con.return_value.subscribe.return_value.receive.side_effect = Exception()
+        with pytest.raises(Exception):
+            _ = list(q.message_generator(propagate_error=False))
+        mock_con.return_value.close.assert_called()
 
+    def test_message_generator_no_auto_ack(self, mock_con: Any, queue_name: str) -> None:
+        """Test message generator.
 
-def test_message_generator_2(mock_ap: Any, queue_name: str) -> None:
-    """Test message generator."""
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = [
-        b'foo, bar',
-        None  # signifies end of stream -- not actually a message
-    ]
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [
-        12,
-        None  # signifies end of stream -- not actually a message
-    ]
+        Generator should not ack messages.
+        """
+        q = self.backend.create_sub_queue("localhost", queue_name)
 
-    m = None
-    for i, x in enumerate(q.message_generator()):
-        assert i < 1
-        m = x
+        fake_data = [b'baz-0', b'baz-1', b'baz-2']  # type: List[Optional[bytes]]
+        fake_data += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+        fake_ids = [0, 1, 2]  # type: List[Optional[int]]
+        fake_ids += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
-    assert m is not None
-    assert m.msg_id == 12
-    assert m.data == b'foo, bar'
+        gen = q.message_generator(auto_ack=False)
+        i = 0
+        for msg in gen:
+            logging.debug(i)
+            if i > 0:  # see if previous msg was acked
+                mock_con.return_value.subscribe.return_value.acknowledge.assert_not_called()
 
-    mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with(12)
-    mock_ap.return_value.close.assert_called()
+            assert msg is not None
+            assert msg.msg_id == i
+            assert msg.data == fake_data[i]
 
+            i += 1
 
-def test_message_generator_upstream_error(mock_ap: Any, queue_name: str) -> None:
-    """Failure-test message generator.
+    def test_message_generator_propagate_error(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test message generator.
 
-    Generator should raise Exception originating upstream (a.k.a. from
-    pulsar-package code).
-    """
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
+        Generator should raise Exception, nack, and close. Unlike in an
+        integration test, nacked messages are not put back on the queue.
+        """
+        q = self.backend.create_sub_queue("localhost", queue_name)
 
-    mock_ap.return_value.subscribe.return_value.receive.side_effect = Exception()
-    with pytest.raises(Exception):
-        _ = list(q.message_generator())
-    mock_ap.return_value.close.assert_called()
+        fake_data = [b'baz-0', b'baz-1', b'baz-2']
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+        fake_ids = [0, 1, 2]
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
-    # `propagate_error` attribute has no affect (b/c it deals w/ *downstream* errors)
-    mock_ap.return_value.subscribe.return_value.receive.side_effect = Exception()
-    with pytest.raises(Exception):
-        _ = list(q.message_generator(propagate_error=False))
-    mock_ap.return_value.close.assert_called()
+        gen = q.message_generator()  # propagate_error=True
+        i = 0
+        for msg in gen:
+            logging.debug(i)
+            assert i < 3
+            if i > 0:  # see if previous msg was acked
+                mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(i - 1)
 
+            assert msg is not None
+            assert msg.msg_id == i
+            assert msg.data == fake_data[i]
 
-def test_message_generator_no_auto_ack(mock_ap: Any, queue_name: str) -> None:
-    """Test message generator.
+            if i == 2:
+                with pytest.raises(Exception):
+                    gen.throw(Exception)
+                mock_con.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(i)
+                mock_con.return_value.close.assert_called()
 
-    Generator should not ack messages.
-    """
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
+            i += 1
 
-    fake_data = [b'baz-0', b'baz-1', b'baz-2']  # type: List[Optional[bytes]]
-    fake_data += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
-    fake_ids = [0, 1, 2]  # type: List[Optional[int]]
-    fake_ids += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+    def test_message_generator_suppress_error(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test message generator.
 
-    gen = q.message_generator(auto_ack=False)
-    i = 0
-    for msg in gen:
-        logging.debug(i)
-        if i > 0:  # see if previous msg was acked
-            mock_ap.return_value.subscribe.return_value.acknowledge.assert_not_called()
+        Generator should not raise Exception. Unlike in an integration
+        test, nacked messages are not put back on the queue.
+        """
+        q = self.backend.create_sub_queue("localhost", queue_name)
+        num_msgs = 11
+        if num_msgs % 2 == 0:
+            raise RuntimeError("`num_msgs` must be odd, so last message is nacked")
 
-        assert msg is not None
-        assert msg.msg_id == i
-        assert msg.data == fake_data[i]
+        fake_data = [f'baz-{i}'.encode('utf-8') for i in range(num_msgs)]  # type: List[Optional[bytes]]
+        fake_data += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
 
-        i += 1
+        fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
+        fake_ids += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
+        gen = q.message_generator(propagate_error=False)
+        i = 0
+        # odds are acked and evens are nacked
+        for msg in gen:
+            logging.debug(i)
+            if i > 0:
+                prev_id = (i - 1) * 10
+                if i % 2 == 0:  # see if previous EVEN msg was acked
+                    mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(prev_id)
+                else:  # see if previous ODD msg was NOT acked
+                    with pytest.raises(AssertionError):
+                        mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(prev_id)
 
-def test_message_generator_propagate_error(mock_ap: Any, queue_name: str) -> None:
-    """Failure-test message generator.
+            assert msg is not None
+            assert msg.msg_id == i * 10
+            assert msg.data == fake_data[i]
 
-    Generator should raise Exception, nack, and close. Unlike in an
-    integration test, nacked messages are not put back on the queue.
-    """
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
-
-    fake_data = [b'baz-0', b'baz-1', b'baz-2']
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
-    fake_ids = [0, 1, 2]
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
-
-    gen = q.message_generator()  # propagate_error=True
-    i = 0
-    for msg in gen:
-        logging.debug(i)
-        assert i < 3
-        if i > 0:  # see if previous msg was acked
-            mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with(i - 1)
-
-        assert msg is not None
-        assert msg.msg_id == i
-        assert msg.data == fake_data[i]
-
-        if i == 2:
-            with pytest.raises(Exception):
+            if i % 2 == 0:
                 gen.throw(Exception)
-            mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(i)
-            mock_ap.return_value.close.assert_called()
+                mock_con.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(i * 10)
 
-        i += 1
+            i += 1
 
+        mock_con.return_value.close.assert_called()
 
-def test_message_generator_suppress_error(mock_ap: Any, queue_name: str) -> None:
-    """Failure-test message generator.
+    def test_message_generator_consumer_exception_0(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test message generator.
 
-    Generator should not raise Exception. Unlike in an integration test,
-    nacked messages are not put back on the queue.
-    """
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
-    num_msgs = 11
-    if num_msgs % 2 == 0:
-        raise RuntimeError("`num_msgs` must be odd, so last message is nacked")
+        Not so much a test, as an example of why MessageGeneratorContext
+        is needed.
+        """
+        q = self.backend.create_sub_queue("localhost", queue_name)
 
-    fake_data = [f'baz-{i}'.encode('utf-8') for i in range(num_msgs)]  # type: List[Optional[bytes]]
-    fake_data += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = [b'baz']
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [0]
 
-    fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
-    fake_ids += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+        excepted = False
+        try:
+            for msg in q.message_generator(propagate_error=False):
+                logging.debug(msg)
+                raise Exception
+        except Exception:
+            excepted = True  # MessageGeneratorContext would've suppressed the Exception
+        assert excepted
 
-    gen = q.message_generator(propagate_error=False)
-    i = 0
-    # odds are acked and evens are nacked
-    for msg in gen:
-        logging.debug(i)
-        if i > 0:
-            if i % 2 == 0:  # see if previous EVEN msg was acked
-                mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
-            else:  # see if previous ODD msg was NOT acked
-                with pytest.raises(AssertionError):
-                    mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
+        # MessageGeneratorContext would've guaranteed both of these
+        with pytest.raises(AssertionError):
+            mock_con.return_value.close.assert_not_called()
+        with pytest.raises(AssertionError):
+            mock_con.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
 
-        assert msg is not None
-        assert msg.msg_id == i * 10
-        assert msg.data == fake_data[i]
+    def test_queue_recv_consumer(self, mock_con: Any, queue_name: str) -> None:
+        """Test Queue.recv()."""
+        q = Queue(self.backend, address="localhost", name=queue_name)
 
-        if i % 2 == 0:
-            gen.throw(Exception)
-            mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(i * 10)
+        data = [pickle.dumps('baz', protocol=4), None]
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = data
+        ids = [0, None]
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = ids
 
-        i += 1
-    mock_ap.return_value.close.assert_called()
+        with q.recv() as gen:
+            for msg in gen:
+                logging.debug(msg)
+                assert data
+                assert msg == pickle.loads(data[0])  # type: ignore
 
+        mock_con.return_value.close.assert_called()
+        mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(0)
 
-def test_message_generator_consumer_exception_0(mock_ap: Any, queue_name: str) -> None:
-    """Failure-test message generator.
+    def test_queue_recv_comsumer_exception_0(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test Queue.recv().
 
-    Not so much a test, as an example of why MessageGeneratorContext is
-    needed.
-    """
-    q = apachepulsar.Backend().create_sub_queue("localhost", queue_name)
+        When an Exception is raised in `with` block, the Queue should:
+        - NOT close (pub) on exit
+        - nack the message
+        - suppress the Exception
+        """
+        q = Queue(self.backend, address="localhost", name=queue_name)
 
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = [b'baz']
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = [0]
+        fake_data = [pickle.dumps('baz-0', protocol=4), pickle.dumps('baz-1', protocol=4)]
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
 
-    excepted = False
-    try:
-        for msg in q.message_generator(propagate_error=False):
-            logging.debug(msg)
-            raise Exception
-    except Exception:
-        excepted = True  # MessageGeneratorContext would've suppressed the Exception
-    assert excepted
+        fake_ids = [0, 1]
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
-    # MessageGeneratorContext would've guaranteed both of these
-    with pytest.raises(AssertionError):
-        mock_ap.return_value.close.assert_not_called()
-    with pytest.raises(AssertionError):
-        mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
 
+        with q.recv() as gen:  # propagate_error=False
+            for i, msg in enumerate(gen):
+                assert i == 0
+                logging.debug(msg)
+                raise TestException
 
-def test_queue_recv_consumer(mock_ap: Any, queue_name: str) -> None:
-    """Test Queue.recv()."""
-    q = Queue(apachepulsar.Backend(), address="localhost", name=queue_name)
+        mock_con.return_value.close.assert_not_called()
+        mock_con.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
 
-    data = [pickle.dumps('baz', protocol=4), None]
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = data
-    ids = [0, None]
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = ids
+    def test_queue_recv_comsumer_exception_1(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test Queue.recv().
 
-    with q.recv() as gen:
-        for msg in gen:
-            logging.debug(msg)
-            assert data
-            assert msg == pickle.loads(data[0])  # type: ignore
+        The Queue.recv()'s context manager should be reusable after
+        suppressing an Exception.
+        """
+        q = Queue(self.backend, address="localhost", name=queue_name)
+        num_msgs = 12
 
-    mock_ap.return_value.close.assert_called()
-    mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with(0)
+        fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]  # type: List[Optional[bytes]]
+        fake_data += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
 
+        fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
+        fake_ids += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
-def test_queue_recv_comsumer_exception_0(mock_ap: Any, queue_name: str) -> None:
-    """Failure-test Queue.recv().
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
 
-    When an Exception is raised in `with` block, the Queue should:
-    - NOT close (pub) on exit
-    - nack the message
-    - suppress the Exception
-    """
-    q = Queue(apachepulsar.Backend(), address="localhost", name=queue_name)
+        g = q.recv()
+        with g as gen:  # propagate_error=False
+            for msg in gen:
+                logging.debug(msg)
+                raise TestException
 
-    fake_data = [pickle.dumps('baz-0', protocol=4), pickle.dumps('baz-1', protocol=4)]
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+        mock_con.return_value.close.assert_not_called()
+        mock_con.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
 
-    fake_ids = [0, 1]
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+        logging.info("Round 2")
 
-    class TestException(Exception):  # pylint: disable=C0115
-        pass
+        with g as gen:  # propagate_error=False
+            mock_con.return_value.subscribe.return_value.acknowledge.assert_not_called()
+            for i, msg in enumerate(gen, start=1):
+                logging.debug(f"{i} :: {msg}")
+                if i > 1:  # see if previous msg was acked
+                    prev_id = (i - 1) * 10
+                    mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(prev_id)
 
-    with q.recv() as gen:  # propagate_error=False
-        for i, msg in enumerate(gen):
-            assert i == 0
-            logging.debug(msg)
-            raise TestException
+            last_id = (num_msgs - 1) * 10
+            mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(last_id)
 
-    mock_ap.return_value.close.assert_not_called()
-    mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
+        mock_con.return_value.close.assert_called()
 
+    def test_queue_recv_comsumer_exception_2(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test Queue.recv().
 
-def test_queue_recv_comsumer_exception_1(mock_ap: Any, queue_name: str) -> None:
-    """Failure-test Queue.recv().
+        Same as test_queue_recv_comsumer_exception_1() but with multiple
+        recv() calls.
+        """
+        q = Queue(self.backend, address="localhost", name=queue_name)
+        num_msgs = 12
 
-    The Queue.recv()'s context manager should be reusable after
-    suppressing an Exception.
-    """
-    q = Queue(apachepulsar.Backend(), address="localhost", name=queue_name)
-    num_msgs = 12
+        fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]  # type: List[Optional[bytes]]
+        fake_data += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
 
-    fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]  # type: List[Optional[bytes]]
-    fake_data += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
+        fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
+        fake_ids += [None]  # signifies end of stream -- not actually a message
+        mock_con.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
 
-    fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
-    fake_ids += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
 
-    class TestException(Exception):  # pylint: disable=C0115
-        pass
+        with q.recv() as gen:  # propagate_error=False
+            for msg in gen:
+                logging.debug(msg)
+                raise TestException
 
-    g = q.recv()
-    with g as gen:  # propagate_error=False
-        for msg in gen:
-            logging.debug(msg)
-            raise TestException
+        mock_con.return_value.close.assert_not_called()
+        mock_con.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
 
-    mock_ap.return_value.close.assert_not_called()
-    mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
+        logging.info("Round 2")
 
-    logging.info("Round 2")
+        with q.recv() as gen:  # propagate_error=False
+            mock_con.return_value.subscribe.return_value.acknowledge.assert_not_called()
+            for i, msg in enumerate(gen, start=1):
+                logging.debug(f"{i} :: {msg}")
+                if i > 1:  # see if previous msg was acked
+                    prev_id = (i - 1) * 10
+                    mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(prev_id)
 
-    with g as gen:  # propagate_error=False
-        mock_ap.return_value.subscribe.return_value.acknowledge.assert_not_called()
-        for i, msg in enumerate(gen, start=1):
-            logging.debug(f"{i} :: {msg}")
-            if i > 1:  # see if previous msg was acked
-                mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
-        mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((num_msgs - 1) * 10)
+            last_id = (num_msgs - 1) * 10
+            mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(last_id)
 
-    mock_ap.return_value.close.assert_called()
-
-
-def test_queue_recv_comsumer_exception_2(mock_ap: Any, queue_name: str) -> None:
-    """Failure-test Queue.recv().
-
-    Same as test_queue_recv_comsumer_exception_1() but with multiple
-    recv() calls.
-    """
-    q = Queue(apachepulsar.Backend(), address="localhost", name=queue_name)
-    num_msgs = 12
-
-    fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]  # type: List[Optional[bytes]]
-    fake_data += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.data.side_effect = fake_data
-
-    fake_ids = [i * 10 for i in range(num_msgs)]  # type: List[Optional[int]]
-    fake_ids += [None]  # signifies end of stream -- not actually a message
-    mock_ap.return_value.subscribe.return_value.receive.return_value.message_id.side_effect = fake_ids
-
-    class TestException(Exception):  # pylint: disable=C0115
-        pass
-
-    with q.recv() as gen:  # propagate_error=False
-        for msg in gen:
-            logging.debug(msg)
-            raise TestException
-
-    mock_ap.return_value.close.assert_not_called()
-    mock_ap.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(0)
-
-    logging.info("Round 2")
-
-    with q.recv() as gen:  # propagate_error=False
-        mock_ap.return_value.subscribe.return_value.acknowledge.assert_not_called()
-        for i, msg in enumerate(gen, start=1):
-            logging.debug(f"{i} :: {msg}")
-            if i > 1:  # see if previous msg was acked
-                mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((i - 1) * 10)
-        mock_ap.return_value.subscribe.return_value.acknowledge.assert_called_with((num_msgs - 1) * 10)
-
-    mock_ap.return_value.close.assert_called()
+        mock_con.return_value.close.assert_called()
