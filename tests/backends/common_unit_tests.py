@@ -98,7 +98,7 @@ class BackendUnitTest:
         """
         raise NotImplementedError()
 
-    def test_message_generator_consumer_exception_0(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_consumer_exception_fail(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test message generator.
 
         Not so much a test, as an example of why MessageGeneratorContext

@@ -1,6 +1,7 @@
 """Unit Tests for RabbitMQ/Pika Backend."""
 
 import logging
+import pickle
 import unittest
 from typing import Any, List, Optional, Tuple
 from unittest.mock import MagicMock
@@ -8,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest  # type: ignore
 
 # local imports
+from MQClient import Queue
 from MQClient.backends import rabbitmq
 
 from .common_unit_tests import BackendUnitTest
@@ -239,4 +241,156 @@ class TestUnitRabbitMQ(BackendUnitTest):
                 mock_con.return_value.channel.return_value.basic_nack.assert_called_with(i * 10)
 
             i += 1
+        mock_con.return_value.channel.return_value.cancel.assert_called()
+
+    def test_message_generator_consumer_exception_fail(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test message generator.
+
+        Not so much a test, as an example of why MessageGeneratorContext
+        is needed.
+        """
+        q = self.backend.create_sub_queue("localhost", queue_name)
+
+        fake_message = (MagicMock(delivery_tag=0), None, b'baz')
+        mock_con.return_value.channel.return_value.consume.return_value = fake_message
+
+        excepted = False
+        try:
+            for msg in q.message_generator(propagate_error=False):
+                logging.debug(msg)
+                raise Exception
+        except Exception:
+            excepted = True  # MessageGeneratorContext would've suppressed the Exception
+        assert excepted
+
+        # MessageGeneratorContext would've guaranteed both of these
+        with pytest.raises(AssertionError):
+            mock_con.return_value.channel.return_value.cancel.assert_not_called()
+        with pytest.raises(AssertionError):
+            mock_con.return_value.channel.return_value.basic_nack.assert_called_with(0)
+
+    def test_queue_recv_consumer(self, mock_con: Any, queue_name: str) -> None:
+        """Test Queue.recv()."""
+        q = Queue(self.backend, address="localhost", name=queue_name)
+
+        fake_messages = [
+            (MagicMock(delivery_tag=0), None, pickle.dumps('baz', protocol=4)),
+            (None, None, None)  # signifies end of stream -- not actually a message
+        ]
+        mock_con.return_value.channel.return_value.consume.return_value = fake_messages
+
+        with q.recv() as gen:
+            for msg in gen:
+                logging.debug(msg)
+                assert msg
+                assert msg == pickle.loads(fake_messages[0][2])  # type: ignore
+
+        mock_con.return_value.channel.return_value.cancel.assert_called()
+        mock_con.return_value.channel.return_value.basic_ack.assert_called_with(0)
+
+    def test_queue_recv_comsumer_exception_0(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test Queue.recv().
+
+        When an Exception is raised in `with` block, the Queue should:
+        - NOT close (pub) on exit
+        - nack the message
+        - suppress the Exception
+        """
+        q = Queue(self.backend, address="localhost", name=queue_name)
+
+        fake_messages = [
+            (MagicMock(delivery_tag=0), None, pickle.dumps('baz-0', protocol=4)),
+            (MagicMock(delivery_tag=1), None, pickle.dumps('baz-1', protocol=4))
+        ]
+        mock_con.return_value.channel.return_value.consume.return_value = fake_messages
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        with q.recv() as gen:  # propagate_error=False
+            for i, msg in enumerate(gen):
+                assert i == 0
+                logging.debug(msg)
+                raise TestException
+
+        mock_con.return_value.channel.return_value.cancel.assert_not_called()
+        mock_con.return_value.channel.return_value.basic_nack.assert_called_with(0)
+
+    def test_queue_recv_comsumer_exception_1(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test Queue.recv().
+
+        The Queue.recv()'s context manager should be reusable after
+        suppressing an Exception.
+        """
+        q = Queue(self.backend, address="localhost", name=queue_name)
+        num_msgs = 12
+
+        fake_messages = [(MagicMock(delivery_tag=i * 10), None, pickle.dumps(f'baz-{i}', protocol=4)) for i in range(num_msgs)]  # type: List[Tuple[Optional[MagicMock], None, Optional[bytes]]]
+        fake_messages += [(None, None, None)]
+        mock_con.return_value.channel.return_value.consume.return_value = fake_messages
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        g = q.recv()
+        with g as gen:  # propagate_error=False
+            for msg in gen:
+                logging.debug(msg)
+                raise TestException
+
+        mock_con.return_value.channel.return_value.cancel.assert_not_called()
+        mock_con.return_value.channel.return_value.basic_nack.assert_called_with(0)
+
+        logging.info("Round 2")
+
+        with g as gen:  # propagate_error=False
+            mock_con.return_value.channel.return_value.basic_ack.assert_not_called()
+            for i, msg in enumerate(gen, start=1):
+                logging.debug(f"{i} :: {msg}")
+                if i > 1:  # see if previous msg was acked
+                    prev_id = (i - 1) * 10
+                    mock_con.return_value.channel.return_value.basic_ack.assert_called_with(prev_id)
+
+            last_id = (num_msgs - 1) * 10
+            mock_con.return_value.channel.return_value.basic_ack.assert_called_with(last_id)
+
+        mock_con.return_value.channel.return_value.cancel.assert_called()
+
+    def test_queue_recv_comsumer_exception_2(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test Queue.recv().
+
+        Same as test_queue_recv_comsumer_exception_1() but with multiple
+        recv() calls.
+        """
+        q = Queue(self.backend, address="localhost", name=queue_name)
+        num_msgs = 12
+
+        fake_messages = [(MagicMock(delivery_tag=i * 10), None, pickle.dumps(f'baz-{i}', protocol=4)) for i in range(num_msgs)]  # type: List[Tuple[Optional[MagicMock], None, Optional[bytes]]]
+        fake_messages += [(None, None, None)]
+        mock_con.return_value.channel.return_value.consume.return_value = fake_messages
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        with q.recv() as gen:  # propagate_error=False
+            for msg in gen:
+                logging.debug(msg)
+                raise TestException
+
+        mock_con.return_value.channel.return_value.cancel.assert_not_called()
+        mock_con.return_value.channel.return_value.basic_nack.assert_called_with(0)
+
+        logging.info("Round 2")
+
+        with q.recv() as gen:  # propagate_error=False
+            mock_con.return_value.channel.return_value.basic_ack.assert_not_called()
+            for i, msg in enumerate(gen, start=1):
+                logging.debug(f"{i} :: {msg}")
+                if i > 1:  # see if previous msg was acked
+                    prev_id = (i - 1) * 10
+                    mock_con.return_value.channel.return_value.basic_ack.assert_called_with(prev_id)
+
+            last_id = (num_msgs - 1) * 10
+            mock_con.return_value.channel.return_value.basic_ack.assert_called_with(last_id)
+
         mock_con.return_value.channel.return_value.cancel.assert_called()

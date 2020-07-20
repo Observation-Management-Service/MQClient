@@ -255,7 +255,7 @@ class TestUnitApachePulsar(BackendUnitTest):
 
         mock_con.return_value.close.assert_called()
 
-    def test_message_generator_consumer_exception_0(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_consumer_exception_fail(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test message generator.
 
         Not so much a test, as an example of why MessageGeneratorContext
@@ -293,7 +293,7 @@ class TestUnitApachePulsar(BackendUnitTest):
         with q.recv() as gen:
             for msg in gen:
                 logging.debug(msg)
-                assert data
+                assert msg
                 assert msg == pickle.loads(data[0])  # type: ignore
 
         mock_con.return_value.close.assert_called()
