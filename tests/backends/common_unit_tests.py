@@ -10,6 +10,7 @@ import pytest  # type: ignore
 # local imports
 from MQClient import Queue
 from MQClient.backend_interface import Backend
+from MQClient.backends import rabbitmq
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -337,6 +338,7 @@ class BackendUnitTest:
 
         logging.info("Round 2")
 
+        # continue where we left off
         with g as gen:  # propagate_error=False
             self._get_mock_ack(mock_con).assert_not_called()
             for i, msg in enumerate(gen, start=1):
@@ -376,7 +378,58 @@ class BackendUnitTest:
 
         logging.info("Round 2")
 
+        # continue where we left off
         with q.recv() as gen:  # propagate_error=False
+            self._get_mock_ack(mock_con).assert_not_called()
+            for i, msg in enumerate(gen, start=1):
+                logging.debug(f"{i} :: {msg}")
+                if i > 1:  # see if previous msg was acked
+                    prev_id = (i - 1) * 10
+                    self._get_mock_ack(mock_con).assert_called_with(prev_id)
+
+            last_id = (num_msgs - 1) * 10
+            self._get_mock_ack(mock_con).assert_called_with(last_id)
+
+        self._get_mock_close(mock_con).assert_called()
+
+    def test_queue_recv_comsumer_exception_3(self, mock_con: Any, queue_name: str) -> None:
+        """Failure-test Queue.recv().
+
+        Same as test_queue_recv_comsumer_exception_2() but with error
+        propagation.
+        """
+        q = Queue(self.backend, address="localhost", name=queue_name)
+        q._propagate_recv_error = True  # pylint: disable=W0212
+        num_msgs = 12
+
+        fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]
+        fake_ids = [i * 10 for i in range(num_msgs)]
+        self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        with pytest.raises(TestException):
+            with q.recv() as gen:  # propagate_error=True
+                for msg in gen:
+                    logging.debug(msg)
+                    raise TestException
+
+        self._get_mock_close(mock_con).assert_called()
+        self._get_mock_nack(mock_con).assert_called_with(0)
+
+        logging.info("Round 2")
+
+        # Hack -- rabbitmq deletes its connection (mock_con) when close()
+        # is called, so we need to re-enqueue messages to avoid getting
+        # the entire original list.
+        # ***Note***: this hack isn't needed in non-mocking tests, see
+        # common_queue_tests.py integration tests #60+.
+        if isinstance(q.backend, rabbitmq.Backend):
+            self._enqueue_mock_messages(mock_con, fake_data[1:], fake_ids[1:])
+
+        # continue where we left off
+        with q.recv() as gen:  # propagate_error=True
             self._get_mock_ack(mock_con).assert_not_called()
             for i, msg in enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")

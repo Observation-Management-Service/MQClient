@@ -1,7 +1,4 @@
-"""Run integration tests for RabbitMQ backend.
-
-Verify basic functionality.
-"""
+"""Run integration tests for RabbitMQ backend."""
 
 # local imports
 from MQClient.backends import rabbitmq

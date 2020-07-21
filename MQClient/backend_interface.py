@@ -126,7 +126,7 @@ class MessageGeneratorContext:
     def __enter__(self) -> 'MessageGeneratorContext':
         """Return instance.
 
-        Triggered with 'as'.
+        Triggered by 'with ... as'.
         """
         logging.debug("in __enter__")
         self.entered = True

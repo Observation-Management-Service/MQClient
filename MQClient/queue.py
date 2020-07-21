@@ -28,6 +28,7 @@ class Queue:
         self._pub_queue = None  # type: Optional[Pub]
         self._sub_queue = None  # type: Optional[Sub]
         self.message_generator_context = None  # type: Optional[MessageGeneratorContext]
+        self._propagate_recv_error = False
 
     @property
     def backend(self) -> Backend:
@@ -120,7 +121,8 @@ class Queue:
 
         This is a generator. It stops when no messages are received
         for `timeout` seconds. If an exception is raised, the message
-        is rejected, but messages continue to be received.
+        is rejected, but messages continue to be received (this is
+        configured by `self._propagate_recv_error`).
 
         Keyword Arguments:
             timeout {int} -- seconds to wait idle before stopping (default: {60})
@@ -132,7 +134,7 @@ class Queue:
             logging.debug("Creating new MessageGeneratorContext instance.")
             self.message_generator_context = MessageGeneratorContext(sub=self.raw_sub_queue,
                                                                      timeout=timeout,
-                                                                     propagate_error=False)
+                                                                     propagate_error=self._propagate_recv_error)
         return self.message_generator_context
 
     @contextlib.contextmanager

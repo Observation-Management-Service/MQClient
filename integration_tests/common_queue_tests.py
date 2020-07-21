@@ -1,7 +1,4 @@
-"""Run integration tests for given backend, on Queue class.
-
-Verify basic functionality.
-"""
+"""Run integration tests for given backend, on Queue class."""
 
 import logging
 from multiprocessing.dummy import Pool as ThreadPool
@@ -356,3 +353,82 @@ class PubSubQueue:
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
             assert data in received_data
+
+    def test_60(self, queue_name: str) -> None:
+        """Test recv() fail and recovery, with one recv() call."""
+        pub = Queue(self.backend, name=queue_name)
+        for d in DATA_LIST:
+            pub.send(d)
+            _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(self.backend, name=queue_name)
+        recv_gen = sub.recv(timeout=1)
+        with recv_gen as gen:
+            for i, d in enumerate(gen):
+                if i == 2:
+                    raise TestException()
+                _log_recv(d)
+                assert d == DATA_LIST[i]
+
+        # continue where we left off
+        with recv_gen as gen:
+            for i, d in enumerate(gen, start=2):
+                _log_recv(d)
+                assert d == DATA_LIST[i]
+
+    def test_61(self, queue_name: str) -> None:
+        """Test recv() fail and recovery, with multiple recv() calls."""
+        pub = Queue(self.backend, name=queue_name)
+        for d in DATA_LIST:
+            pub.send(d)
+            _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(self.backend, name=queue_name)
+        with sub.recv(timeout=1) as gen:
+            for i, d in enumerate(gen):
+                if i == 2:
+                    raise TestException()
+                _log_recv(d)
+                assert d == DATA_LIST[i]
+
+        # continue where we left off
+        with sub.recv(timeout=1) as gen:
+            for i, d in enumerate(gen, start=2):
+                _log_recv(d)
+                assert d == DATA_LIST[i]
+
+    def test_62(self, queue_name: str) -> None:
+        """Test recv() fail and recovery, with error propagation."""
+        pub = Queue(self.backend, name=queue_name)
+        for d in DATA_LIST:
+            pub.send(d)
+            _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(self.backend, name=queue_name)
+        sub._propagate_recv_error = True  # pylint: disable=W0212
+        excepted = False
+        try:
+            with sub.recv(timeout=1) as gen:
+                for i, d in enumerate(gen):
+                    if i == 2:
+                        raise TestException()
+                    _log_recv(d)
+                    assert d == DATA_LIST[i]
+        except TestException:
+            excepted = True
+        assert excepted
+
+        # continue where we left off
+        with sub.recv(timeout=1) as gen:
+            for i, d in enumerate(gen, start=2):
+                _log_recv(d)
+                assert d == DATA_LIST[i]

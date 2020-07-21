@@ -1,7 +1,4 @@
-"""Run integration tests for Apache Pulsar backend.
-
-Verify basic functionality.
-"""
+"""Run integration tests for Apache Pulsar backend."""
 
 # local imports
 from MQClient.backends import apachepulsar
