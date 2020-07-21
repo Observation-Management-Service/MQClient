@@ -115,15 +115,13 @@ class Backend:
 class MessageGeneratorContext:
     """A context manager wrapping backend.message_generator()."""
 
-    RUNTIME_ERROR_CONTEXT_STRING = "'MessageGeneratorContext' object's runtime context has not been entered."
+    RUNTIME_ERROR_CONTEXT_STRING = "'MessageGeneratorContext' object's runtime context has not been entered. Use 'with as' syntax."
 
     def __init__(self, sub: Sub, timeout: int, propagate_error: bool) -> None:
         logging.debug("in __init__")
-        self.sub = sub
-        self.timeout = timeout
-        self.propagate_error = propagate_error
-        self.message_generator = self.sub.message_generator(timeout=self.timeout,
-                                                            propagate_error=self.propagate_error)
+        self.message_generator = sub.message_generator(timeout=timeout,
+                                                       propagate_error=propagate_error)
+        self.entered = False
 
     def __enter__(self) -> 'MessageGeneratorContext':
         """Return instance.
@@ -131,22 +129,23 @@ class MessageGeneratorContext:
         Triggered with 'as'.
         """
         logging.debug("in __enter__")
+        self.entered = True
         return self
 
     def __exit__(self, exc_type: Optional[Type[BaseException]],
                  exc_val: Optional[BaseException],
                  exc_tb: Optional[types.TracebackType]) -> bool:
-        """[summary]
+        """Return `True` to suppress any Exception raised by consumer code.
 
-        Return `True`
+        Return `False` to re-raise/propagate that Exception.
 
         Arguments:
-            exc_type {Optional[BaseException]} -- [description]
-            exc_val {Optional[Type[BaseException]]} -- [description]
-            exc_tb {Optional[types.TracebackType]} -- [description]
+            exc_type {Optional[BaseException]} -- Exception type.
+            exc_val {Optional[Type[BaseException]]} -- Exception object.
+            exc_tb {Optional[types.TracebackType]} -- Exception Traceback.
         """
         logging.debug(f"in __exit__: {exc_type}")
-        if not self.message_generator:
+        if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         # Exception was raised
@@ -163,14 +162,14 @@ class MessageGeneratorContext:
         Triggered with 'for'/'iter()'.
         """
         logging.debug("in __iter__")
-        if not self.message_generator:
+        if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
     def __next__(self) -> Any:
         """Return next Message in queue."""
         logging.debug("in __next__")
-        if not self.message_generator:
+        if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         try:

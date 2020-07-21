@@ -37,9 +37,10 @@ class PubSubQueue:
             pub_sub.send(d)
             _log_send(d)
 
-        for i, d in enumerate(pub_sub.recv(timeout=1)):
-            _log_recv(d)
-            assert d == DATA_LIST[i]
+        with pub_sub.recv(timeout=1) as gen:
+            for i, d in enumerate(gen):
+                _log_recv(d)
+                assert d == DATA_LIST[i]
 
     def test_11(self, queue_name: str) -> None:
         """Test an individual pub and an individual sub."""
@@ -56,9 +57,10 @@ class PubSubQueue:
             pub.send(d)
             _log_send(d)
 
-        for i, d in enumerate(sub.recv(timeout=1)):
-            _log_recv(d)
-            assert d == DATA_LIST[i]
+        with sub.recv(timeout=1) as gen:
+            for i, d in enumerate(gen):
+                _log_recv(d)
+                assert d == DATA_LIST[i]
 
     def test_12(self, queue_name: str) -> None:
         """Failure-test one pub, two subs (one subscribed to wrong queue)."""
@@ -101,7 +103,8 @@ class PubSubQueue:
 
         def recv_thread(_: int) -> List[Any]:
             sub = Queue(self.backend, name=queue_name)
-            recv_data_list = list(sub.recv(timeout=1))
+            with sub.recv(timeout=1) as gen:
+                recv_data_list = list(gen)
             _log_recv_multiple(recv_data_list)
             return recv_data_list
 
@@ -209,7 +212,8 @@ class PubSubQueue:
             _log_send(data)
 
         sub = Queue(self.backend, name=queue_name)
-        received_data = list(sub.recv(timeout=1))
+        with sub.recv(timeout=1) as gen:
+            received_data = list(gen)
         _log_recv_multiple(received_data)
 
         assert len(DATA_LIST) == len(received_data)
@@ -227,7 +231,8 @@ class PubSubQueue:
             _log_send(data)
 
             sub = Queue(self.backend, name=queue_name)
-            received_data = list(sub.recv(timeout=1))
+            with sub.recv(timeout=1) as gen:
+                received_data = list(gen)
             _log_recv_multiple(received_data)
 
             assert len(received_data) == 1
@@ -343,9 +348,10 @@ class PubSubQueue:
         # sub.close() -- no longer needed
 
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)
-        for _, d in enumerate(sub2.recv(timeout=1)):
-            _log_recv(d)
-            received_data.append(d)
+        with sub2.recv(timeout=1) as gen:
+            for _, d in enumerate(gen):
+                _log_recv(d)
+                received_data.append(d)
 
         assert len(DATA_LIST) == len(received_data)
         for data in DATA_LIST:
