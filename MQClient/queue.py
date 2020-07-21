@@ -119,10 +119,19 @@ class Queue:
     def recv(self, timeout: int = 60) -> MessageGeneratorContext:
         """Receive a stream of messages from the queue.
 
-        This is a generator. It stops when no messages are received
-        for `timeout` seconds. If an exception is raised, the message
-        is rejected, but messages continue to be received (this is
-        configured by `self._propagate_recv_error`).
+        This returns a context manager/ generator. It's iterator stops
+        when no messages are received for `timeout` seconds. If an exception
+        is raised, the message is rejected, but messages continue to
+        be received (this is configured by `self._propagate_recv_error`).
+        Multiple calls to `recv()` and/or recycling an instance are both okay,
+        however if the queue has not been closed (e.g. premature termination
+        of the iterator by a consumer-sider raised exception) the original
+        parameters (`timeout`) are reused.
+
+        Example:
+            with queue.recv() as stream:
+                for data in stream:
+                    ...
 
         Keyword Arguments:
             timeout {int} -- seconds to wait idle before stopping (default: {60})
