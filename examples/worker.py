@@ -9,11 +9,12 @@ from MQClient import Queue, backends
 
 def worker(recv_queue: Queue, send_queue: Queue) -> None:
     """Demo example worker."""
-    for data in recv_queue.recv():
-        cmd = data['cmd']
-        out = subprocess.check_output(cmd, shell=True)
-        data['out'] = out.decode('utf-8')
-        send_queue.send(data)
+    with recv_queue.recv() as stream:
+        for data in stream:
+            cmd = data['cmd']
+            out = subprocess.check_output(cmd, shell=True)
+            data['out'] = out.decode('utf-8')
+            send_queue.send(data)
 
 
 if __name__ == '__main__':

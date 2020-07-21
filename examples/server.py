@@ -1,4 +1,5 @@
 """A server sends work out on one queue, and receives results on another."""
+
 import typing
 
 # local imports
@@ -12,9 +13,10 @@ def server(work_queue: Queue, result_queue: Queue) -> None:
         work_queue.send(m)
 
     results = {}
-    for data in result_queue.recv(timeout=5):
-        assert isinstance(data, dict)
-        results[typing.cast(int, data['id'])] = typing.cast(str, data['out'])
+    with result_queue.recv(timeout=5) as stream:
+        for data in stream:
+            assert isinstance(data, dict)
+            results[typing.cast(int, data['id'])] = typing.cast(str, data['out'])
 
     print(results)
     assert len(results) == 100
