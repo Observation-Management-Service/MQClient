@@ -44,6 +44,7 @@ class Pulsar(RawQueue):
             try:
                 self.client.close()
             except Exception as e:  # pylint: disable=W0703
+                # https://github.com/apache/pulsar/issues/3127
                 if str(e) != "Pulsar error: AlreadyClosed":
                     raise
 
@@ -134,9 +135,11 @@ class PulsarSub(Pulsar, Sub):
                 return None
 
             except Exception as e:
-                if str(e) == "Pulsar error: TimeOut":  # pulsar isn't a fan of derived Exceptions
+                # https://github.com/apache/pulsar/issues/3127
+                if str(e) == "Pulsar error: TimeOut":
                     logging.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                     return None
+                # https://github.com/apache/pulsar/issues/3127
                 if str(e) == "Pulsar error: AlreadyClosed":
                     self.close()
                     time.sleep(1)
