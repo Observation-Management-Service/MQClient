@@ -19,6 +19,12 @@ class Pulsar(RawQueue):
     """
 
     def __init__(self, address: str, topic: str) -> None:
+        """Set address, topic, and client.
+
+        Arguments:
+            address {str} -- the pulsar server address, if address doesn't start with 'pulsar', append 'pulsar://'
+            topic {str} -- the name of the topic
+        """
         super().__init__()
         self.address = address
         if not self.address.startswith('pulsar'):
