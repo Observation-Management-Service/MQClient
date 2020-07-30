@@ -1,17 +1,21 @@
-"""
-A worker processes messages from one queue, and sends results on a second queue.
-"""
+"""A worker processes messages from one queue, and sends results on a second
+queue."""
 
 import subprocess
 
-from MQClient import backends, Queue
+# local imports
+from MQClient import Queue, backends
+
 
 def worker(recv_queue: Queue, send_queue: Queue) -> None:
-    for m in recv_queue.recv():
-        cmd = m['cmd']
-        out = subprocess.check_output(cmd, shell=True)
-        m['out'] = out.decode('utf-8')
-        send_queue.send(m)
+    """Demo example worker."""
+    with recv_queue.recv() as stream:
+        for data in stream:
+            cmd = data['cmd']
+            out = subprocess.check_output(cmd, shell=True)
+            data['out'] = out.decode('utf-8')
+            send_queue.send(data)
+
 
 if __name__ == '__main__':
     import argparse
@@ -22,7 +26,8 @@ if __name__ == '__main__':
     parser.add_argument('--prefetch', type=int, default=10, help='input queue prefetch')
     args = parser.parse_args()
 
-    inq = Queue(backends.rabbitmq, args.address, args.in_queue, args.prefetch)
-    outq = Queue(backends.rabbitmq, args.address, args.out_queue)
+    backend = backends.rabbitmq.Backend()
+    inq = Queue(backend, address=args.address, name=args.in_queue, prefetch=args.prefetch)
+    outq = Queue(backend, address=args.address, name=args.out_queue)
 
     worker(inq, outq)

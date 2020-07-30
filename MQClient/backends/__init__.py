@@ -1,4 +1,4 @@
 """Init."""
-from . import pulsar, rabbitmq
+from . import apachepulsar, rabbitmq
 
-__all__ = ["pulsar", "rabbitmq"]
+__all__ = ["apachepulsar", "rabbitmq"]
