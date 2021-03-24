@@ -1,4 +1,24 @@
-import setuptools  # type: ignore
+#!/usr/bin/env python
+"""Setup."""
+
+# fmt:off
+
+import os
+
+import setuptools  # type: ignore[import]
+
+kwargs = {}
+
+current_path = os.path.dirname(os.path.realpath(__file__))
+
+with open(os.path.join(current_path, "MQClient", "__init__.py")) as f:
+    for line in f.readlines():
+        if "__version__" in line:
+            # grab "X.Y.Z" from "__version__ = 'X.Y.Z'" (quote-style insensitive)
+            kwargs["version"] = line.replace('"', "'").split("=")[-1].split("'")[1]
+            break
+    else:
+        raise Exception("cannot find __version__")
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -23,5 +43,6 @@ setuptools.setup(
     extras_require={
         'RabbitMQ': ['pika'],
         'tests': ['pytest', 'pytest-asyncio', 'pytest-flake8', 'pytest-mypy', 'pytest-mock'],
-    }
+    },
+    **kwargs,
 )
