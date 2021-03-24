@@ -25,7 +25,6 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="MQClient",
-    version="0.0.1",
     author="IceCube Developers",
     author_email="developers@icecube.wisc.edu",
     description="Message queue client abstraction",
