@@ -1,11 +1,19 @@
 version: 2
+
 jobs:
+
     test:
         docker:
             - image: circleci/python:3.8
         steps:
             - checkout
-            - run: pip install --user tox && tox
+            - run: |
+                python3 -m virtualenv -p python3 env
+                . env/bin/activate
+                pip install -r requirements.txt
+                pip install .
+                pytest -v
+
     integrate:
         docker:
             - image: circleci/python:3.8
@@ -24,6 +32,7 @@ jobs:
             - run: dockerize -wait tcp://localhost:6650 -timeout 1m # Pulsar
             # - run: dockerize -wait tcp://localhost:8085 -timeout 1m # GCP
             - run: pip install --user tox && tox integration_tests
+
     example_server:
         docker:
             - image: circleci/python:3.8
@@ -47,6 +56,7 @@ jobs:
                 . .tox/py/bin/activate
                 python examples/worker.py &
                 python examples/server.py
+
 workflows:
     version: 2
     build_and_test:
