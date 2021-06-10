@@ -17,6 +17,8 @@ jobs:
             - image: deadtrickster/rabbitmq_prometheus:3.7
             - image: apachepulsar/pulsar:2.5.1
               command: bin/pulsar standalone
+            - image: gcr.io/google.com/cloudsdktool/cloud-sdk:344.0.0-emulators
+              command: gcloud beta emulators pubsub start
         steps:
             - checkout
             - run:
@@ -27,8 +29,10 @@ jobs:
             - run: dockerize -wait tcp://localhost:5672 -timeout 1m # RabbitMQ
             - run: dockerize -wait tcp://localhost:8080 -timeout 1m # Pulsar
             - run: dockerize -wait tcp://localhost:6650 -timeout 1m # Pulsar
-            # - run: dockerize -wait tcp://localhost:8085 -timeout 1m # GCP
-            - run: pip install --user tox && tox integration_tests
+            - run: dockerize -wait tcp://localhost:8085 -timeout 1m # GCP
+            - run: |
+                pip install --user tox
+                tox integration_tests -vv
 
     example_server:
         docker:
@@ -36,6 +40,8 @@ jobs:
             - image: deadtrickster/rabbitmq_prometheus:3.7
             - image: apachepulsar/pulsar:2.5.1
               command: bin/pulsar standalone
+            - image: gcr.io/google.com/cloudsdktool/cloud-sdk:344.0.0-emulators
+              command: gcloud beta emulators pubsub start
         steps:
             - checkout
             - run:
@@ -46,10 +52,10 @@ jobs:
             - run: dockerize -wait tcp://localhost:5672 -timeout 1m # RabbitMQ
             - run: dockerize -wait tcp://localhost:8080 -timeout 1m # Pulsar
             - run: dockerize -wait tcp://localhost:6650 -timeout 1m # Pulsar
-            # - run: dockerize -wait tcp://localhost:8085 -timeout 1m # GCP
+            - run: dockerize -wait tcp://localhost:8085 -timeout 1m # GCP
             - run: |
                 pip install --user tox
-                tox --notest
+                tox --notest -vv
                 . .tox/py/bin/activate
                 python examples/worker.py &
                 python examples/server.py
