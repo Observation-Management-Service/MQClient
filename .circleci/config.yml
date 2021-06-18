@@ -57,8 +57,8 @@ jobs:
                 pip install --user tox
                 tox --notest -vv
                 . .tox/py/bin/activate
-                python examples/worker.py &
-                python examples/server.py
+                python examples/rabbitmq/worker.py &
+                python examples/rabbitmq/server.py
 
 workflows:
     version: 2
