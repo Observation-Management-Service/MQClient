@@ -5,4 +5,4 @@ export PUBSUB_EMULATOR_HOST=localhost:8085
 python publisher.py abc123 create top456
 python subscriber.py abc123 create top456 sub789
 python publisher.py abc123 publish top456
-timeout 10s python subscriber.py abc123 receive sub789
+timeout 10s --preserve-status python subscriber.py abc123 receive sub789
