@@ -20,7 +20,9 @@ with the Cloud Pub/Sub API.
 For more information, see the README.md under /pubsub and the documentation
 at https://cloud.google.com/pubsub/docs.
 
-See https://github.com/googleapis/python-pubsub/tree/master/samples/snippets.
+See: 
+ - https://github.com/googleapis/python-pubsub/tree/master/samples/snippets.
+ - https://cloud.google.com/pubsub/docs/emulator#using_the_emulator
 """
 
 import argparse

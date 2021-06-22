@@ -40,8 +40,8 @@ jobs:
             - image: deadtrickster/rabbitmq_prometheus:3.7
             - image: apachepulsar/pulsar:2.5.1
               command: bin/pulsar standalone
-            - image: gcr.io/google.com/cloudsdktool/cloud-sdk:344.0.0-emulators
-              command: gcloud beta emulators pubsub start
+            # - image: gcr.io/google.com/cloudsdktool/cloud-sdk:344.0.0-emulators
+              # command: gcloud beta emulators pubsub start
         steps:
             - checkout
             - run:
@@ -52,13 +52,17 @@ jobs:
             - run: dockerize -wait tcp://localhost:5672 -timeout 1m # RabbitMQ
             - run: dockerize -wait tcp://localhost:8080 -timeout 1m # Pulsar
             - run: dockerize -wait tcp://localhost:6650 -timeout 1m # Pulsar
-            - run: dockerize -wait tcp://localhost:8085 -timeout 1m # GCP
+            # - run: dockerize -wait tcp://localhost:8085 -timeout 1m # GCP
             - run: |
                 pip install --user tox
                 tox --notest -vv
                 . .tox/py/bin/activate
-                python examples/rabbitmq/worker.py &
-                python examples/rabbitmq/server.py
+                echo "Now RabbitMQ..."
+                ./examples/rabbitmq/run.sh
+                echo "Now GCP..."
+                ./resources/gcp-install.sh
+                cd ./examples/gcp
+                ./run-using-emulator.sh
 
 workflows:
     version: 2
