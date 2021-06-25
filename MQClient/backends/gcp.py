@@ -1,15 +1,12 @@
 """Back-end using GCP."""
 
-# FIXME - THIS IS JUST A COPY OF RABBITMQ
-# TODO - IMPLEMENT GCP STUFF
-
-
 import logging
 import time
 from functools import partial
 from typing import Any, Callable, Generator, Optional
 
-import pika  # type: ignore
+from google.api_core import retry
+from google.cloud import pubsub_v1 as gcp_v1  # pylint: disable=W0611,E0611
 
 from .. import backend_interface
 from ..backend_interface import Message, MessageID, Pub, RawQueue, Sub
@@ -23,30 +20,34 @@ class GCP(RawQueue):
         RawQueue
     """
 
-    def __init__(self, address: str, queue: str) -> None:
+    def __init__(self, endpoint: str, project_id: str, topic_id: str) -> None:
         super().__init__()
-        self.address = address
-        if not self.address.startswith("ampq"):
-            self.address = "amqp://" + self.address
-        self.queue = queue
-        self.connection = None  # type: pika.BlockingConnection
-        self.channel = None  # type: pika.adapters.blocking_connection.BlockingChannel
-        self.consumer_id = None
-        self.prefetch = 1
+        # self.address = address
+        # if not self.address.startswith("ampq"):
+        #     self.address = "amqp://" + self.address
+        # self.queue = queue
+
+        self.project_id, self.topic_id = project_id, topic_id
+        self.push_config = gcp_v1.types.PushConfig(push_endpoint=endpoint)
+
+        # self.connection = None  # type: pika.BlockingConnection
+        # self.channel = None  # type: pika.adapters.blocking_connection.BlockingChannel
+        # self.consumer_id = None
+        # self.prefetch = 1
 
     def connect(self) -> None:
         """Set up connection and channel."""
         super().connect()
-        self.connection = pika.BlockingConnection(
-            pika.connection.URLParameters(self.address)
-        )
-        self.channel = self.connection.channel()
+        # self.connection = pika.BlockingConnection(
+        #     pika.connection.URLParameters(self.address)
+        # )
+        # self.channel = self.connection.channel()
 
     def close(self) -> None:
         """Close connection."""
         super().close()
-        if (self.connection) and (not self.connection.is_closed):
-            self.connection.close()
+        # if (self.connection) and (not self.connection.is_closed):
+        #     self.connection.close()
 
 
 class GCPPub(GCP, Pub):
@@ -63,11 +64,14 @@ class GCPPub(GCP, Pub):
         Turn on delivery confirmations.
         """
         super().connect()
+        self.publisher = gcp_v1.PublisherClient()
+        self.topic_path = self.publisher.topic_path(self.project_id, self.topic_id)
+        topic = self.publisher.create_topic(self.topic_path)
 
-        self.channel.queue_declare(queue=self.queue, durable=False)
-        self.channel.confirm_delivery()
+        # self.channel.queue_declare(queue=self.queue, durable=False)
+        # self.channel.confirm_delivery()
 
-    def send_message(self, msg: bytes) -> None:
+    def send_msg(self, msg: bytes) -> None:
         """Send a message on a queue.
 
         Args:
@@ -77,19 +81,14 @@ class GCPPub(GCP, Pub):
         Returns:
             RawQueue: queue
         """
-        if not self.channel:
-            raise RuntimeError("queue is not connected")
+        if not self.publisher:
+            raise RuntimeError("publisher is not connected")
 
         logging.debug(log_msgs.SENDING_MESSAGE)
-        try_call(
-            self,
-            partial(
-                self.channel.basic_publish,
-                exchange="",
-                routing_key=self.queue,
-                body=msg,
-            ),
-        )
+        try_call(self, partial(self.publisher.publish, self.topic_path, msg))
+        # TODO - call-back? this return a Future:
+        # publish_future.add_done_callback(get_callback(publish_future, data))
+        # futures.wait(publish_futures, return_when=futures.ALL_COMPLETED)
         logging.debug(log_msgs.SENT_MESSAGE)
 
 
@@ -104,8 +103,8 @@ class GCPSub(GCP, Sub):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self.consumer_id = None
-        self.prefetch = 1
+        # self.consumer_id = None
+        # self.prefetch = 1
 
     def connect(self) -> None:
         """Set up connection, channel, and queue.
@@ -114,28 +113,55 @@ class GCPSub(GCP, Sub):
         """
         super().connect()
 
-        self.channel.queue_declare(queue=self.queue, durable=False)
-        self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
-
-    def get_message(self) -> Optional[Message]:
-        """Get a message from a queue."""
-        if not self.channel:
-            raise RuntimeError("queue is not connected")
-
-        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
-        method_frame, _, body = try_call(
-            self, partial(self.channel.basic_get, self.queue)
+        self.subscriber = gcp_v1.SubscriberClient()
+        self.subscription_path = self.subscriber.subscription_path(
+            self.project_id, self.subscription_id
         )
 
-        if method_frame:
-            msg = Message(method_frame.delivery_tag, body)
-            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(msg.msg_id)}).")
-            return msg
+        subscription = self.subscriber.create_subscription(
+            request={
+                "name": self.subscription_path,
+                "topic": self.topic_path,
+                "push_config": self.push_config,
+            }
+        )
 
-        logging.debug(log_msgs.GETMSG_NO_MESSAGE)
-        return None
+        # self.channel.queue_declare(queue=self.queue, durable=False)
+        # self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
 
-    def ack_message(self, msg_id: MessageID) -> None:
+    def close(self) -> None:
+        """Close connection."""
+        super().close()
+        self.subscriber.close()
+
+    def get_msg(self) -> Optional[Message]:
+        """Get a message from a queue."""
+        if not self.subscriber:
+            raise RuntimeError("subscriber is not connected")
+
+        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
+
+        response = self.subscriber.pull(
+            request={"subscription": self.subscription_path, "max_messages": 1},
+            retry=retry.Retry(deadline=300),  # TODO
+        )
+
+        msgs = []
+        for received_message in response.received_messages:
+            logging.debug(
+                f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(received_message.message.data)})."
+            )
+            # received_message.ack_id
+            msgs.append(received_message)
+
+        assert len(msgs) <= 1
+        if msgs:  # pylint:disable=R1705
+            return msgs[0]
+        else:
+            logging.debug(log_msgs.GETMSG_NO_MESSAGE)
+            return None
+
+    def ack_msg(self, message: Any) -> None:  # TODO - figure type of `message`
         """Ack a message from the queue.
 
         Note that GCP acks messages in-order, so acking message
@@ -145,14 +171,18 @@ class GCPSub(GCP, Sub):
             queue (GCPSub): queue object
             msg_id (MessageID): message id
         """
-        if not self.channel:
-            raise RuntimeError("queue is not connected")
+        if not self.subscriber:
+            raise RuntimeError("subscriber is not connected")
+        if not message:
+            raise RuntimeError("there was no message to acknowledge")
 
         logging.debug(log_msgs.ACKING_MESSAGE)
-        try_call(self, partial(self.channel.basic_ack, msg_id))
-        logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
+        try_call(self, partial(message.ack))
+        # NOTE: if this doesn't work, try:
+        # subscriber.acknowledge(request={"subscription": subscription_path, "ack_ids": ack_ids})
+        logging.debug(f"{log_msgs.ACKED_MESSAGE} ({message!r}).")
 
-    def reject_message(self, msg_id: MessageID) -> None:
+    def reject_msg(self, msg_id: MessageID) -> None:
         """Reject (nack) a message from the queue.
 
         Note that GCP acks messages in-order, so nacking message
@@ -162,11 +192,12 @@ class GCPSub(GCP, Sub):
             queue (GCPSub): queue object
             msg_id (MessageID): message id
         """
+        # TODO
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
         logging.debug(log_msgs.NACKING_MESSAGE)
-        try_call(self, partial(self.channel.basic_nack, msg_id))
+        # try_call(self, partial(self.channel.basic_nack, msg_id))
         logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
     def message_generator(
@@ -182,6 +213,7 @@ class GCPSub(GCP, Sub):
             auto_ack {bool} -- Ack each message after successful processing (default: {True})
             propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
+        # TODO - use: streaming_pull_future = subscriber.subscribe(subscription_path, callback=callback)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
@@ -208,7 +240,7 @@ class GCPSub(GCP, Sub):
                 except Exception as e:  # pylint: disable=W0703
                     logging.debug(log_msgs.MSGGEN_DOWNSTREAM_ERROR)
                     if msg:
-                        self.reject_message(msg.msg_id)
+                        self.reject_msg(msg.msg_id)
                     if propagate_error:
                         logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
                         raise
@@ -220,14 +252,14 @@ class GCPSub(GCP, Sub):
                 # consumer requests again, aka next()
                 else:
                     if auto_ack:
-                        self.ack_message(msg.msg_id)
+                        self.ack_msg(msg.msg_id)
                         acked = True
 
         # generator exit (explicit close(), or break in consumer's loop)
         except GeneratorExit:
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXIT)
             if auto_ack and (not acked) and msg:
-                self.ack_message(msg.msg_id)
+                self.ack_msg(msg.msg_id)
                 acked = True
 
         # generator is closed (also, garbage collected)
