@@ -78,7 +78,9 @@ class GCPPub(GCP, Pub):
         super().connect()
         self.publisher = gcp_v1.PublisherClient()
         topic_path = self.publisher.topic_path(self._proj_id, self._topic_id)
+        print(f"{topic_path=}")
         topic = self.publisher.create_topic(topic_path)
+        print(f"Created topic: {topic.name} -- {topic}")
 
         # self.channel.queue_declare(queue=self.queue, durable=False)
         # self.channel.confirm_delivery()
@@ -131,9 +133,8 @@ class GCPSub(GCP, Sub):
 
         # NOTE: From create_subscription()
 
-        publisher = gcp_v1.PublisherClient()
         subscriber = gcp_v1.SubscriberClient()
-        topic_path = publisher.topic_path(self._proj_id, self._topic_id)
+        topic_path = gcp_v1.PublisherClient().topic_path(self._proj_id, self._topic_id)
         print(f"{topic_path=}")
         subscription_path = subscriber.subscription_path(self._proj_id, self._sub_id)
 

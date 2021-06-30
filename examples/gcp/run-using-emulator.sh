@@ -5,13 +5,19 @@ echo $num
 sleep 2
 gcloud beta emulators pubsub start --project="abc${num}" &
 export PUBSUB_EMULATOR_HOST=localhost:8085
+echo "Pub Connect..."
 sleep 2
-python publisher.py "abc${num}" create "top${num}"
+echo "Sub Connect..."
 sleep 10
 echo "another 10..."
 sleep 10
-# python subscriber.py "abc${num}" create "top${num}" "sub${num}"
+# python publisher.py "abc${num}" create "top${num}"
 # sleep 2
+# python subscriber.py "abc${num}" create "top${num}" "sub${num}"
+sleep 2
+echo "Pub Send..."
 python publisher.py "abc${num}" publish "top${num}"
 sleep 200
+sleep 2
+echo "Sub Get..."
 # python subscriber.py "abc${num}" receive "sub${num}" 5.0
