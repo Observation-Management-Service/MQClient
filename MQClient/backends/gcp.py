@@ -140,9 +140,6 @@ class GCPSub(GCP, Sub):
 
         # NOTE: From synchronous_pull()
 
-        # subscriber = gcp_v1.SubscriberClient()
-        # subscription_path = subscriber.subscription_path(self._proj_id, self._sub_id)
-
         # Wrap the subscriber in a 'with' block to automatically call close() to
 
         num_messages: Final[int] = 1
@@ -161,32 +158,22 @@ class GCPSub(GCP, Sub):
             retry=retry.Retry(deadline=300),  # TODO - config timeout?
         )
 
-        ack_ids = []
+        # Get Message(s)
         msgs = []
-        for received_message in response.received_messages:
-            print(f"Received: {received_message.message.data}.")
+        for recvd in response.received_messages:
+            msgs.append(recvd)
+
+        # Process & Return
+        if not msgs:  # NOTE - on timeout -> this will be len=0
+            logging.debug(log_msgs.GETMSG_NO_MESSAGE)
+            return None
+        elif len(msgs) > 1:
+            raise RuntimeError("Received too many messages.")
+        else:  # got 1 message
             logging.debug(
-                f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({received_message.message.data})."
-            )  # TODO
-            ack_ids.append(received_message.ack_id)
-            msgs.append(received_message)  # TODO
-
-        # NOTE - on timeout -> this will be len=0
-        assert len(ack_ids) == 1  # TODO
-        # logging.debug(log_msgs.GETMSG_NO_MESSAGE) # TODO
-
-        # Acknowledges the received messages so they will not be sent again.
-        self.subscriber.acknowledge(
-            # request={"subscription": subscription_path, "ack_ids": ack_ids}
-            subscription=self._sub_path,
-            ack_ids=ack_ids,
-        )
-
-        print(
-            f"Received and acknowledged {len(response.received_messages)} messages from {self._sub_path}."
-        )
-
-        return msgs[0]
+                f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msgs[0].message.data})."
+            )
+            return Message(msgs[0].ack_id, msgs[0].message.data)
         # [END pubsub_subscriber_sync_pull]
 
     def ack_message(self, msg_id: MessageID) -> None:
@@ -195,7 +182,12 @@ class GCPSub(GCP, Sub):
             raise RuntimeError("subscriber is not connected")
 
         logging.debug(log_msgs.ACKING_MESSAGE)
-        # TODO
+        # Acknowledges the received messages so they will not be sent again.
+        self.subscriber.acknowledge(
+            # request={"subscription": subscription_path, "ack_ids": ack_ids}
+            subscription=self._sub_path,
+            ack_ids=[msg_id],
+        )
         logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
     def reject_message(self, msg_id: MessageID) -> None:
