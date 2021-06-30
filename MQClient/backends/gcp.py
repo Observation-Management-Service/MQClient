@@ -5,7 +5,7 @@ import time
 from functools import partial
 from typing import Any, Callable, Final, Generator, Optional
 
-from google.api_core import retry  # type: ignore[import]
+from google.api_core import exceptions, retry  # type: ignore[import]
 from google.cloud import pubsub_v1 as gcp_v1  # type: ignore[import]
 
 from .. import backend_interface
@@ -60,8 +60,11 @@ class GCPPub(GCP, Pub):
         """
         super().connect()
         self.publisher = gcp_v1.PublisherClient()
-        topic = self.publisher.create_topic(self._topic_path)
-        print(f"Created topic: {topic.name} -- {topic}")
+        try:
+            topic = self.publisher.create_topic(self._topic_path)
+            print(f"Created topic: {topic.name} -- {topic}")
+        except exceptions.AlreadyExists:
+            print(f"Topic already exists: {self._topic_path}")
 
     def send_message(self, msg: bytes) -> None:
         """Send a message on a queue."""
@@ -86,7 +89,7 @@ class GCPSub(GCP, Sub):
     def __init__(
         self, endpoint: str, project_id: str, topic_id: str, subscription_id: str
     ):
-        super().__init__(endpoint, project_id, topic_id, subscription_id)
+        super().__init__(endpoint, project_id, topic_id)
 
         self.subscriber: Optional[gcp_v1.SubscriberClient] = None
 
@@ -119,11 +122,13 @@ class GCPSub(GCP, Sub):
         # TODO - https://github.com/googleapis/python-pubsub/issues/182#issuecomment-690951537
         # subscription = subscriber.create_subscription(sub_path, self._topic_path)
         # NOTE - not auto-closing `subscriber`
-        subscription = self.subscriber.create_subscription(
-            self._sub_path, self._topic_path
-        )
-
-        print(f"Subscription created: {subscription}")
+        try:
+            subscription = self.subscriber.create_subscription(
+                self._sub_path, self._topic_path
+            )
+            print(f"Subscription created: {subscription}")
+        except exceptions.AlreadyExists:
+            print(f"Subscription already exists: {self._sub_path}")
         # [END pubsub_create_pull_subscription]
 
     def close(self) -> None:
@@ -273,11 +278,11 @@ class Backend(backend_interface.Backend):
     """
 
     # NOTE - this could be an enviro var, but it is always constant across all members
-    PROJECT_ID = "WIPAC-GCP-PROJECT-ID"
+    PROJECT_ID = "i3-gcp-proj"
 
-    # NOTE - making unique subscription ids would create independent (but identical) queues
+    # NOTE - making unique subscription ids would create independent (but identical?) queues
     # See https://thecloudgirl.dev/images/pubsub.jpg
-    SUBSCRIPTION_ID = "WIPAC-GCP-SUBSCRIPTION-ID"
+    SUBSCRIPTION_ID = "i3-gcp-sub"
 
     @staticmethod
     def create_pub_queue(address: str, name: str) -> GCPPub:
