@@ -3,10 +3,10 @@
 import logging
 import time
 from functools import partial
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Callable, Final, Generator, Optional
 
-from google.api_core import retry
-from google.cloud import pubsub_v1 as gcp_v1  # pylint: disable=W0611,E0611
+from google.api_core import retry  # type: ignore[import]
+from google.cloud import pubsub_v1 as gcp_v1  # type: ignore[import]
 
 from .. import backend_interface
 from ..backend_interface import Message, MessageID, Pub, RawQueue, Sub
@@ -20,15 +20,21 @@ class GCP(RawQueue):
         RawQueue
     """
 
-    def __init__(self, endpoint: str, project_id: str, topic_id: str) -> None:
+    def __init__(
+        self, endpoint: str, project_id: str, topic_id: str, subscription_id: str
+    ) -> None:
         super().__init__()
+
         # self.address = address
         # if not self.address.startswith("ampq"):
         #     self.address = "amqp://" + self.address
         # self.queue = queue
 
-        self.project_id, self.topic_id = project_id, topic_id
-        self.push_config = gcp_v1.types.PushConfig(push_endpoint=endpoint)
+        self._proj_id = project_id
+        self._topic_id = topic_id
+        self._sub_id = subscription_id
+
+        self._push_config = gcp_v1.types.PushConfig(push_endpoint=endpoint)
 
         # self.connection = None  # type: pika.BlockingConnection
         # self.channel = None  # type: pika.adapters.blocking_connection.BlockingChannel
@@ -58,6 +64,12 @@ class GCPPub(GCP, Pub):
         Pub
     """
 
+    def __init__(
+        self, endpoint: str, project_id: str, topic_id: str, subscription_id: str
+    ):
+        super().__init__(endpoint, project_id, topic_id, subscription_id)
+        self.publisher: Optional[gcp_v1.PublisherClient] = None
+
     def connect(self) -> None:
         """Set up connection, channel, and queue.
 
@@ -65,8 +77,8 @@ class GCPPub(GCP, Pub):
         """
         super().connect()
         self.publisher = gcp_v1.PublisherClient()
-        self.topic_path = self.publisher.topic_path(self.project_id, self.topic_id)
-        topic = self.publisher.create_topic(self.topic_path)
+        topic_path = self.publisher.topic_path(self._proj_id, self._topic_id)
+        topic = self.publisher.create_topic(topic_path)
 
         # self.channel.queue_declare(queue=self.queue, durable=False)
         # self.channel.confirm_delivery()
@@ -100,9 +112,13 @@ class GCPSub(GCP, Sub):
         Sub
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
+    def __init__(
+        self, endpoint: str, project_id: str, topic_id: str, subscription_id: str
+    ):
+        super().__init__(endpoint, project_id, topic_id, subscription_id)
+        self._sub_path: Optional[str] = None
+        # self.subscriber: Optional[gcp_v1.SubscriberClient] = None
+        print(f"{project_id=} {topic_id=} {subscription_id=}")
         # self.consumer_id = None
         # self.prefetch = 1
 
@@ -113,53 +129,83 @@ class GCPSub(GCP, Sub):
         """
         super().connect()
 
-        self.subscriber = gcp_v1.SubscriberClient()
-        self.subscription_path = self.subscriber.subscription_path(
-            self.project_id, self.subscription_id
-        )
+        # NOTE: From create_subscription()
 
-        subscription = self.subscriber.create_subscription(
-            request={
-                "name": self.subscription_path,
-                "topic": self.topic_path,
-                "push_config": self.push_config,
-            }
-        )
+        publisher = gcp_v1.PublisherClient()
+        subscriber = gcp_v1.SubscriberClient()
+        topic_path = publisher.topic_path(self._proj_id, self._topic_id)
+        print(f"{topic_path=}")
+        subscription_path = subscriber.subscription_path(self._proj_id, self._sub_id)
 
-        # self.channel.queue_declare(queue=self.queue, durable=False)
-        # self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
+        # Wrap the subscriber in a 'with' block to automatically call close() to
+        # close the underlying gRPC channel when done.
+        with subscriber:
+            # subscription = subscriber.create_subscription(
+            #     request={"name": subscription_path, "topic": topic_path}
+            # )
+            # TODO - https://github.com/googleapis/python-pubsub/issues/182#issuecomment-690951537
+            subscription = subscriber.create_subscription(subscription_path, topic_path)
+
+        print(f"Subscription created: {subscription}")
+        # [END pubsub_create_pull_subscription]
 
     def close(self) -> None:
         """Close connection."""
         super().close()
-        self.subscriber.close()
+        # if self.subscriber:
+        # self.subscriber.close()
 
     def get_msg(self) -> Optional[Message]:
         """Get a message from a queue."""
-        if not self.subscriber:
-            raise RuntimeError("subscriber is not connected")
-
+        # if not self.subscriber:
+        # raise RuntimeError("subscriber is not connected")
         logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
 
-        response = self.subscriber.pull(
-            request={"subscription": self.subscription_path, "max_messages": 1},
-            retry=retry.Retry(deadline=300),  # TODO
-        )
+        # NOTE: From synchronous_pull()
 
-        msgs = []
-        for received_message in response.received_messages:
-            logging.debug(
-                f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(received_message.message.data)})."
+        subscriber = gcp_v1.SubscriberClient()
+        subscription_path = subscriber.subscription_path(self._proj_id, self._sub_id)
+
+        # Wrap the subscriber in a 'with' block to automatically call close() to
+
+        num_messages: Final[int] = 1
+
+        # close the underlying gRPC channel when done.
+        with subscriber:
+            # The subscriber pulls a specific number of messages. The actual
+            # number of messages pulled may be smaller than max_messages.
+            response = subscriber.pull(
+                request={
+                    "subscription": subscription_path,
+                    "max_messages": num_messages,
+                },
+                retry=retry.Retry(deadline=300),
             )
-            # received_message.ack_id
-            msgs.append(received_message)
 
-        assert len(msgs) <= 1
-        if msgs:  # pylint:disable=R1705
-            return msgs[0]
-        else:
-            logging.debug(log_msgs.GETMSG_NO_MESSAGE)
-            return None
+            ack_ids = []
+            msgs = []
+            for received_message in response.received_messages:
+                print(f"Received: {received_message.message.data}.")
+                logging.debug(
+                    f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(received_message.message.data)})."
+                )  # TODO
+                ack_ids.append(received_message.ack_id)
+                msgs.append(received_message)  # TODO
+
+            assert len(ack_ids) == 1  # TODO
+            # logging.debug(log_msgs.GETMSG_NO_MESSAGE) # TODO
+
+            # Acknowledges the received messages so they will not be sent again.
+            subscriber.acknowledge(
+                request={"subscription": subscription_path, "ack_ids": ack_ids}
+            )
+
+            print(
+                f"Received and acknowledged {len(response.received_messages)} messages from {subscription_path}."
+            )
+
+        return msgs[0]
+        # [END pubsub_subscriber_sync_pull]
 
     def ack_msg(self, message: Any) -> None:  # TODO - figure type of `message`
         """Ack a message from the queue.
@@ -171,6 +217,7 @@ class GCPSub(GCP, Sub):
             queue (GCPSub): queue object
             msg_id (MessageID): message id
         """
+        # FIXME / TODO
         if not self.subscriber:
             raise RuntimeError("subscriber is not connected")
         if not message:
@@ -192,7 +239,7 @@ class GCPSub(GCP, Sub):
             queue (GCPSub): queue object
             msg_id (MessageID): message id
         """
-        # TODO
+        # FIXME / TODO
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
@@ -214,6 +261,7 @@ class GCPSub(GCP, Sub):
             propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
         # TODO - use: streaming_pull_future = subscriber.subscribe(subscription_path, callback=callback)
+        # FIXME / TODO
         if not self.channel:
             raise RuntimeError("queue is not connected")
 

@@ -25,6 +25,8 @@ See:
  - https://cloud.google.com/pubsub/docs/emulator#using_the_emulator
 """
 
+# pylint: disable=import-outside-toplevel
+
 import argparse
 import os
 
@@ -386,6 +388,7 @@ def receive_messages(project_id, subscription_id, timeout=None):
     # [START pubsub_subscriber_async_pull]
     # [START pubsub_quickstart_subscriber]
     from concurrent.futures import TimeoutError
+
     from google.cloud import pubsub_v1
 
     # TODO(developer)
@@ -423,6 +426,7 @@ def receive_messages_with_custom_attributes(project_id, subscription_id, timeout
     """Receives messages from a pull subscription."""
     # [START pubsub_subscriber_async_pull_custom_attributes]
     from concurrent.futures import TimeoutError
+
     from google.cloud import pubsub_v1
 
     # TODO(developer)
@@ -462,6 +466,7 @@ def receive_messages_with_flow_control(project_id, subscription_id, timeout=None
     """Receives messages from a pull subscription with flow control."""
     # [START pubsub_subscriber_flow_settings]
     from concurrent.futures import TimeoutError
+
     from google.cloud import pubsub_v1
 
     # TODO(developer)
@@ -502,6 +507,7 @@ def receive_messages_with_blocking_shutdown(project_id, subscription_id, timeout
     # [START pubsub_subscriber_blocking_shutdown]
     import time
     from concurrent.futures import TimeoutError
+
     from google.cloud import pubsub_v1
 
     # TODO(developer)
@@ -693,6 +699,7 @@ def listen_for_errors(project_id, subscription_id, timeout=None):
 def receive_messages_with_delivery_attempts(project_id, subscription_id, timeout=None):
     # [START pubsub_dead_letter_delivery_attempt]
     from concurrent.futures import TimeoutError
+
     from google.cloud import pubsub_v1
 
     # TODO(developer)
