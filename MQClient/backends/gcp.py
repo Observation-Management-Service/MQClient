@@ -99,7 +99,12 @@ class GCPPub(GCP, Pub):
             raise RuntimeError("publisher is not connected")
 
         logging.debug(log_msgs.SENDING_MESSAGE)
-        try_call(self, partial(self.publisher.publish, self.topic_path, msg))
+        # try_call(self, partial(self.publisher.publish, self.topic_path, msg))
+
+        topic_path = self.publisher.topic_path(self._proj_id, self._topic_id)
+        future = self.publisher.publish(topic_path, msg)
+        print(f"{future.result()=}")
+
         # TODO - call-back? this return a Future:
         # publish_future.add_done_callback(get_callback(publish_future, data))
         # futures.wait(publish_futures, return_when=futures.ALL_COMPLETED)
