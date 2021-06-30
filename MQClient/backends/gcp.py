@@ -42,8 +42,6 @@ class GCP(RawQueue):
     def close(self) -> None:
         """Close connection."""
         super().close()
-        # if (self.connection) and (not self.connection.is_closed):
-        #     self.connection.close()
 
 
 class GCPPub(GCP, Pub):
@@ -109,17 +107,21 @@ class GCPSub(GCP, Sub):
 
         # NOTE: From create_subscription()
 
-        subscriber = gcp_v1.SubscriberClient()
-        sub_path = subscriber.subscription_path(self._proj_id, self._sub_id)
+        self.subscriber = gcp_v1.SubscriberClient()
+        self._sub_path = self.subscriber.subscription_path(self._proj_id, self._sub_id)
 
         # Wrap the subscriber in a 'with' block to automatically call close() to
         # close the underlying gRPC channel when done.
-        with subscriber:
-            # subscription = subscriber.create_subscription(
-            #     request={"name": subscription_path, "topic": topic_path}
-            # )
-            # TODO - https://github.com/googleapis/python-pubsub/issues/182#issuecomment-690951537
-            subscription = subscriber.create_subscription(sub_path, self._topic_path)
+        # with subscriber:
+        # subscription = subscriber.create_subscription(
+        #     request={"name": subscription_path, "topic": topic_path}
+        # )
+        # TODO - https://github.com/googleapis/python-pubsub/issues/182#issuecomment-690951537
+        # subscription = subscriber.create_subscription(sub_path, self._topic_path)
+        # NOTE - not auto-closing `subscriber`
+        subscription = self.subscriber.create_subscription(
+            self._sub_path, self._topic_path
+        )
 
         print(f"Subscription created: {subscription}")
         # [END pubsub_create_pull_subscription]
@@ -127,8 +129,8 @@ class GCPSub(GCP, Sub):
     def close(self) -> None:
         """Close connection."""
         super().close()
-        # if self.subscriber:
-        # self.subscriber.close()
+        if self.subscriber:
+            self.subscriber.close()
 
     def get_message(self) -> Optional[Message]:
         """Get a message from a queue."""
@@ -138,77 +140,71 @@ class GCPSub(GCP, Sub):
 
         # NOTE: From synchronous_pull()
 
-        subscriber = gcp_v1.SubscriberClient()
-        subscription_path = subscriber.subscription_path(self._proj_id, self._sub_id)
+        # subscriber = gcp_v1.SubscriberClient()
+        # subscription_path = subscriber.subscription_path(self._proj_id, self._sub_id)
 
         # Wrap the subscriber in a 'with' block to automatically call close() to
 
         num_messages: Final[int] = 1
 
         # close the underlying gRPC channel when done.
-        with subscriber:
-            # The subscriber pulls a specific number of messages. The actual
-            # number of messages pulled may be smaller than max_messages.
-            response = subscriber.pull(
-                # request={
-                #     "subscription": subscription_path,
-                #     "max_messages": num_messages,
-                # }, # TODO
-                subscription=subscription_path,
-                max_messages=num_messages,
-                retry=retry.Retry(deadline=300),  # TODO - config timeout?
-            )
+        # with subscriber: # NOTE - not auto-closing `subscriber`
+        # The subscriber pulls a specific number of messages. The actual
+        # number of messages pulled may be smaller than max_messages.
+        response = self.subscriber.pull(
+            # request={
+            #     "subscription": subscription_path,
+            #     "max_messages": num_messages,
+            # }, # TODO
+            subscription=self._sub_path,
+            max_messages=num_messages,  # TODO - is this prefetch? (see above)
+            retry=retry.Retry(deadline=300),  # TODO - config timeout?
+        )
 
-            ack_ids = []
-            msgs = []
-            for received_message in response.received_messages:
-                print(f"Received: {received_message.message.data}.")
-                logging.debug(
-                    f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({received_message.message.data})."
-                )  # TODO
-                ack_ids.append(received_message.ack_id)
-                msgs.append(received_message)  # TODO
+        ack_ids = []
+        msgs = []
+        for received_message in response.received_messages:
+            print(f"Received: {received_message.message.data}.")
+            logging.debug(
+                f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({received_message.message.data})."
+            )  # TODO
+            ack_ids.append(received_message.ack_id)
+            msgs.append(received_message)  # TODO
 
-            # NOTE - on timeout -> this will be len=0
-            assert len(ack_ids) == 1  # TODO
-            # logging.debug(log_msgs.GETMSG_NO_MESSAGE) # TODO
+        # NOTE - on timeout -> this will be len=0
+        assert len(ack_ids) == 1  # TODO
+        # logging.debug(log_msgs.GETMSG_NO_MESSAGE) # TODO
 
-            # Acknowledges the received messages so they will not be sent again.
-            subscriber.acknowledge(
-                # request={"subscription": subscription_path, "ack_ids": ack_ids}
-                subscription=subscription_path,
-                ack_ids=ack_ids,
-            )
+        # Acknowledges the received messages so they will not be sent again.
+        self.subscriber.acknowledge(
+            # request={"subscription": subscription_path, "ack_ids": ack_ids}
+            subscription=self._sub_path,
+            ack_ids=ack_ids,
+        )
 
-            print(
-                f"Received and acknowledged {len(response.received_messages)} messages from {subscription_path}."
-            )
+        print(
+            f"Received and acknowledged {len(response.received_messages)} messages from {self._sub_path}."
+        )
 
         return msgs[0]
         # [END pubsub_subscriber_sync_pull]
 
     def ack_message(self, msg_id: MessageID) -> None:
         """Ack a message from the queue."""
-        if not self.consumer:
-            raise RuntimeError("queue is not connected")
+        if not self.subscriber:
+            raise RuntimeError("subscriber is not connected")
 
         logging.debug(log_msgs.ACKING_MESSAGE)
-        if isinstance(msg_id, bytes):
-            self.consumer.acknowledge(pulsar.MessageId.deserialize(msg_id))
-        else:
-            self.consumer.acknowledge(msg_id)
+        # TODO
         logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
     def reject_message(self, msg_id: MessageID) -> None:
         """Reject (nack) a message from the queue."""
-        if not self.consumer:
-            raise RuntimeError("queue is not connected")
+        if not self.subscriber:
+            raise RuntimeError("subscriber is not connected")
 
         logging.debug(log_msgs.NACKING_MESSAGE)
-        if isinstance(msg_id, bytes):
-            self.consumer.negative_acknowledge(pulsar.MessageId.deserialize(msg_id))
-        else:
-            self.consumer.negative_acknowledge(msg_id)
+        # TODO
         logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
     def message_generator(
@@ -224,8 +220,9 @@ class GCPSub(GCP, Sub):
             auto_ack {bool} -- Ack each message after successful processing (default: {True})
             propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
-        if not self.consumer:
-            raise RuntimeError("queue is not connected")
+        # TODO/FIXME
+        if not self.subscriber:
+            raise RuntimeError("subscriber is not connected")
 
         msg = None
         acked = False
