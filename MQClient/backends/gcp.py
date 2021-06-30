@@ -20,13 +20,10 @@ class GCP(RawQueue):
         RawQueue
     """
 
-    def __init__(
-        self, endpoint: str, project_id: str, topic_id: str, subscription_id: str
-    ) -> None:
+    def __init__(self, endpoint: str, project_id: str, topic_id: str) -> None:
         super().__init__()
 
         self._proj_id = project_id
-        self._sub_id = subscription_id
 
         self._push_config = gcp_v1.types.PushConfig(push_endpoint=endpoint)
         # self.prefetch = 1
@@ -52,10 +49,8 @@ class GCPPub(GCP, Pub):
         Pub
     """
 
-    def __init__(
-        self, endpoint: str, project_id: str, topic_id: str, subscription_id: str
-    ):
-        super().__init__(endpoint, project_id, topic_id, subscription_id)
+    def __init__(self, endpoint: str, project_id: str, topic_id: str):
+        super().__init__(endpoint, project_id, topic_id)
         self.publisher: Optional[gcp_v1.PublisherClient] = None
 
     def connect(self) -> None:
@@ -92,9 +87,14 @@ class GCPSub(GCP, Sub):
         self, endpoint: str, project_id: str, topic_id: str, subscription_id: str
     ):
         super().__init__(endpoint, project_id, topic_id, subscription_id)
+
+        self.subscriber: Optional[gcp_v1.SubscriberClient] = None
+
         self._sub_path: Optional[str] = None
-        # self.subscriber: Optional[gcp_v1.SubscriberClient] = None
+        self._sub_id = subscription_id
+
         print(f"{project_id=} {topic_id=} {subscription_id=}")
+
         # self.consumer_id = None
         # self.prefetch = 1
 
@@ -134,8 +134,9 @@ class GCPSub(GCP, Sub):
 
     def get_message(self) -> Optional[Message]:
         """Get a message from a queue."""
-        # if not self.subscriber:
-        # raise RuntimeError("subscriber is not connected")
+        if not self.subscriber:
+            raise RuntimeError("subscriber is not connected")
+
         logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
 
         # NOTE: From synchronous_pull()
@@ -271,17 +272,24 @@ class Backend(backend_interface.Backend):
         Backend
     """
 
+    # NOTE - this could be an enviro var, but it is always constant across all members
+    PROJECT_ID = "WIPAC-GCP-PROJECT-ID"
+
+    # NOTE - making unique subscription ids would create independent (but identical) queues
+    # See https://thecloudgirl.dev/images/pubsub.jpg
+    SUBSCRIPTION_ID = "WIPAC-GCP-SUBSCRIPTION-ID"
+
     @staticmethod
     def create_pub_queue(address: str, name: str) -> GCPPub:
         """Create a publishing queue."""
-        q = GCPPub(address, name)
+        q = GCPPub(address, Backend.PROJECT_ID, name)
         q.connect()
         return q
 
     @staticmethod
     def create_sub_queue(address: str, name: str, prefetch: int = 1) -> GCPSub:
         """Create a subscription queue."""
-        q = GCPSub(address, name)
+        q = GCPSub(address, Backend.PROJECT_ID, name, Backend.SUBSCRIPTION_ID)
         # q.prefetch = prefetch
         q.connect()
         return q
