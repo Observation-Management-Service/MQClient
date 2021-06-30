@@ -175,10 +175,12 @@ class GCPSub(GCP, Sub):
             # The subscriber pulls a specific number of messages. The actual
             # number of messages pulled may be smaller than max_messages.
             response = subscriber.pull(
-                request={
-                    "subscription": subscription_path,
-                    "max_messages": num_messages,
-                },
+                # request={
+                #     "subscription": subscription_path,
+                #     "max_messages": num_messages,
+                # }, # TODO
+                subscription=subscription_path,
+                max_messages=num_messages,
                 retry=retry.Retry(deadline=300),
             )
 
@@ -187,17 +189,20 @@ class GCPSub(GCP, Sub):
             for received_message in response.received_messages:
                 print(f"Received: {received_message.message.data}.")
                 logging.debug(
-                    f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(received_message.message.data)})."
+                    f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({received_message.message.data})."
                 )  # TODO
                 ack_ids.append(received_message.ack_id)
                 msgs.append(received_message)  # TODO
 
+            # NOTE - on timeout -> this will be len=0
             assert len(ack_ids) == 1  # TODO
             # logging.debug(log_msgs.GETMSG_NO_MESSAGE) # TODO
 
             # Acknowledges the received messages so they will not be sent again.
             subscriber.acknowledge(
-                request={"subscription": subscription_path, "ack_ids": ack_ids}
+                # request={"subscription": subscription_path, "ack_ids": ack_ids}
+                subscription=subscription_path,
+                ack_ids=ack_ids,
             )
 
             print(
