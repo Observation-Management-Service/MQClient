@@ -7,7 +7,7 @@ from typing import Generator, Optional
 import pulsar  # type: ignore
 
 from .. import backend_interface
-from ..backend_interface import Message, MessageID, Pub, RawQueue, Sub
+from ..backend_interface import GET_MSG_TIMEOUT, Message, MessageID, Pub, RawQueue, Sub
 from . import log_msgs
 
 
@@ -27,8 +27,8 @@ class Pulsar(RawQueue):
         """
         super().__init__()
         self.address = address
-        if not self.address.startswith('pulsar'):
-            self.address = 'pulsar://' + self.address
+        if not self.address.startswith("pulsar"):
+            self.address = "pulsar://" + self.address
         self.topic = topic
         self.client = None  # type: pulsar.Client
 
@@ -87,18 +87,23 @@ class PulsarSub(Pulsar, Sub):
     def __init__(self, address: str, topic: str) -> None:
         super().__init__(address, topic)
         self.consumer = None  # type: pulsar.Consumer
-        self.subscription_name = f'{self.topic}-subscription'  # single shared subscription
+
+        # single shared subscription # TODO - move out to Backend class, like GCP does
+        self.subscription_name = f"{self.topic}-subscription"
+
         self.prefetch = 1
 
     def connect(self) -> None:
         """Connect to subscriber."""
         super().connect()
-        self.consumer = self.client.subscribe(self.topic,
-                                              self.subscription_name,
-                                              receiver_queue_size=self.prefetch,
-                                              consumer_type=pulsar.ConsumerType.Shared,
-                                              initial_position=pulsar.InitialPosition.Earliest,
-                                              negative_ack_redelivery_delay_ms=0)
+        self.consumer = self.client.subscribe(
+            self.topic,
+            self.subscription_name,
+            receiver_queue_size=self.prefetch,
+            consumer_type=pulsar.ConsumerType.Shared,
+            initial_position=pulsar.InitialPosition.Earliest,
+            negative_ack_redelivery_delay_ms=0,
+        )
 
     def close(self) -> None:
         """Close client and redeliver any unacknowledged messages."""
@@ -106,7 +111,26 @@ class PulsarSub(Pulsar, Sub):
             self.consumer.redeliver_unacknowledged_messages()
         super().close()
 
-    def get_message(self, timeout_millis: int = 100) -> Optional[Message]:
+    @staticmethod
+    def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
+        msg: pulsar.Message
+    ) -> Optional[Message]:
+        """Transform Puslar-Message to Message type."""
+        id_, data = msg.message_id(), msg.data()
+
+        if id_ is None or data is None:  # message_id may be 0; data may be b''
+            return None
+
+        # Need to serialize id? (message_id.serialize() -> bytes)
+        if isinstance(id_, pulsar._pulsar.MessageId):  # pylint: disable=I1101,W0212
+            return Message(id_.serialize(), data)
+        # Send original data
+        else:
+            return Message(id_, data)
+
+    def get_message(
+        self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
+    ) -> Optional[Message]:
         """Get a single message from a queue.
 
         To endlessly block until a message is available, set
@@ -118,21 +142,21 @@ class PulsarSub(Pulsar, Sub):
         logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         for i in range(3):
             if i > 0:
-                logging.debug(f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})...")
+                logging.debug(
+                    f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
+                )
 
             try:
-                msg = self.consumer.receive(timeout_millis=timeout_millis)
+                recvd = self.consumer.receive(timeout_millis=timeout_millis)
+                msg = PulsarSub._to_message(recvd)
                 if msg:
-                    message_id, data = msg.message_id(), msg.data()
-                    if (message_id is not None) and (data is not None):  # message_id may be 0; data may be b''
-                        if isinstance(message_id, pulsar._pulsar.MessageId):  # pylint: disable=I1101,W0212
-                            _id = message_id.serialize()  # message_id.serialize() -> bytes
-                            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({_id!r}).")
-                            return Message(_id, data)
-                        logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({message_id}).")
-                        return Message(message_id, data)
-                logging.debug(log_msgs.GETMSG_NO_MESSAGE)
-                return None
+                    logging.debug(
+                        f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r})."
+                    )
+                    return msg
+                else:
+                    logging.debug(log_msgs.GETMSG_NO_MESSAGE)
+                    return None
 
             except Exception as e:
                 # https://github.com/apache/pulsar/issues/3127
@@ -145,11 +169,13 @@ class PulsarSub(Pulsar, Sub):
                     time.sleep(1)
                     self.connect()
                     continue
-                logging.debug(f"{log_msgs.GETMSG_RAISE_OTHER_ERROR} ({e.__class__.__name__}).")
+                logging.debug(
+                    f"{log_msgs.GETMSG_RAISE_OTHER_ERROR} ({e.__class__.__name__})."
+                )
                 raise
 
         logging.debug(log_msgs.GETMSG_CONNECTION_ERROR_MAX_RETRIES)
-        raise Exception('Pulsar connection error')
+        raise Exception("Pulsar connection error")
 
     def ack_message(self, msg_id: MessageID) -> None:
         """Ack a message from the queue."""
@@ -175,8 +201,9 @@ class PulsarSub(Pulsar, Sub):
             self.consumer.negative_acknowledge(msg_id)
         logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
-    def message_generator(self, timeout: int = 60, auto_ack: bool = True,
-                          propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
+    def message_generator(
+        self, timeout: int = 60, auto_ack: bool = True, propagate_error: bool = True
+    ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
         Generate messages with variable timeout. Close instance on exit and error.
@@ -214,7 +241,10 @@ class PulsarSub(Pulsar, Sub):
                     if propagate_error:
                         logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
                         raise
-                    logging.warning(f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.", exc_info=True)
+                    logging.warning(
+                        f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.",
+                        exc_info=True,
+                    )
                     yield None
                 # consumer requests again, aka next()
                 else:
@@ -245,14 +275,14 @@ class Backend(backend_interface.Backend):
     @staticmethod
     def create_pub_queue(address: str, name: str) -> PulsarPub:
         """Create a publishing queue."""
-        q = PulsarPub(address, name)
+        q = PulsarPub(address, name)  # pylint: disable=invalid-name
         q.connect()
         return q
 
     @staticmethod
     def create_sub_queue(address: str, name: str, prefetch: int = 1) -> PulsarSub:
         """Create a subscription queue."""
-        q = PulsarSub(address, name)
+        q = PulsarSub(address, name)  # pylint: disable=invalid-name
         q.prefetch = prefetch
         q.connect()
         return q

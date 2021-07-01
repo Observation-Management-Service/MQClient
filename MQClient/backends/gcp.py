@@ -3,13 +3,13 @@
 import logging
 import time
 from functools import partial
-from typing import Any, Callable, Final, Generator, Optional
+from typing import Any, Callable, Final, Generator, List, Optional
 
 from google.api_core import exceptions, retry  # type: ignore[import]
 from google.cloud import pubsub_v1 as gcp_v1  # type: ignore[import]
 
 from .. import backend_interface
-from ..backend_interface import Message, MessageID, Pub, RawQueue, Sub
+from ..backend_interface import GET_MSG_TIMEOUT, Message, MessageID, Pub, RawQueue, Sub
 from . import log_msgs
 
 
@@ -137,37 +137,42 @@ class GCPSub(GCP, Sub):
         if self.subscriber:
             self.subscriber.close()
 
-    def get_message(self) -> Optional[Message]:
-        """Get a message from a queue."""
+    @staticmethod
+    def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
+        msg: gcp_v1.types.ReceivedMessage
+    ) -> Optional[Message]:
+        """Transform GCP-Message to Message type."""
+        return Message(msg.ack_id, msg.message.data)
+
+    def get_message(
+        self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
+    ) -> Optional[Message]:
+        """Get a message.
+
+        NOTE: Based on `examples/gcp/subscriber.synchronous_pull()`
+        """
         if not self.subscriber:
             raise RuntimeError("subscriber is not connected")
 
         logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
 
-        # NOTE: From synchronous_pull()
-
-        # Wrap the subscriber in a 'with' block to automatically call close() to
-
-        num_messages: Final[int] = 1
-
-        # close the underlying gRPC channel when done.
-        # with subscriber: # NOTE - not auto-closing `subscriber`
         # The subscriber pulls a specific number of messages. The actual
         # number of messages pulled may be smaller than max_messages.
+        num_messages: Final[int] = 1
+
         response = self.subscriber.pull(
-            # request={
-            #     "subscription": subscription_path,
-            #     "max_messages": num_messages,
-            # }, # TODO
             subscription=self._sub_path,
             max_messages=num_messages,  # TODO - is this prefetch? (see above)
-            retry=retry.Retry(deadline=300),  # TODO - config timeout?
+            # retry=retry.Retry(deadline=300),
+            # return_immediately=True, # NOTE - use is discourage for performance reasons
+            timeout=timeout_millis * 1000,
+            # NOTE - if `retry` is specified, the timeout applies to each individual attempt
         )
 
         # Get Message(s)
-        msgs = []
+        msgs: List[Message] = []
         for recvd in response.received_messages:
-            msgs.append(recvd)
+            msgs.append(GCPSub._to_message(recvd))
 
         # Process & Return
         if not msgs:  # NOTE - on timeout -> this will be len=0
@@ -176,10 +181,8 @@ class GCPSub(GCP, Sub):
         elif len(msgs) > 1:
             raise RuntimeError("Received too many messages.")
         else:  # got 1 message
-            logging.debug(
-                f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msgs[0].message.data})."
-            )
-            return Message(msgs[0].ack_id, msgs[0].message.data)
+            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msgs[0].data!r}).")
+            return msgs[0]
         # [END pubsub_subscriber_sync_pull]
 
     def ack_message(self, msg_id: MessageID) -> None:
@@ -189,11 +192,7 @@ class GCPSub(GCP, Sub):
 
         logging.debug(log_msgs.ACKING_MESSAGE)
         # Acknowledges the received messages so they will not be sent again.
-        self.subscriber.acknowledge(
-            # request={"subscription": subscription_path, "ack_ids": ack_ids}
-            subscription=self._sub_path,
-            ack_ids=[msg_id],
-        )
+        self.subscriber.acknowledge(subscription=self._sub_path, ack_ids=[msg_id])
         logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
     def reject_message(self, msg_id: MessageID) -> None:
@@ -287,13 +286,14 @@ class Backend(backend_interface.Backend):
     @staticmethod
     def create_pub_queue(address: str, name: str) -> GCPPub:
         """Create a publishing queue."""
-        q = GCPPub(address, Backend.PROJECT_ID, name)
+        q = GCPPub(address, Backend.PROJECT_ID, name)  # pylint: disable=invalid-name
         q.connect()
         return q
 
     @staticmethod
     def create_sub_queue(address: str, name: str, prefetch: int = 1) -> GCPSub:
         """Create a subscription queue."""
+        # pylint: disable=invalid-name
         q = GCPSub(address, Backend.PROJECT_ID, name, Backend.SUBSCRIPTION_ID)
         # q.prefetch = prefetch
         q.connect()

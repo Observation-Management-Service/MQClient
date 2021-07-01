@@ -7,6 +7,8 @@ from typing import Any, Generator, Optional, Type, Union
 
 MessageID = Union[int, str, bytes]
 
+GET_MSG_TIMEOUT = 100
+
 
 class Message:
     """Message object.
@@ -16,7 +18,9 @@ class Message:
 
     def __init__(self, msg_id: MessageID, data: bytes):
         if not isinstance(msg_id, (int, str, bytes)):
-            raise TypeError(f"Message.msg_id must be type 'int', 'str', or 'bytes' (not '{type(msg_id)}').")
+            raise TypeError(
+                f"Message.msg_id must be type int|str|bytes (not '{type(msg_id)}')."
+            )
         if not isinstance(data, bytes):
             raise TypeError(f"Message.data must be type 'bytes' (not '{type(data)}').")
         self.msg_id = msg_id
@@ -66,7 +70,14 @@ class Pub(RawQueue):
 class Sub(RawQueue):
     """Subscriber queue."""
 
-    def get_message(self) -> Optional[Message]:
+    @staticmethod
+    def _to_message(*args: Any) -> Optional[Message]:
+        """Convert backend-specific payload to standardized Message type."""
+        raise NotImplementedError()
+
+    def get_message(
+        self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
+    ) -> Optional[Message]:
         """Get a single message from a queue."""
         raise NotImplementedError()
 
@@ -78,8 +89,9 @@ class Sub(RawQueue):
         """Reject (nack) a message from the queue."""
         raise NotImplementedError()
 
-    def message_generator(self, timeout: int = 60, auto_ack: bool = True,
-                          propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
+    def message_generator(
+        self, timeout: int = 60, auto_ack: bool = True, propagate_error: bool = True
+    ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
         Generate messages with variable timeout. Close instance on exit and error.
@@ -119,11 +131,12 @@ class MessageGeneratorContext:
 
     def __init__(self, sub: Sub, timeout: int, propagate_error: bool) -> None:
         logging.debug("in __init__")
-        self.message_generator = sub.message_generator(timeout=timeout,
-                                                       propagate_error=propagate_error)
+        self.message_generator = sub.message_generator(
+            timeout=timeout, propagate_error=propagate_error
+        )
         self.entered = False
 
-    def __enter__(self) -> 'MessageGeneratorContext':
+    def __enter__(self) -> "MessageGeneratorContext":
         """Return instance.
 
         Triggered by 'with ... as'.
@@ -132,9 +145,12 @@ class MessageGeneratorContext:
         self.entered = True
         return self
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]],
-                 exc_val: Optional[BaseException],
-                 exc_tb: Optional[types.TracebackType]) -> bool:
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[types.TracebackType],
+    ) -> bool:
         """Return `True` to suppress any Exception raised by consumer code.
 
         Return `False` to re-raise/propagate that Exception.
@@ -156,7 +172,7 @@ class MessageGeneratorContext:
                 return False  # don't suppress the Exception
         return True  # suppress any Exception
 
-    def __iter__(self) -> 'MessageGeneratorContext':
+    def __iter__(self) -> "MessageGeneratorContext":
         """Return instance.
 
         Triggered with 'for'/'iter()'.
@@ -178,7 +194,9 @@ class MessageGeneratorContext:
             logging.debug("StopIteration")
             raise
         if not msg:
-            raise RuntimeError("Yielded value is `None`. This should not have happened.")
+            raise RuntimeError(
+                "Yielded value is `None`. This should not have happened."
+            )
 
         data = pickle.loads(msg.data)
         return data

@@ -8,7 +8,7 @@ from typing import Any, Callable, Generator, Optional
 import pika  # type: ignore
 
 from .. import backend_interface
-from ..backend_interface import Message, MessageID, Pub, RawQueue, Sub
+from ..backend_interface import GET_MSG_TIMEOUT, Message, MessageID, Pub, RawQueue, Sub
 from . import log_msgs
 
 
@@ -75,8 +75,15 @@ class RabbitMQPub(RabbitMQ, Pub):
             raise RuntimeError("queue is not connected")
 
         logging.debug(log_msgs.SENDING_MESSAGE)
-        try_call(self, partial(self.channel.basic_publish, exchange='',
-                               routing_key=self.queue, body=msg))
+        try_call(
+            self,
+            partial(
+                self.channel.basic_publish,
+                exchange="",
+                routing_key=self.queue,
+                body=msg,
+            ),
+        )
         logging.debug(log_msgs.SENT_MESSAGE)
 
 
@@ -104,21 +111,38 @@ class RabbitMQSub(RabbitMQ, Sub):
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
 
-    def get_message(self) -> Optional[Message]:
-        """Get a message from a queue."""
+    @staticmethod
+    def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
+        method_frame: Optional[pika.spec.Basic.GetOk], body: Optional[str]
+    ) -> Optional[Message]:
+        """Transform RabbitMQ-Message to Message type."""
+        if not method_frame or body is None:
+            return None
+
+        return Message(method_frame.delivery_tag, body)
+
+    def get_message(
+        self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
+    ) -> Optional[Message]:
+        """Get a message from a queue.
+
+        NOTE - `timeout_millis` is not used.
+        """
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
         logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
-        method_frame, _, body = try_call(self, partial(self.channel.basic_get, self.queue))
+        method_frame, _, body = try_call(
+            self, partial(self.channel.basic_get, self.queue)
+        )
+        msg = RabbitMQSub._to_message(method_frame, body)
 
-        if method_frame:
-            msg = Message(method_frame.delivery_tag, body)
+        if msg:
             logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(msg.msg_id)}).")
             return msg
-
-        logging.debug(log_msgs.GETMSG_NO_MESSAGE)
-        return None
+        else:
+            logging.debug(log_msgs.GETMSG_NO_MESSAGE)
+            return None
 
     def ack_message(self, msg_id: MessageID) -> None:
         """Ack a message from the queue.
@@ -154,8 +178,9 @@ class RabbitMQSub(RabbitMQ, Sub):
         try_call(self, partial(self.channel.basic_nack, msg_id))
         logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
-    def message_generator(self, timeout: int = 60, auto_ack: bool = True,
-                          propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
+    def message_generator(
+        self, timeout: int = 60, auto_ack: bool = True, propagate_error: bool = True
+    ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
         Generate messages with variable timeout. Close instance on exit and error.
@@ -164,7 +189,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         Keyword Arguments:
             timeout {int} -- timeout in seconds for inactivity (default: {60})
             auto_ack {bool} -- Ack each message after successful processing (default: {True})
-            propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
+            propagate_error -- should errors from downstream kill the generator? (default: {True})
         """
         if not self.channel:
             raise RuntimeError("queue is not connected")
@@ -176,12 +201,11 @@ class RabbitMQSub(RabbitMQ, Sub):
 
             for method_frame, _, body in try_yield(self, gen):
                 # get message
-                msg = None
+                msg = RabbitMQSub._to_message(method_frame, body)
                 logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
-                if not method_frame:
+                if not msg:
                     logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                     break
-                msg = Message(method_frame.delivery_tag, body)
                 acked = False
 
                 # yield message to consumer
@@ -196,7 +220,10 @@ class RabbitMQSub(RabbitMQ, Sub):
                     if propagate_error:
                         logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
                         raise
-                    logging.warning(f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.", exc_info=True)
+                    logging.warning(
+                        f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.",
+                        exc_info=True,
+                    )
                     yield None
                 # consumer requests again, aka next()
                 else:
@@ -225,7 +252,9 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
     """
     for i in range(3):
         if i > 0:
-            logging.debug(f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})...")
+            logging.debug(
+                f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
+            )
 
         try:
             return func()
@@ -254,10 +283,12 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
     """
     for i in range(3):
         if i > 0:
-            logging.debug(f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})...")
+            logging.debug(
+                f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
+            )
 
         try:
-            for x in func():
+            for x in func():  # pylint: disable=invalid-name
                 yield x
         except pika.exceptions.ConnectionClosedByBroker:
             logging.debug(log_msgs.TRYYIELD_CONNECTION_CLOSED_BY_BROKER)
@@ -295,7 +326,7 @@ class Backend(backend_interface.Backend):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQPub(address, name)
+        q = RabbitMQPub(address, name)  # pylint: disable=invalid-name
         q.connect()
         return q
 
@@ -310,7 +341,7 @@ class Backend(backend_interface.Backend):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQSub(address, name)
+        q = RabbitMQSub(address, name)  # pylint: disable=invalid-name
         q.prefetch = prefetch
         q.connect()
         return q
