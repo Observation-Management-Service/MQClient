@@ -27,8 +27,6 @@ class RabbitMQ(RawQueue):
         self.queue = queue
         self.connection = None  # type: pika.BlockingConnection
         self.channel = None  # type: pika.adapters.blocking_connection.BlockingChannel
-        self.consumer_id = None
-        self.prefetch = 1
 
     def connect(self) -> None:
         """Set up connection and channel."""
