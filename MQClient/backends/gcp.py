@@ -1,11 +1,11 @@
 """Back-end using GCP."""
 
 import logging
-import time
-from functools import partial
-from typing import Any, Callable, Final, Generator, List, Optional
 
-from google.api_core import exceptions, retry  # type: ignore[import]
+# from functools import partial
+from typing import Final, Generator, List, Optional
+
+from google.api_core import exceptions  # type: ignore[import]
 from google.cloud import pubsub_v1 as gcp_v1  # type: ignore[import]
 
 from .. import backend_interface

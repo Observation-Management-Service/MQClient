@@ -22,8 +22,8 @@ class RabbitMQ(RawQueue):
     def __init__(self, address: str, queue: str) -> None:
         super().__init__()
         self.address = address
-        if not self.address.startswith('ampq'):
-            self.address = 'amqp://' + self.address
+        if not self.address.startswith("ampq"):
+            self.address = "amqp://" + self.address
         self.queue = queue
         self.connection = None  # type: pika.BlockingConnection
         self.channel = None  # type: pika.adapters.blocking_connection.BlockingChannel
@@ -33,7 +33,9 @@ class RabbitMQ(RawQueue):
     def connect(self) -> None:
         """Set up connection and channel."""
         super().connect()
-        self.connection = pika.BlockingConnection(pika.connection.URLParameters(self.address))
+        self.connection = pika.BlockingConnection(
+            pika.connection.URLParameters(self.address)
+        )
         self.channel = self.connection.channel()
 
     def close(self) -> None:
@@ -119,7 +121,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not method_frame or body is None:
             return None
 
-        return Message(method_frame.delivery_tag, body)
+        return Message(method_frame.delivery_tag, body.encode())
 
     def get_message(
         self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
@@ -273,7 +275,7 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
         queue.connect()
 
     logging.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception('RabbitMQ connection error')
+    raise Exception("RabbitMQ connection error")
 
 
 def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None, None]:
@@ -305,7 +307,7 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
         queue.connect()
 
     logging.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception('RabbitMQ connection error')
+    raise Exception("RabbitMQ connection error")
 
 
 class Backend(backend_interface.Backend):
