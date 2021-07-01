@@ -3,7 +3,7 @@
 import logging
 import time
 from functools import partial
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Callable, Generator, Optional, Union
 
 import pika  # type: ignore
 
@@ -132,13 +132,16 @@ class RabbitMQSub(RabbitMQ, Sub):
 
     @staticmethod
     def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
-        method_frame: Optional[pika.spec.Basic.GetOk], body: Optional[str]
+        method_frame: Optional[pika.spec.Basic.GetOk], body: Optional[Union[str, bytes]]
     ) -> Optional[Message]:
         """Transform RabbitMQ-Message to Message type."""
         if not method_frame or body is None:
             return None
 
-        return Message(method_frame.delivery_tag, body.encode())
+        if isinstance(body, str):
+            return Message(method_frame.delivery_tag, body.encode())
+        else:
+            return Message(method_frame.delivery_tag, body)
 
     def get_message(
         self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
