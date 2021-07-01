@@ -3,7 +3,7 @@
 import logging
 
 # from functools import partial
-from typing import Final, Generator, List, Optional
+from typing import Generator, Optional
 
 from google.api_core import exceptions, retry  # type: ignore[import]
 from google.cloud import pubsub_v1 as api  # type: ignore[import]
