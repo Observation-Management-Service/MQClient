@@ -7,7 +7,7 @@ sleep 2
 
 gcloud beta emulators pubsub start --project="abc${num}" &
 export PUBSUB_EMULATOR_HOST=localhost:8085
-sleep 2000
+sleep 2
 
 echo "Pub Connect..."
 python publisher.py "abc${num}" create "top${num}"
