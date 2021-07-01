@@ -22,15 +22,12 @@ class GCP(RawQueue):
 
     def __init__(self, endpoint: str, project_id: str, topic_id: str) -> None:
         super().__init__()
-
         self._proj_id = project_id
-
         self._push_config = gcp_v1.types.PushConfig(push_endpoint=endpoint)
-        # self.prefetch = 1
+        # self.prefetch = 1  # TODO
 
         # create a temporary PublisherClient just to get `topic_path`
         self._topic_path = gcp_v1.PublisherClient().topic_path(self._proj_id, topic_id)
-        print(f"{self._topic_path=}")
 
     def connect(self) -> None:
         """Set up connection and channel."""
@@ -50,6 +47,7 @@ class GCPPub(GCP, Pub):
     """
 
     def __init__(self, endpoint: str, project_id: str, topic_id: str):
+        logging.debug(f"{log_msgs.INIT_PUB} ({endpoint}; {project_id}; {topic_id})")
         super().__init__(endpoint, project_id, topic_id)
         self.publisher: Optional[gcp_v1.PublisherClient] = None
 
@@ -58,23 +56,32 @@ class GCPPub(GCP, Pub):
 
         Turn on delivery confirmations.
         """
+        logging.debug(log_msgs.CONNECTING_PUB)
         super().connect()
+
         self.publisher = gcp_v1.PublisherClient()
+
         try:
-            topic = self.publisher.create_topic(self._topic_path)
-            print(f"Created topic: {topic.name} -- {topic}")
+            self.publisher.create_topic(self._topic_path)
         except exceptions.AlreadyExists:
-            print(f"Topic already exists: {self._topic_path}")
+            logging.debug(f"{log_msgs.TOPIC_ALREADY_EXISTS} ({self._topic_path})")
+        finally:
+            logging.debug(log_msgs.CONNECTED_PUB)
+
+    def close(self) -> None:
+        """Close connection."""
+        logging.debug(log_msgs.CLOSING_PUB)
+        super().close()
+        logging.debug(log_msgs.CLOSED_PUB)
 
     def send_message(self, msg: bytes) -> None:
         """Send a message on a queue."""
+        logging.debug(log_msgs.SENDING_MESSAGE)
         if not self.publisher:
             raise RuntimeError("publisher is not connected")
 
-        logging.debug(log_msgs.SENDING_MESSAGE)
         # try_call(self, partial(self.publisher.publish, self.topic_path, msg)) # TODO
-        future = self.publisher.publish(self._topic_path, msg)
-        print(f"{future.result()=}")
+        self.publisher.publish(self._topic_path, msg)
         logging.debug(log_msgs.SENT_MESSAGE)
 
 
@@ -89,26 +96,25 @@ class GCPSub(GCP, Sub):
     def __init__(
         self, endpoint: str, project_id: str, topic_id: str, subscription_id: str
     ):
+        logging.debug(
+            f"{log_msgs.INIT_SUB} ({endpoint}; {project_id}; {topic_id}; {subscription_id})"
+        )
         super().__init__(endpoint, project_id, topic_id)
-
         self.subscriber: Optional[gcp_v1.SubscriberClient] = None
 
         self._sub_path: Optional[str] = None
         self._sub_id = subscription_id
-
-        print(f"{project_id=} {topic_id=} {subscription_id=}")
-
-        # self.consumer_id = None
-        # self.prefetch = 1
+        # self.prefetch = 1  # TODO
 
     def connect(self) -> None:
         """Set up connection, channel, and queue.
 
         Turn on prefetching.
-        """
-        super().connect()
 
-        # NOTE: From create_subscription()
+        NOTE: Based on `examples/gcp/subscriber.create_subscription()`
+        """
+        logging.debug(log_msgs.CONNECTING_SUB)
+        super().connect()
 
         self.subscriber = gcp_v1.SubscriberClient()
         self._sub_path = self.subscriber.subscription_path(self._proj_id, self._sub_id)
@@ -123,19 +129,19 @@ class GCPSub(GCP, Sub):
         # subscription = subscriber.create_subscription(sub_path, self._topic_path)
         # NOTE - not auto-closing `subscriber`
         try:
-            subscription = self.subscriber.create_subscription(
-                self._sub_path, self._topic_path
-            )
-            print(f"Subscription created: {subscription}")
+            self.subscriber.create_subscription(self._sub_path, self._topic_path)
         except exceptions.AlreadyExists:
-            print(f"Subscription already exists: {self._sub_path}")
-        # [END pubsub_create_pull_subscription]
+            logging.debug(f"{log_msgs.SUBSCRIPTION_ALREADY_EXISTS} ({self._sub_path})")
+        finally:
+            logging.debug(log_msgs.CONNECTED_SUB)
 
     def close(self) -> None:
         """Close connection."""
+        logging.debug(log_msgs.CLOSING_SUB)
         super().close()
         if self.subscriber:
             self.subscriber.close()
+        logging.debug(log_msgs.CLOSED_SUB)
 
     @staticmethod
     def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
@@ -151,10 +157,9 @@ class GCPSub(GCP, Sub):
 
         NOTE: Based on `examples/gcp/subscriber.synchronous_pull()`
         """
+        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         if not self.subscriber:
             raise RuntimeError("subscriber is not connected")
-
-        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
 
         # The subscriber pulls a specific number of messages. The actual
         # number of messages pulled may be smaller than max_messages.
@@ -181,27 +186,26 @@ class GCPSub(GCP, Sub):
         elif len(msgs) > 1:
             raise RuntimeError("Received too many messages.")
         else:  # got 1 message
-            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msgs[0].data!r}).")
+            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msgs[0].msg_id!r}).")
             return msgs[0]
-        # [END pubsub_subscriber_sync_pull]
 
     def ack_message(self, msg_id: MessageID) -> None:
         """Ack a message from the queue."""
+        logging.debug(log_msgs.ACKING_MESSAGE)
         if not self.subscriber:
             raise RuntimeError("subscriber is not connected")
 
-        logging.debug(log_msgs.ACKING_MESSAGE)
         # Acknowledges the received messages so they will not be sent again.
         self.subscriber.acknowledge(subscription=self._sub_path, ack_ids=[msg_id])
         logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
     def reject_message(self, msg_id: MessageID) -> None:
         """Reject (nack) a message from the queue."""
+        logging.debug(log_msgs.NACKING_MESSAGE)
         if not self.subscriber:
             raise RuntimeError("subscriber is not connected")
 
-        logging.debug(log_msgs.NACKING_MESSAGE)
-        # TODO
+        # TODO - messages are auto-nacked(?)
         logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
     def message_generator(
@@ -218,6 +222,7 @@ class GCPSub(GCP, Sub):
             propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
         # TODO/FIXME
+        logging.debug(log_msgs.MSGGEN_ENTERED)
         if not self.subscriber:
             raise RuntimeError("subscriber is not connected")
 

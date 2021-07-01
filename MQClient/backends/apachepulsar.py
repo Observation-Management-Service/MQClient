@@ -58,20 +58,30 @@ class PulsarPub(Pulsar, Pub):
     """
 
     def __init__(self, address: str, topic: str) -> None:
+        logging.debug(f"{log_msgs.INIT_PUB} ({address}; {topic})")
         super().__init__(address, topic)
         self.producer = None  # type: pulsar.Producer
 
     def connect(self) -> None:
         """Connect to producer."""
+        logging.debug(log_msgs.CONNECTING_PUB)
         super().connect()
+
         self.producer = self.client.create_producer(self.topic)
+        logging.debug(log_msgs.CONNECTED_PUB)
+
+    def close(self) -> None:
+        """Close connection."""
+        logging.debug(log_msgs.CLOSING_PUB)
+        super().close()
+        logging.debug(log_msgs.CLOSED_PUB)
 
     def send_message(self, msg: bytes) -> None:
         """Send a message on a queue."""
+        logging.debug(log_msgs.SENDING_MESSAGE)
         if not self.producer:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.SENDING_MESSAGE)
         self.producer.send(msg)
         logging.debug(log_msgs.SENT_MESSAGE)
 
@@ -85,6 +95,7 @@ class PulsarSub(Pulsar, Sub):
     """
 
     def __init__(self, address: str, topic: str) -> None:
+        logging.debug(f"{log_msgs.INIT_SUB} ({address}; {topic})")
         super().__init__(address, topic)
         self.consumer = None  # type: pulsar.Consumer
 
@@ -95,7 +106,9 @@ class PulsarSub(Pulsar, Sub):
 
     def connect(self) -> None:
         """Connect to subscriber."""
+        logging.debug(log_msgs.CONNECTING_SUB)
         super().connect()
+
         self.consumer = self.client.subscribe(
             self.topic,
             self.subscription_name,
@@ -104,12 +117,15 @@ class PulsarSub(Pulsar, Sub):
             initial_position=pulsar.InitialPosition.Earliest,
             negative_ack_redelivery_delay_ms=0,
         )
+        logging.debug(log_msgs.CONNECTED_SUB)
 
     def close(self) -> None:
         """Close client and redeliver any unacknowledged messages."""
+        logging.debug(log_msgs.CLOSING_SUB)
         if self.consumer:
             self.consumer.redeliver_unacknowledged_messages()
         super().close()
+        logging.debug(log_msgs.CLOSED_SUB)
 
     @staticmethod
     def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
@@ -136,10 +152,10 @@ class PulsarSub(Pulsar, Sub):
         To endlessly block until a message is available, set
         `timeout_millis=None`.
         """
+        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         for i in range(3):
             if i > 0:
                 logging.debug(
@@ -179,10 +195,10 @@ class PulsarSub(Pulsar, Sub):
 
     def ack_message(self, msg_id: MessageID) -> None:
         """Ack a message from the queue."""
+        logging.debug(log_msgs.ACKING_MESSAGE)
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.ACKING_MESSAGE)
         if isinstance(msg_id, bytes):
             self.consumer.acknowledge(pulsar.MessageId.deserialize(msg_id))
         else:
@@ -191,10 +207,10 @@ class PulsarSub(Pulsar, Sub):
 
     def reject_message(self, msg_id: MessageID) -> None:
         """Reject (nack) a message from the queue."""
+        logging.debug(log_msgs.NACKING_MESSAGE)
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.NACKING_MESSAGE)
         if isinstance(msg_id, bytes):
             self.consumer.negative_acknowledge(pulsar.MessageId.deserialize(msg_id))
         else:
@@ -214,6 +230,7 @@ class PulsarSub(Pulsar, Sub):
             auto_ack {bool} -- Ack each message after successful processing (default: {True})
             propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
+        logging.debug(log_msgs.MSGGEN_ENTERED)
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 

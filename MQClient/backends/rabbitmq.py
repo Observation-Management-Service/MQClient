@@ -53,15 +53,27 @@ class RabbitMQPub(RabbitMQ, Pub):
         Pub
     """
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        logging.debug(f"{log_msgs.INIT_PUB} ({args}; {kwargs})")
+        super().__init__(*args, **kwargs)
+
     def connect(self) -> None:
         """Set up connection, channel, and queue.
 
         Turn on delivery confirmations.
         """
+        logging.debug(log_msgs.CONNECTING_PUB)
         super().connect()
 
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.confirm_delivery()
+        logging.debug(log_msgs.CONNECTED_PUB)
+
+    def close(self) -> None:
+        """Close connection."""
+        logging.debug(log_msgs.CLOSING_PUB)
+        super().close()
+        logging.debug(log_msgs.CLOSED_PUB)
 
     def send_message(self, msg: bytes) -> None:
         """Send a message on a queue.
@@ -73,10 +85,10 @@ class RabbitMQPub(RabbitMQ, Pub):
         Returns:
             RawQueue: queue
         """
+        logging.debug(log_msgs.SENDING_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.SENDING_MESSAGE)
         try_call(
             self,
             partial(
@@ -98,8 +110,8 @@ class RabbitMQSub(RabbitMQ, Sub):
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        logging.debug(f"{log_msgs.INIT_SUB} ({args}; {kwargs})")
         super().__init__(*args, **kwargs)
-
         self.consumer_id = None
         self.prefetch = 1
 
@@ -108,10 +120,17 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         Turn on prefetching.
         """
+        logging.debug(log_msgs.CONNECTING_SUB)
         super().connect()
-
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
+        logging.debug(log_msgs.CONNECTED_SUB)
+
+    def close(self) -> None:
+        """Close connection."""
+        logging.debug(log_msgs.CLOSING_SUB)
+        super().close()
+        logging.debug(log_msgs.CLOSED_SUB)
 
     @staticmethod
     def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
@@ -130,17 +149,17 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         NOTE - `timeout_millis` is not used.
         """
+        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         method_frame, _, body = try_call(
             self, partial(self.channel.basic_get, self.queue)
         )
         msg = RabbitMQSub._to_message(method_frame, body)
 
         if msg:
-            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(msg.msg_id)}).")
+            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
             return msg
         else:
             logging.debug(log_msgs.GETMSG_NO_MESSAGE)
@@ -156,10 +175,10 @@ class RabbitMQSub(RabbitMQ, Sub):
             queue (RabbitMQSub): queue object
             msg_id (MessageID): message id
         """
+        logging.debug(log_msgs.ACKING_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.ACKING_MESSAGE)
         try_call(self, partial(self.channel.basic_ack, msg_id))
         logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
@@ -173,10 +192,10 @@ class RabbitMQSub(RabbitMQ, Sub):
             queue (RabbitMQSub): queue object
             msg_id (MessageID): message id
         """
+        logging.debug(log_msgs.NACKING_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.NACKING_MESSAGE)
         try_call(self, partial(self.channel.basic_nack, msg_id))
         logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
@@ -193,6 +212,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             auto_ack {bool} -- Ack each message after successful processing (default: {True})
             propagate_error -- should errors from downstream kill the generator? (default: {True})
         """
+        logging.debug(log_msgs.MSGGEN_ENTERED)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
