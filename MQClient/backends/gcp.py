@@ -23,10 +23,12 @@ class GCP(RawQueue):
     def __init__(self, endpoint: str, project_id: str, topic_id: str) -> None:
         super().__init__()
         self.endpoint = endpoint
-        self._proj_id = project_id
+        self._project_id = project_id
 
         # create a temporary PublisherClient just to get `topic_path`
-        self._topic_path = api.PublisherClient().topic_path(self._proj_id, topic_id)
+        self._topic_path = api.PublisherClient().topic_path(  # pylint: disable=no-member
+            self._project_id, topic_id
+        )
         logging.debug(f"Topic Path: {self._topic_path}")
 
     def connect(self) -> None:
@@ -63,7 +65,7 @@ class GCPPub(GCP, Pub):
         # publisher_options=api.types.PublisherOptions(enable_message_ordering=True),
 
         try:
-            self.pub.create_topic(self._topic_path)
+            self.pub.create_topic(self._topic_path)  # pylint: disable=no-member
         except exceptions.AlreadyExists:
             logging.debug(f"{log_msgs.TOPIC_ALREADY_EXISTS} ({self._topic_path})")
         finally:
@@ -98,14 +100,15 @@ class GCPSub(GCP, Sub):
         self, endpoint: str, project_id: str, topic_id: str, subscription_id: str
     ):
         logging.debug(
-            f"{log_msgs.INIT_SUB} ({endpoint}; {project_id}; {topic_id}; {subscription_id})"
+            f"{log_msgs.INIT_SUB} "
+            f"({endpoint}; {project_id}; {topic_id}; {subscription_id})"
         )
         super().__init__(endpoint, project_id, topic_id)
         self.sub: Optional[api.SubscriberClient] = None
         self.prefetch = 1
 
-        self._sub_path: Optional[str] = None
-        self._sub_id = subscription_id
+        self._subscription_path: Optional[str] = None
+        self._subscription_id = subscription_id
 
     def connect(self) -> None:
         """Set up connection, channel, and queue.
@@ -118,12 +121,18 @@ class GCPSub(GCP, Sub):
         super().connect()
 
         self.sub = api.SubscriberClient(client_options={"api_endpoint": self.endpoint})
-        self._sub_path = self.sub.subscription_path(self._proj_id, self._sub_id)
+        self._subscription_path = self.sub.subscription_path(  # pylint: disable=no-member
+            self._project_id, self._subscription_id
+        )
 
         try:
-            self.sub.create_subscription(self._sub_path, self._topic_path)
+            self.sub.create_subscription(  # pylint: disable=no-member
+                self._subscription_path, self._topic_path
+            )
         except exceptions.AlreadyExists:
-            logging.debug(f"{log_msgs.SUBSCRIPTION_ALREADY_EXISTS} ({self._sub_path})")
+            logging.debug(
+                f"{log_msgs.SUBSCRIPTION_ALREADY_EXISTS} ({self._subscription_path})"
+            )
         finally:
             logging.debug(log_msgs.CONNECTED_SUB)
 
@@ -137,7 +146,7 @@ class GCPSub(GCP, Sub):
 
     @staticmethod
     def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
-        msg: api.types.ReceivedMessage
+        msg: api.types.ReceivedMessage  # pylint: disable=no-member
     ) -> Optional[Message]:
         """Transform GCP-Message to Message type."""
         return Message(msg.ack_id, msg.message.data)
@@ -153,8 +162,8 @@ class GCPSub(GCP, Sub):
         if not self.sub:
             raise RuntimeError("subscriber is not connected")
 
-        response = self.sub.pull(
-            subscription=self._sub_path,
+        response = self.sub.pull(  # pylint: disable=no-member
+            subscription=self._subscription_path,
             max_messages=num_messages,
             retry=retry.Retry(deadline=300),  # TODO
             # return_immediately=True, # NOTE - use is discourage for performance reasons
@@ -193,7 +202,9 @@ class GCPSub(GCP, Sub):
             raise RuntimeError("subscriber is not connected")
 
         # Acknowledges the received messages so they will not be sent again.
-        self.sub.acknowledge(subscription=self._sub_path, ack_ids=[msg_id])
+        self.sub.acknowledge(  # pylint: disable=no-member
+            subscription=self._subscription_path, ack_ids=[msg_id]
+        )
         logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
 
     def reject_message(self, msg_id: MessageID) -> None:
