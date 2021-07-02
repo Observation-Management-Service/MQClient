@@ -85,7 +85,8 @@ class GCPPub(GCP, Pub):
             raise RuntimeError("publisher is not connected")
 
         # try_call(self, partial(self.publisher.publish, self.topic_path, msg)) # TODO
-        self.pub.publish(self._topic_path, msg)
+        future = self.pub.publish(self._topic_path, msg)
+        logging.debug(f"Pub-Send Future Result: {future.result()}")
         logging.debug(log_msgs.SENT_MESSAGE)
 
 
