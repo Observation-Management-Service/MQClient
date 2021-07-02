@@ -29,9 +29,12 @@ jobs:
             - run: dockerize -wait tcp://localhost:5672 -timeout 1m # RabbitMQ
             - run: dockerize -wait tcp://localhost:8080 -timeout 1m # Pulsar
             - run: dockerize -wait tcp://localhost:6650 -timeout 1m # Pulsar
-            - run: dockerize -wait tcp://localhost:8085 -timeout 1m # GCP
+            # - run: dockerize -wait tcp://localhost:8085 -timeout 1m # GCP
             - run: |
                 pip install --user tox
+                ./resources/gcp-install.sh
+                gcloud beta emulators pubsub start --project="i3-gcp-proj" &
+                export PUBSUB_EMULATOR_HOST=localhost:8085
                 tox integration_tests -vv
 
     example_server:
