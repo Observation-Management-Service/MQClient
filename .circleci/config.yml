@@ -17,8 +17,8 @@ jobs:
             - image: deadtrickster/rabbitmq_prometheus:3.7
             - image: apachepulsar/pulsar:2.5.1
               command: bin/pulsar standalone
-            - image: gcr.io/google.com/cloudsdktool/cloud-sdk:344.0.0-emulators
-              command: gcloud beta emulators pubsub start
+            # - image: gcr.io/google.com/cloudsdktool/cloud-sdk:344.0.0-emulators
+              # command: gcloud beta emulators pubsub start
         steps:
             - checkout
             - run:
@@ -34,7 +34,6 @@ jobs:
                 pip install --user tox
                 ./resources/gcp-install.sh
                 gcloud beta emulators pubsub start --project="i3-gcp-proj" &
-                export PUBSUB_EMULATOR_HOST=localhost:8085
                 tox integration_tests -vv
 
     example_server:
