@@ -7,7 +7,7 @@ from typing import Any, Generator, Optional, Type, Union
 
 MessageID = Union[int, str, bytes]
 
-GET_MSG_TIMEOUT = 10000
+GET_MSG_TIMEOUT = 1000
 
 
 class Message:
