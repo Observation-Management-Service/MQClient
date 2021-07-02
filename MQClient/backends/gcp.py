@@ -309,7 +309,7 @@ class Backend(backend_interface.Backend):
             address = os.environ[Backend.PUBSUB_EMULATOR_HOST]
             logging.debug(f"GCP-Backend: Using Pub-Sub Emulator at {address}.")
         except KeyError:
-            pass
+            assert 0
 
         return address
 
