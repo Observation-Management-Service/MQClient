@@ -4,7 +4,6 @@ Verify functionality that is abstracted away from the Queue class.
 """
 
 import copy
-import itertools
 import logging
 import pickle
 from typing import List, Optional
@@ -35,8 +34,8 @@ class PubSubBackendInterface:
 
     def test_00(self, queue_name: str) -> None:
         """Sanity test."""
-        pub = self.backend.create_pub_queue('localhost', queue_name)
-        sub = self.backend.create_sub_queue('localhost', queue_name)
+        pub = self.backend.create_pub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
 
         # send
         for msg in DATA_LIST:
@@ -45,7 +44,7 @@ class PubSubBackendInterface:
             _log_send(msg)
 
         # receive
-        for i in itertools.count():
+        for i in range(len(DATA_LIST) * 10):  # large enough to avoid inf loop
             logging.info(i)
             assert i <= len(DATA_LIST)
             recv_msg = sub.get_message()
@@ -63,8 +62,8 @@ class PubSubBackendInterface:
 
         Order is not guaranteed on redelivery.
         """
-        pub = self.backend.create_pub_queue('localhost', queue_name)
-        sub = self.backend.create_sub_queue('localhost', queue_name)
+        pub = self.backend.create_pub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
 
         # send
         for msg in DATA_LIST:
@@ -75,7 +74,7 @@ class PubSubBackendInterface:
         # receive -- nack each message, once, and anticipate its redelivery
         nacked_msgs = []  # type: List[Message]
         redelivered_msgs = []  # type: List[Message]
-        for i in itertools.count():
+        for i in range(len(DATA_LIST) * 10):  # large enough to avoid inf loop
             logging.info(i)
             # all messages have been acked and redelivered
             if len(redelivered_msgs) == len(DATA_LIST):
@@ -87,33 +86,33 @@ class PubSubBackendInterface:
             _log_recv_message(recv_msg)
 
             if not recv_msg:
-                logging.info('waiting...')
+                logging.info("waiting...")
                 continue
             assert pickle.loads(recv_msg.data) in DATA_LIST
 
             # message was redelivered
             if recv_msg in nacked_msgs:
-                logging.info('REDELIVERED!')
+                logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
                 continue
             # nack message
             nacked_msgs.append(recv_msg)
             sub.reject_message(recv_msg.msg_id)
-            logging.info('NACK!')
+            logging.info("NACK!")
 
     def test_11(self, queue_name: str) -> None:
         """Test nacking, mixed sending and receiving.
 
         Order is not guaranteed on redelivery.
         """
-        pub = self.backend.create_pub_queue('localhost', queue_name)
-        sub = self.backend.create_sub_queue('localhost', queue_name)
+        pub = self.backend.create_pub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
 
         data_to_send = copy.deepcopy(DATA_LIST)
         nacked_msgs = []  # type: List[Message]
         redelivered_msgs = []  # type: List[Message]
-        for i in itertools.count():
+        for i in range(len(DATA_LIST) * 10):  # large enough to avoid inf loop
             logging.info(i)
             # all messages have been acked and redelivered
             if len(redelivered_msgs) == len(DATA_LIST):
@@ -134,25 +133,25 @@ class PubSubBackendInterface:
             _log_recv_message(recv_msg)
 
             if not recv_msg:
-                logging.info('waiting...')
+                logging.info("waiting...")
                 continue
             assert pickle.loads(recv_msg.data) in DATA_LIST
 
             # message was redelivered
             if recv_msg in nacked_msgs:
-                logging.info('REDELIVERED!')
+                logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
                 continue
             # nack message
             nacked_msgs.append(recv_msg)
             sub.reject_message(recv_msg.msg_id)
-            logging.info('NACK!')
+            logging.info("NACK!")
 
     def test_20(self, queue_name: str) -> None:
         """Sanity test message generator."""
-        pub = self.backend.create_pub_queue('localhost', queue_name)
-        sub = self.backend.create_sub_queue('localhost', queue_name)
+        pub = self.backend.create_pub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
 
         # send
         for msg in DATA_LIST:
