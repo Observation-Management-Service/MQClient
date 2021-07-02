@@ -4,25 +4,30 @@ import logging
 import uuid
 from typing import Any
 
-import pytest  # type: ignore
+import pytest
 
 
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def queue_name() -> str:
-    """Get random queue name."""
-    name = uuid.uuid4().hex
+    """Get random queue name.
+
+    Obeys the valid naming scheme for GCP (other backends are less picky).
+    (See https://cloud.google.com/resource-manager/reference/rest/v1/projects#resource:-project)
+    """
+    name = "a" + (uuid.uuid4().hex)[:20]
     logging.info(f"NAME :: {name}")
     return name
 
 
 # Note: don't put in duplicates
-DATA_LIST = [{'a': ['foo', 'bar', 3, 4]},
-             1,
-             '2',
-             [1, 2, 3, 4],
-             False,
-             None
-             ]
+DATA_LIST = [
+    {"abcdefghijklmnop": ["foo", "bar", 3, 4]},
+    1,
+    "2",
+    [1, 2, 3, 4],
+    False,
+    None,
+]
 
 
 def _log_recv(data: Any) -> None:
