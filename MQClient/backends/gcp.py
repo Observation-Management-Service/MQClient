@@ -1,6 +1,7 @@
 """Back-end using GCP."""
 
 import logging
+import os
 
 # from functools import partial
 from typing import Generator, Optional
@@ -297,18 +298,37 @@ class Backend(backend_interface.Backend):
     # See https://thecloudgirl.dev/images/pubsub.jpg
     SUBSCRIPTION_ID = "i3-gcp-sub"
 
+    # NOTE - this is an environment variable, which should override the host address
+    PUBSUB_EMULATOR_HOST = "PUBSUB_EMULATOR_HOST"
+
+    @staticmethod
+    def _figure_host_address(address: str) -> str:
+        """If the pub-sub emulator enviro var is set, use that address."""
+        try:
+            address = os.environ[Backend.PUBSUB_EMULATOR_HOST]
+            logging.debug(f"GCP-Backend: Using Pub-Sub Emulator at {address}.")
+        except KeyError:
+            pass
+
+        return address
+
     @staticmethod
     def create_pub_queue(address: str, name: str) -> GCPPub:
         """Create a publishing queue."""
-        q = GCPPub(address, Backend.PROJECT_ID, name)  # pylint: disable=invalid-name
+        # pylint: disable=invalid-name
+        q = GCPPub(Backend._figure_host_address(address), Backend.PROJECT_ID, name)
         q.connect()
         return q
 
     @staticmethod
     def create_sub_queue(address: str, name: str, prefetch: int = 1) -> GCPSub:
         """Create a subscription queue."""
-        # pylint: disable=invalid-name
-        q = GCPSub(address, Backend.PROJECT_ID, name, Backend.SUBSCRIPTION_ID)
+        q = GCPSub(  # pylint: disable=invalid-name
+            Backend._figure_host_address(address),
+            Backend.PROJECT_ID,
+            name,
+            Backend.SUBSCRIPTION_ID,
+        )
         q.prefetch = prefetch
         q.connect()
         return q
