@@ -94,14 +94,11 @@ class PulsarSub(Pulsar, Sub):
         Sub
     """
 
-    def __init__(self, address: str, topic: str) -> None:
+    def __init__(self, address: str, topic: str, subscription_name: str) -> None:
         logging.debug(f"{log_msgs.INIT_SUB} ({address}; {topic})")
         super().__init__(address, topic)
         self.consumer = None  # type: pulsar.Consumer
-
-        # single shared subscription # TODO - move out to Backend class, like GCP does
-        self.subscription_name = f"{self.topic}-subscription"
-
+        self.subscription_name = subscription_name
         self.prefetch = 1
 
     def connect(self) -> None:
@@ -289,6 +286,10 @@ class Backend(backend_interface.Backend):
         Backend
     """
 
+    # NOTE - use single shared subscription
+    # (making multiple unique subscription names would create independent subscriptions)
+    SUBSCRIPTION_NAME = "i3-pulsar-sub"
+
     @staticmethod
     def create_pub_queue(address: str, name: str) -> PulsarPub:
         """Create a publishing queue."""
@@ -299,7 +300,8 @@ class Backend(backend_interface.Backend):
     @staticmethod
     def create_sub_queue(address: str, name: str, prefetch: int = 1) -> PulsarSub:
         """Create a subscription queue."""
-        q = PulsarSub(address, name)  # pylint: disable=invalid-name
+        # pylint: disable=invalid-name
+        q = PulsarSub(address, name, Backend.SUBSCRIPTION_NAME)
         q.prefetch = prefetch
         q.connect()
         return q

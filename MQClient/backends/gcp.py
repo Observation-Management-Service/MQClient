@@ -294,7 +294,8 @@ class Backend(backend_interface.Backend):
     # NOTE - this could be an enviro var, but it is always constant across all members
     PROJECT_ID = "i3-gcp-proj"
 
-    # NOTE - making unique subscription ids would create independent (but identical?) queues
+    # NOTE - use single shared subscription
+    # (making multiple unique subscription ids would create independent subscriptions)
     # See https://thecloudgirl.dev/images/pubsub.jpg
     SUBSCRIPTION_ID = "i3-gcp-sub"
 
