@@ -6,7 +6,7 @@ import os
 # from functools import partial
 from typing import Generator, Optional
 
-from google.api_core import exceptions, retry  # type: ignore[import]
+from google.api_core import exceptions  # type: ignore[import]
 from google.cloud import pubsub_v1 as api  # type: ignore[import]
 
 from .. import backend_interface
