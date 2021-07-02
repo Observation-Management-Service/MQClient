@@ -166,9 +166,9 @@ class GCPSub(GCP, Sub):
         response = self.sub.pull(  # pylint: disable=no-member
             subscription=self._subscription_path,
             max_messages=num_messages,
-            retry=retry.Retry(deadline=300),  # TODO
+            # retry=retry.Retry(deadline=300),  # TODO
             # return_immediately=True, # NOTE - use is discourage for performance reasons
-            timeout=timeout_millis // 1000 if timeout_millis else 0,
+            timeout=timeout_millis / 1000 if timeout_millis else 0,
             # NOTE - if `retry` is specified, the timeout applies to each individual attempt
         )
 
