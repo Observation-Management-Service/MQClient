@@ -86,7 +86,7 @@ class GCPPub(GCP, Pub):
 
         # try_call(self, partial(self.publisher.publish, self.topic_path, msg)) # TODO
         future = self.pub.publish(self._topic_path, msg)
-        logging.debug(f"Pub-Send Future Result: {future.result()}")
+        logging.debug(f"Sent Message w/ Origin ID: {future.result()}")
         logging.debug(log_msgs.SENT_MESSAGE)
 
 
@@ -128,6 +128,9 @@ class GCPSub(GCP, Sub):
         )
 
         try:
+            # FIXME - creating a subscription AFTER messages have been sent to the topic will
+            #  result in seemingly lost messages. Previously sent messages are not preloaded.
+            # see https://stackoverflow.com/questions/58882006/gcp-pub-sub-can-you-replay-old-messages-on-a-new-subscription-if-there-is-alrea
             self.sub.create_subscription(  # pylint: disable=no-member
                 self._subscription_path, self._topic_path
             )
@@ -176,6 +179,7 @@ class GCPSub(GCP, Sub):
         # Yield Each Message
         for recvd in response.received_messages:
             msg = GCPSub._to_message(recvd)
+            logging.debug(f"Got Message w/ Origin ID: {recvd.message.message_id}")
             if msg:
                 yield msg
 
