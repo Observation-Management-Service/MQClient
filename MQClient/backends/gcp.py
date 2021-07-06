@@ -252,11 +252,9 @@ class GCPSub(GCP, Sub):
 
         # override the subscription-level ack deadline to fast-track redelivery
         self.sub.modify_ack_deadline(  # pylint: disable=no-member
-            request={
-                "subscription": self._subscription_path,
-                "ack_ids": [msg_id],
-                "ack_deadline_seconds": 0,
-            }
+            subscription=self._subscription_path,
+            ack_ids=[msg_id],
+            ack_deadline_seconds=0,
         )
         logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
 
