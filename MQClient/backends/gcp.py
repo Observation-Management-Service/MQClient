@@ -332,8 +332,10 @@ class GCPSub(GCP, Sub):
 
         # generator is closed (also, garbage collected)
         finally:
-            self.close()
-            logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
+            pass
+            # TODO - look up best practices for GCP closing
+            # self.close()
+            # logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
 
 
 class Backend(backend_interface.Backend):
