@@ -5,11 +5,8 @@ INIT_SUB = "[__init__()] Initializing sub."
 
 CONNECTING_PUB = "[connect()] Pub connecting..."
 CONNECTED_PUB = "[connect()] Pub connected."
-TOPIC_ALREADY_EXISTS = "[connect()] Topic already exists."
-
 CONNECTING_SUB = "[connect()] Sub connecting..."
 CONNECTED_SUB = "[connect()] Sub connected."
-SUBSCRIPTION_ALREADY_EXISTS = "[connect()] Subscription already exists."
 
 SENDING_MESSAGE = "[send_message()] Sending message..."
 SENT_MESSAGE = "[send_message()] Sent message."

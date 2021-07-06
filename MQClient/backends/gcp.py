@@ -4,7 +4,7 @@ import logging
 import os
 
 # from functools import partial
-from typing import Generator, Optional
+from typing import Generator, List, Optional, Tuple
 
 from google.api_core import exceptions  # type: ignore[import]
 from google.cloud import pubsub_v1 as api  # type: ignore[import]
@@ -40,6 +40,29 @@ class GCP(RawQueue):
         """Close connection."""
         super().close()
 
+    @staticmethod
+    def _create_and_connect_sub(
+        endpoint: str, project_id: str, topic_path: str, subscription_id: str
+    ) -> Tuple[api.SubscriberClient, str]:
+        """Create a subscription, then return a subscriber instance and path.
+
+        If the subscription already exists, the subscription is unaffected.
+        """
+        sub = api.SubscriberClient(client_options={"api_endpoint": endpoint})
+        subscription_path = sub.subscription_path(  # pylint: disable=no-member
+            project_id, subscription_id
+        )
+
+        try:
+            sub.create_subscription(  # pylint: disable=no-member
+                subscription_path, topic_path
+            )
+            logging.debug(f"Subscription created ({subscription_path})")
+        except exceptions.AlreadyExists:
+            logging.debug(f"Subscription already exists ({subscription_path})")
+
+        return sub, subscription_path
+
 
 class GCPPub(GCP, Pub):
     """Wrapper around queue with delivery-confirm mode in the channel.
@@ -49,10 +72,20 @@ class GCPPub(GCP, Pub):
         Pub
     """
 
-    def __init__(self, endpoint: str, project_id: str, topic_id: str):
-        logging.debug(f"{log_msgs.INIT_PUB} ({endpoint}; {project_id}; {topic_id})")
+    def __init__(
+        self,
+        endpoint: str,
+        project_id: str,
+        topic_id: str,
+        subscription_ids: Optional[List[str]] = None,
+    ):
+        logging.debug(
+            f"{log_msgs.INIT_PUB} "
+            f"({endpoint}; {project_id}; {topic_id}; {subscription_ids})"
+        )
         super().__init__(endpoint, project_id, topic_id)
         self.pub: Optional[api.PublisherClient] = None
+        self.subscription_ids = subscription_ids if subscription_ids else []
 
     def connect(self) -> None:
         """Set up connection, channel, and queue.
@@ -67,10 +100,20 @@ class GCPPub(GCP, Pub):
 
         try:
             self.pub.create_topic(self._topic_path)  # pylint: disable=no-member
+            logging.debug(f"Topic created ({self._topic_path})")
         except exceptions.AlreadyExists:
-            logging.debug(f"{log_msgs.TOPIC_ALREADY_EXISTS} ({self._topic_path})")
+            logging.debug(f"Topic already exists ({self._topic_path})")
         finally:
             logging.debug(log_msgs.CONNECTED_PUB)
+
+        # Create Any Subscriptions
+        # NOTE - A message published before a given subscription was created will
+        #  usually not be delivered for that subscription. Thus, a message published
+        #  to a topic that has no subscription will not be delivered to any subscriber.
+        for sub_id in self.subscription_ids:
+            GCP._create_and_connect_sub(
+                self.endpoint, self._project_id, self._topic_path, sub_id
+            )
 
     def close(self) -> None:
         """Close connection."""
@@ -114,7 +157,7 @@ class GCPSub(GCP, Sub):
 
     def connect(self) -> None:
         """Set up connection, channel, and queue.
-
+        TODO - fix all these block comments
         Turn on prefetching.
 
         NOTE: Based on `examples/gcp/subscriber.create_subscription()`
@@ -122,24 +165,12 @@ class GCPSub(GCP, Sub):
         logging.debug(log_msgs.CONNECTING_SUB)
         super().connect()
 
-        self.sub = api.SubscriberClient(client_options={"api_endpoint": self.endpoint})
-        self._subscription_path = self.sub.subscription_path(  # pylint: disable=no-member
-            self._project_id, self._subscription_id
+        self.sub, self._subscription_path = GCP._create_and_connect_sub(
+            self.endpoint, self._project_id, self._topic_path, self._subscription_id
         )
+        logging.debug(log_msgs.CONNECTED_SUB)
 
-        try:
-            # FIXME - creating a subscription AFTER messages have been sent to the topic will
-            #  result in seemingly lost messages. Previously sent messages are not preloaded.
-            # see https://stackoverflow.com/questions/58882006/gcp-pub-sub-can-you-replay-old-messages-on-a-new-subscription-if-there-is-alrea
-            self.sub.create_subscription(  # pylint: disable=no-member
-                self._subscription_path, self._topic_path
-            )
-        except exceptions.AlreadyExists:
-            logging.debug(
-                f"{log_msgs.SUBSCRIPTION_ALREADY_EXISTS} ({self._subscription_path})"
-            )
-        finally:
-            logging.debug(log_msgs.CONNECTED_SUB)
+        # TODO - test when subscription has not been created (by a publisher)
 
     def close(self) -> None:
         """Close connection."""
@@ -321,8 +352,12 @@ class Backend(backend_interface.Backend):
     @staticmethod
     def create_pub_queue(address: str, name: str) -> GCPPub:
         """Create a publishing queue."""
-        # pylint: disable=invalid-name
-        q = GCPPub(Backend._figure_host_address(address), Backend.PROJECT_ID, name)
+        q = GCPPub(  # pylint: disable=invalid-name
+            Backend._figure_host_address(address),
+            Backend.PROJECT_ID,
+            name,
+            [Backend.SUBSCRIPTION_ID],
+        )
         q.connect()
         return q
 
