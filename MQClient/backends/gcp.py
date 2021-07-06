@@ -24,13 +24,9 @@ class GCP(RawQueue):
     def __init__(self, endpoint: str, project_id: str, topic_id: str) -> None:
         super().__init__()
         self.endpoint = endpoint
-        self._project_id = project_id
-
-        # create a temporary PublisherClient just to get `topic_path`
-        self._topic_path = api.PublisherClient().topic_path(  # pylint: disable=no-member
-            self._project_id, topic_id
-        )
-        logging.debug(f"Topic Path: {self._topic_path}")
+        self.project_id = project_id
+        self.topic_id = topic_id
+        self.topic_path = ""
 
     def connect(self) -> None:
         """Set up connection and channel."""
@@ -41,7 +37,26 @@ class GCP(RawQueue):
         super().close()
 
     @staticmethod
-    def _create_and_connect_sub(
+    def setup_topic(
+        endpoint: str, project_id: str, topic_id: str
+    ) -> Tuple[api.PublisherClient, str]:
+        """Create a topic, then return a publisher instance and path.
+
+        If the topic already exists, the topic is unaffected.
+        """
+        pub = api.PublisherClient(client_options={"api_endpoint": endpoint})
+        topic_path = pub.topic_path(project_id, topic_id)  # pylint: disable=no-member
+
+        try:
+            pub.create_topic(topic_path)  # pylint: disable=no-member
+            logging.debug(f"Topic created ({topic_path})")
+        except exceptions.AlreadyExists:
+            logging.debug(f"Topic already exists ({topic_path})")
+
+        return pub, topic_path
+
+    @staticmethod
+    def setup_subscription(
         endpoint: str, project_id: str, topic_path: str, subscription_id: str
     ) -> Tuple[api.SubscriberClient, str]:
         """Create a subscription, then return a subscriber instance and path.
@@ -95,25 +110,20 @@ class GCPPub(GCP, Pub):
         logging.debug(log_msgs.CONNECTING_PUB)
         super().connect()
 
-        self.pub = api.PublisherClient(client_options={"api_endpoint": self.endpoint})
-        # publisher_options=api.types.PublisherOptions(enable_message_ordering=True),
-
-        try:
-            self.pub.create_topic(self._topic_path)  # pylint: disable=no-member
-            logging.debug(f"Topic created ({self._topic_path})")
-        except exceptions.AlreadyExists:
-            logging.debug(f"Topic already exists ({self._topic_path})")
-        finally:
-            logging.debug(log_msgs.CONNECTED_PUB)
+        self.pub, self.topic_path = GCP.setup_topic(
+            self.endpoint, self.project_id, self.topic_id
+        )
 
         # Create Any Subscriptions
         # NOTE - A message published before a given subscription was created will
         #  usually not be delivered for that subscription. Thus, a message published
         #  to a topic that has no subscription will not be delivered to any subscriber.
         for sub_id in self.subscription_ids:
-            GCP._create_and_connect_sub(
-                self.endpoint, self._project_id, self._topic_path, sub_id
+            GCP.setup_subscription(
+                self.endpoint, self.project_id, self.topic_path, sub_id
             )
+
+        logging.debug(log_msgs.CONNECTED_PUB)
 
     def close(self) -> None:
         """Close connection."""
@@ -128,7 +138,7 @@ class GCPPub(GCP, Pub):
             raise RuntimeError("publisher is not connected")
 
         # try_call(self, partial(self.publisher.publish, self.topic_path, msg)) # TODO
-        future = self.pub.publish(self._topic_path, msg)
+        future = self.pub.publish(self.topic_path, msg)
         logging.debug(f"Sent Message w/ Origin ID: {future.result()}")
         logging.debug(log_msgs.SENT_MESSAGE)
 
@@ -165,8 +175,11 @@ class GCPSub(GCP, Sub):
         logging.debug(log_msgs.CONNECTING_SUB)
         super().connect()
 
-        self.sub, self._subscription_path = GCP._create_and_connect_sub(
-            self.endpoint, self._project_id, self._topic_path, self._subscription_id
+        _, self.topic_path = GCP.setup_topic(
+            self.endpoint, self.project_id, self.topic_id
+        )
+        self.sub, self._subscription_path = GCP.setup_subscription(
+            self.endpoint, self.project_id, self.topic_path, self._subscription_id
         )
         logging.debug(log_msgs.CONNECTED_SUB)
 
