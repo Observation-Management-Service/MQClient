@@ -22,8 +22,8 @@ def queue_name() -> str:
 # Note: don't put in duplicates
 DATA_LIST = [
     {"abcdefghijklmnop": ["foo", "bar", 3, 4]},
-    1,
-    "2",
+    111,
+    "two",
     [1, 2, 3, 4],
     False,
     None,

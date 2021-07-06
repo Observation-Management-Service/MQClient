@@ -356,7 +356,7 @@ class Backend(backend_interface.Backend):
             Backend._figure_host_address(address),
             Backend.PROJECT_ID,
             name,
-            [Backend.SUBSCRIPTION_ID],
+            [f"{Backend.SUBSCRIPTION_ID}-{name}"],
         )
         q.connect()
         return q
@@ -368,7 +368,7 @@ class Backend(backend_interface.Backend):
             Backend._figure_host_address(address),
             Backend.PROJECT_ID,
             name,
-            Backend.SUBSCRIPTION_ID,
+            f"{Backend.SUBSCRIPTION_ID}-{name}",
         )
         q.prefetch = prefetch
         q.connect()
