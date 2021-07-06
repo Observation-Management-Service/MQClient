@@ -189,7 +189,7 @@ class GCPSub(GCP, Sub):
 
     def _get_messages(
         self, timeout_millis: Optional[int], num_messages: int
-    ) -> Generator[Message, None, None]:
+    ) -> List[Message]:
         """Get n messages.
 
         The subscriber pulls a specific number of messages. The actual
@@ -207,13 +207,13 @@ class GCPSub(GCP, Sub):
             # NOTE - if `retry` is specified, the timeout applies to each individual attempt
         )
 
-        # Yield Each Message
-        logging.error(f"response.received_messages = {response.received_messages}")
+        msgs = []
         for recvd in response.received_messages:
-            msg = GCPSub._to_message(recvd)
             logging.debug(f"Got Message w/ Origin ID: {recvd.message.message_id}")
+            msg = GCPSub._to_message(recvd)
             if msg:
-                yield msg
+                msgs.append(msg)
+        return msgs
 
     def get_message(
         self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
@@ -223,15 +223,25 @@ class GCPSub(GCP, Sub):
         NOTE: Based on `examples/gcp/subscriber.synchronous_pull()`
         """
         logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
-        msg = next(self._get_messages(timeout_millis, 1), None)
 
-        # Process & Return
-        if not msg:  # NOTE - on timeout -> this will be len=0
-            logging.debug(log_msgs.GETMSG_NO_MESSAGE)
-            return None  # kind of redundant
-        else:  # got 1 message
+        try:
+            msg = self._get_messages(timeout_millis, 1)[0]
             logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
             return msg
+        except IndexError:  # NOTE - on timeout -> this will be len=0
+            logging.debug(log_msgs.GETMSG_NO_MESSAGE)
+            return None
+
+    def _gen_messages(
+        self, timeout_millis: Optional[int], num_messages: int
+    ) -> Generator[Message, None, None]:
+        """Continuously generate messages until there are no more."""
+        while True:
+            msgs = self._get_messages(timeout_millis, num_messages)
+            if not msgs:
+                return
+            for msg in msgs:
+                yield msg
 
     def ack_message(self, msg_id: MessageID) -> None:
         """Ack a message from the queue."""
@@ -280,7 +290,7 @@ class GCPSub(GCP, Sub):
         msg = None
         acked = False
         try:
-            gen = self._get_messages(timeout * 1000, self.prefetch)
+            gen = self._gen_messages(timeout * 1000, self.prefetch)
             while True:
                 # get message
                 logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
