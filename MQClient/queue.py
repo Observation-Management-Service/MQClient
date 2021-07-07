@@ -19,8 +19,13 @@ class Queue:
         prefetch (int): size of prefetch buffer for receiving messages (default: 1)
     """
 
-    def __init__(self, backend: Backend, address: str = 'localhost',
-                 name: str = '', prefetch: int = 1) -> None:
+    def __init__(
+        self,
+        backend: Backend,
+        address: str = "localhost",
+        name: str = "",
+        prefetch: int = 1,
+    ) -> None:
         self._backend = backend
         self._address = address
         self._name = name if name else uuid.uuid4().hex
@@ -53,7 +58,7 @@ class Queue:
     @prefetch.setter
     def prefetch(self, val: int) -> None:
         if val < 1:
-            raise Exception('prefetch must be positive')
+            raise Exception("prefetch must be positive")
         if self._prefetch != val:
             self._prefetch = val
             if self._sub_queue:
@@ -85,7 +90,8 @@ class Queue:
         """Get subscriber queue."""
         if not self._sub_queue:
             self._sub_queue = self._backend.create_sub_queue(
-                self._address, self._name, self._prefetch)
+                self._address, self._name, self._prefetch
+            )
 
         if not self._sub_queue:
             raise Exception("Sub queue failed to be created.")
@@ -139,11 +145,17 @@ class Queue:
         Returns:
             MessageGeneratorContext -- context manager and generator object
         """
-        if (not self.message_generator_context) or (not self._sub_queue) or self._sub_queue.was_closed:
+        if (
+            (not self.message_generator_context)
+            or (not self._sub_queue)
+            or self._sub_queue.was_closed
+        ):
             logging.debug("Creating new MessageGeneratorContext instance.")
-            self.message_generator_context = MessageGeneratorContext(sub=self.raw_sub_queue,
-                                                                     timeout=timeout,
-                                                                     propagate_error=self._propagate_recv_error)
+            self.message_generator_context = MessageGeneratorContext(
+                sub=self.raw_sub_queue,
+                timeout=timeout,
+                propagate_error=self._propagate_recv_error,
+            )
         return self.message_generator_context
 
     @contextlib.contextmanager
@@ -163,7 +175,7 @@ class Queue:
         """
         msg = self.raw_sub_queue.get_message()
         if not msg:
-            raise Exception('No message available')
+            raise Exception("No message available")
         try:
             yield pickle.loads(msg.data)
         except Exception:
