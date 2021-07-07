@@ -3,7 +3,6 @@
 # fmt: off
 
 import logging
-import uuid
 from typing import Any, List
 
 import pytest  # type: ignore
@@ -31,7 +30,7 @@ class BackendUnitTest:
     @pytest.fixture 
     def queue_name() -> str:
         """Get random queue name."""
-        name = uuid.uuid4().hex
+        name = Queue.make_name()
         logging.info(f"NAME :: {name}")
         return name
 

@@ -28,12 +28,20 @@ class Queue:
     ) -> None:
         self._backend = backend
         self._address = address
-        self._name = name if name else uuid.uuid4().hex
+        self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
         self._pub_queue: Optional[Pub] = None
         self._sub_queue: Optional[Sub] = None
         self._message_generator_ctx: Optional[MessageGeneratorContext] = None
         self._suppress_ctx_errors = suppress_ctx_errors
+
+    @staticmethod
+    def make_name() -> str:
+        """Return a pseudo-unique string that is a legal queue identifier.
+
+        This name is valid for any backend chosen.
+        """
+        return "a" + (uuid.uuid4().hex)[:20]
 
     @property
     def backend(self) -> Backend:

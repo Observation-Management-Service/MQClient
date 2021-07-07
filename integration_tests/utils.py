@@ -1,10 +1,12 @@
 """Utility data and functions."""
 
 import logging
-import uuid
 from typing import Any
 
 import pytest
+
+# local imports
+from MQClient import Queue
 
 
 @pytest.fixture
@@ -14,7 +16,7 @@ def queue_name() -> str:
     Obeys the valid naming scheme for GCP (other backends are less picky).
     (See https://cloud.google.com/resource-manager/reference/rest/v1/projects#resource:-project)
     """
-    name = "a" + (uuid.uuid4().hex)[:20]
+    name = Queue.make_name()
     logging.info(f"NAME :: {name}")
     return name
 
