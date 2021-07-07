@@ -2,11 +2,10 @@
 
 import contextlib
 import logging
-import pickle
 import uuid
 from typing import Any, Generator, Optional
 
-from .backend_interface import Backend, MessageGeneratorContext, Pub, Sub
+from .backend_interface import Backend, Message, MessageGeneratorContext, Pub, Sub
 
 
 class Queue:
@@ -25,15 +24,16 @@ class Queue:
         address: str = "localhost",
         name: str = "",
         prefetch: int = 1,
+        suppress_ctx_errors: bool = True,
     ) -> None:
         self._backend = backend
         self._address = address
         self._name = name if name else uuid.uuid4().hex
         self._prefetch = prefetch
-        self._pub_queue = None  # type: Optional[Pub]
-        self._sub_queue = None  # type: Optional[Sub]
-        self.message_generator_context = None  # type: Optional[MessageGeneratorContext]
-        self._propagate_recv_error = False
+        self._pub_queue: Optional[Pub] = None
+        self._sub_queue: Optional[Sub] = None
+        self._message_generator_ctx: Optional[MessageGeneratorContext] = None
+        self._suppress_ctx_errors = suppress_ctx_errors
 
     @property
     def backend(self) -> Backend:
@@ -116,23 +116,22 @@ class Queue:
     def send(self, data: Any) -> None:
         """Send a message to the queue.
 
-        Args:
+        Arguments:
             data (Any): object of data to send (must be picklable)
         """
-        raw_data = pickle.dumps(data, protocol=4)
-        self.raw_pub_queue.send_message(raw_data)
+        self.raw_pub_queue.send_message(Message.serialize_data(data))
 
     def recv(self, timeout: int = 60) -> MessageGeneratorContext:
         """Receive a stream of messages from the queue.
 
-        This returns a context manager/ generator. It's iterator stops
+        This returns a context-manager/generator. Its iterator stops
         when no messages are received for `timeout` seconds. If an exception
-        is raised, the message is rejected, but messages continue to
-        be received (this is configured by `self._propagate_recv_error`).
+        is raised (internally), the message is rejected and messages can
+        continue to be received (configured by `self._suppress_ctx_errors`).
         Multiple calls to `recv()` and/or recycling an instance are both okay,
         however if the queue has not been closed (e.g. premature termination
         of the iterator by a consumer-sider raised exception) the original
-        parameters (`timeout`) are reused.
+        config (timeout, error suppression/propagation) is reused.
 
         Example:
             with queue.recv() as stream:
@@ -146,17 +145,17 @@ class Queue:
             MessageGeneratorContext -- context manager and generator object
         """
         if (
-            (not self.message_generator_context)
+            (not self._message_generator_ctx)
             or (not self._sub_queue)
             or self._sub_queue.was_closed
         ):
             logging.debug("Creating new MessageGeneratorContext instance.")
-            self.message_generator_context = MessageGeneratorContext(
+            self._message_generator_ctx = MessageGeneratorContext(
                 sub=self.raw_sub_queue,
                 timeout=timeout,
-                propagate_error=self._propagate_recv_error,
+                propagate_error=(not self._suppress_ctx_errors),
             )
-        return self.message_generator_context
+        return self._message_generator_ctx
 
     @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:
@@ -177,9 +176,10 @@ class Queue:
         if not msg:
             raise Exception("No message available")
         try:
-            yield pickle.loads(msg.data)
+            yield msg.deserialize_data()
         except Exception:
             self.raw_sub_queue.reject_message(msg.msg_id)
+            # TODO - check for self._suppress_ctx_errors
             raise
         else:
             self.raw_sub_queue.ack_message(msg.msg_id)

@@ -185,18 +185,17 @@ class PubSubQueue:
             recv_thread(0)
             assert "No message available" in str(excinfo.value)
 
-    def test_30(self, queue_name: str) -> None:
+    def test_30(self, queue_name: str) -> None:  # TODO - this one
         """Test multiple pubs, one sub, ordered/alternatingly."""
         sub = Queue(self.backend, name=queue_name)
+        sub._propagate_recv_error = True
 
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
-            import time
 
             with sub.recv(timeout=1) as gen:
-                time.sleep(10)
                 received_data = list(gen)
             _log_recv_multiple(received_data)
 
@@ -271,7 +270,7 @@ class PubSubQueue:
 
         received_data = []
         for i in range(len(DATA_LIST)):
-            if i % 2 == 0:
+            if i % 2 == 0:  # each sub receives 2 messages back-to-back
                 sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
                 _log_recv(d)
@@ -288,7 +287,7 @@ class PubSubQueue:
         Use the fewer pubs than subs.
         """
         for i, data in enumerate(DATA_LIST):
-            if i % 2 == 0:
+            if i % 2 == 0:  # each pub sends 2 messages back-to-back
                 pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
@@ -357,7 +356,10 @@ class PubSubQueue:
             assert data in received_data
 
     def test_60(self, queue_name: str) -> None:
-        """Test recv() fail and recovery, with one recv() call."""
+        """Test recv() fail and recovery, with one recv() call.
+
+        # TODO - this one fails in ack *after* error suppression (currently turned off tho)
+        """
         pub = Queue(self.backend, name=queue_name)
         for d in DATA_LIST:
             pub.send(d)
@@ -366,7 +368,9 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        sub = Queue(self.backend, name=queue_name)
+        sub = Queue(
+            self.backend, name=queue_name  # , suppress_ctx_errors=False
+        )  # TODO - remove `suppress_ctx_errors` to see real error
         recv_gen = sub.recv(timeout=1)
         with recv_gen as gen:
             for i, d in enumerate(gen):

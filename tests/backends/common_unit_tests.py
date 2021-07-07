@@ -1,7 +1,8 @@
 """Parent class for backend unit tests."""
 
+# fmt: off
+
 import logging
-import pickle
 import uuid
 from typing import Any, List
 
@@ -21,13 +22,13 @@ class BackendUnitTest:
     backend = None  # type: Backend
     con_patch = ''
 
-    @pytest.fixture  # type: ignore
+    @pytest.fixture 
     def mock_con(self, mocker: Any) -> Any:
         """Patch mock_con."""
         return mocker.patch(self.con_patch)
 
     @staticmethod
-    @pytest.fixture  # type: ignore
+    @pytest.fixture 
     def queue_name() -> str:
         """Get random queue name."""
         name = uuid.uuid4().hex
@@ -273,7 +274,7 @@ class BackendUnitTest:
         """Test Queue.recv()."""
         q = Queue(self.backend, address="localhost", name=queue_name)
 
-        fake_data = [pickle.dumps('baz', protocol=4)]
+        fake_data = [Message.serialize_data('baz')]
         self._enqueue_mock_messages(mock_con, fake_data, [0])
 
         with q.recv() as gen:
@@ -295,7 +296,7 @@ class BackendUnitTest:
         """
         q = Queue(self.backend, address="localhost", name=queue_name)
 
-        fake_data = [pickle.dumps('baz-0', protocol=4), pickle.dumps('baz-1', protocol=4)]
+        fake_data = [Message.serialize_data('baz-0'), Message.serialize_data('baz-1')]
         fake_ids = [0, 1]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids, append_none=False)
 
@@ -320,7 +321,7 @@ class BackendUnitTest:
         q = Queue(self.backend, address="localhost", name=queue_name)
         num_msgs = 12
 
-        fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]
+        fake_data = [Message.serialize_data(f'baz-{i}') for i in range(num_msgs)]
         fake_ids = [i * 10 for i in range(num_msgs)]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
@@ -361,7 +362,7 @@ class BackendUnitTest:
         q = Queue(self.backend, address="localhost", name=queue_name)
         num_msgs = 12
 
-        fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]
+        fake_data = [Message.serialize_data(f'baz-{i}') for i in range(num_msgs)]
         fake_ids = [i * 10 for i in range(num_msgs)]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
@@ -402,7 +403,7 @@ class BackendUnitTest:
         q._propagate_recv_error = True  # pylint: disable=W0212
         num_msgs = 12
 
-        fake_data = [pickle.dumps(f'baz-{i}', protocol=4) for i in range(num_msgs)]
+        fake_data = [Message.serialize_data(f'baz-{i}') for i in range(num_msgs)]
         fake_ids = [i * 10 for i in range(num_msgs)]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 

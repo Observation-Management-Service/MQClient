@@ -1,6 +1,7 @@
 """Unit test Queue class."""
 
-import pickle
+# fmt: off
+
 from functools import partial
 from typing import Any, Generator, List
 from unittest.mock import MagicMock
@@ -45,7 +46,7 @@ def test_Queue_send() -> None:
     data = {'a': 1234}
     q.send(data)
 
-    q.raw_pub_queue.send_message.assert_called_with(pickle.dumps(data, protocol=4))  # type: ignore
+    q.raw_pub_queue.send_message.assert_called_with(Message.serialize_data(data))  # type: ignore
 
 
 def test_Queue_recv() -> None:
@@ -53,7 +54,7 @@ def test_Queue_recv() -> None:
 
     def gen(data: List[Any], *args: Any, **kwargs: Any) -> Generator[Message, None, None]:
         for i, d in enumerate(data):
-            yield Message(i, pickle.dumps(d, protocol=4))
+            yield Message(i, Message.serialize_data(d))
 
     backend = MagicMock()
 
@@ -73,8 +74,8 @@ def test_Queue_recv_one() -> None:
 
     q = Queue(backend)
 
-    data = {'b': 100}
-    msg = Message(0, pickle.dumps(data, protocol=4))
+    data = {"b": 100}
+    msg = Message(0, Message.serialize_data(data))
     q.raw_sub_queue.get_message.return_value = msg  # type: ignore
 
     with q.recv_one() as d:

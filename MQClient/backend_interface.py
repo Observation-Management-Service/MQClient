@@ -38,6 +38,15 @@ class Message:
         """
         return bool(other) and isinstance(other, Message) and (self.data == other.data)
 
+    def deserialize_data(self) -> Any:
+        """Read and return an object from `data` (bytes)."""
+        return pickle.loads(self.data)
+
+    @staticmethod
+    def serialize_data(data: Any) -> bytes:
+        """Return serialized representation of `data` as a bytes object."""
+        return pickle.dumps(data, protocol=4)
+
 
 # -----------------------------
 # classes to override/implement
@@ -202,5 +211,4 @@ class MessageGeneratorContext:
                 "Yielded value is `None`. This should not have happened."
             )
 
-        data = pickle.loads(msg.data)
-        return data
+        return msg.deserialize_data()

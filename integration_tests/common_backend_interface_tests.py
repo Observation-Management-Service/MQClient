@@ -6,7 +6,6 @@ Verify functionality that is abstracted away from the Queue class.
 import copy
 import itertools
 import logging
-import pickle
 from typing import List, Optional
 
 # local imports
@@ -20,7 +19,7 @@ logging.getLogger().setLevel(logging.DEBUG)
 def _log_recv_message(recv_msg: Optional[Message]) -> None:
     recv_data = None
     if recv_msg:
-        recv_data = pickle.loads(recv_msg.data)
+        recv_data = recv_msg.deserialize_data()
     _log_recv(f"{recv_msg} -> {recv_data}")
 
 
@@ -40,7 +39,7 @@ class PubSubBackendInterface:
 
         # send
         for msg in DATA_LIST:
-            raw_data = pickle.dumps(msg, protocol=4)
+            raw_data = Message.serialize_data(msg)
             pub.send_message(raw_data)
             _log_send(msg)
 
@@ -58,7 +57,7 @@ class PubSubBackendInterface:
                 break
 
             assert recv_msg
-            assert DATA_LIST[i] == pickle.loads(recv_msg.data)
+            assert DATA_LIST[i] == recv_msg.deserialize_data()
 
     def test_10(self, queue_name: str) -> None:
         """Test nacking, front-loaded sending.
@@ -70,7 +69,7 @@ class PubSubBackendInterface:
 
         # send
         for msg in DATA_LIST:
-            raw_data = pickle.dumps(msg, protocol=4)
+            raw_data = Message.serialize_data(msg)
             pub.send_message(raw_data)
             _log_send(msg)
 
@@ -83,7 +82,7 @@ class PubSubBackendInterface:
 
             # all messages have been acked and redelivered
             if len(redelivered_msgs) == len(DATA_LIST):
-                redelivered_data = [pickle.loads(m.data) for m in redelivered_msgs]
+                redelivered_data = [m.deserialize_data() for m in redelivered_msgs]
                 assert all((d in DATA_LIST) for d in redelivered_data)
                 break
 
@@ -93,7 +92,7 @@ class PubSubBackendInterface:
             if not recv_msg:
                 logging.info("waiting...")
                 continue
-            assert pickle.loads(recv_msg.data) in DATA_LIST
+            assert recv_msg.deserialize_data() in DATA_LIST
 
             # message was redelivered
             if recv_msg in nacked_msgs:
@@ -123,14 +122,14 @@ class PubSubBackendInterface:
 
             # all messages have been acked and redelivered
             if len(redelivered_msgs) == len(DATA_LIST):
-                redelivered_data = [pickle.loads(m.data) for m in redelivered_msgs]
+                redelivered_data = [m.deserialize_data() for m in redelivered_msgs]
                 assert all((d in DATA_LIST) for d in redelivered_data)
                 break
 
             # send a message
             if data_to_send:
                 msg = data_to_send[0]
-                raw_data = pickle.dumps(msg, protocol=4)
+                raw_data = Message.serialize_data(msg)
                 pub.send_message(raw_data)
                 _log_send(msg)
                 data_to_send.remove(msg)
@@ -142,7 +141,7 @@ class PubSubBackendInterface:
             if not recv_msg:
                 logging.info("waiting...")
                 continue
-            assert pickle.loads(recv_msg.data) in DATA_LIST
+            assert recv_msg.deserialize_data() in DATA_LIST
 
             # message was redelivered
             if recv_msg in nacked_msgs:
@@ -162,7 +161,7 @@ class PubSubBackendInterface:
 
         # send
         for msg in DATA_LIST:
-            raw_data = pickle.dumps(msg, protocol=4)
+            raw_data = Message.serialize_data(msg)
             pub.send_message(raw_data)
             _log_send(msg)
 
@@ -172,7 +171,7 @@ class PubSubBackendInterface:
             logging.info(i)
             _log_recv_message(recv_msg)
             assert recv_msg
-            assert pickle.loads(recv_msg.data) in DATA_LIST
+            assert recv_msg.deserialize_data() in DATA_LIST
             last = i
 
         assert last == len(DATA_LIST) - 1
