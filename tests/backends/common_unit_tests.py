@@ -3,6 +3,7 @@
 # fmt: off
 
 import logging
+import pickle
 from typing import Any, List
 
 import pytest  # type: ignore
