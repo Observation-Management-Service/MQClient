@@ -28,13 +28,7 @@ class Message:
 
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
-        return (
-            f"Message("
-            f"msg_id={self.msg_id!r}, "
-            f"data={self.data!r}, "
-            f"deserialized={self.deserialize_data()}"
-            f")"
-        )
+        return f"Message(msg_id={self.msg_id!r}, data={self.data!r})"
 
     def __eq__(self, other: object) -> bool:
         """Return True if self's and other's `data` are equal.
