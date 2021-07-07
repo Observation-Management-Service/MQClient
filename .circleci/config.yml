@@ -34,7 +34,7 @@ jobs:
                 pip install --user tox
                 ./resources/gcp-install.sh
                 gcloud beta emulators pubsub start --project="i3-gcp-proj" &
-                tox integration_tests/test_gcp.py -vv
+                tox integration_tests -vv
 
     example_server:
         docker:
