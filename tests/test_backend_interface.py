@@ -1,5 +1,7 @@
 """Unit test the backend interface."""
 
+# fmt: off
+
 # local imports
 from MQClient import backend_interface
 

@@ -10,7 +10,7 @@ import pytest  # type: ignore
 
 # local imports
 from MQClient import Queue
-from MQClient.backend_interface import Backend
+from MQClient.backend_interface import Backend, Message
 from MQClient.backends import rabbitmq
 
 logging.getLogger().setLevel(logging.DEBUG)
