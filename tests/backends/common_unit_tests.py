@@ -398,8 +398,7 @@ class BackendUnitTest:
         Same as test_queue_recv_comsumer_exception_2() but with error
         propagation.
         """
-        q = Queue(self.backend, address="localhost", name=queue_name)
-        q._propagate_recv_error = True  # pylint: disable=W0212
+        q = Queue(self.backend, address="localhost", name=queue_name, suppress_ctx_errors=False)
         num_msgs = 12
 
         fake_data = [Message.serialize_data(f'baz-{i}') for i in range(num_msgs)]

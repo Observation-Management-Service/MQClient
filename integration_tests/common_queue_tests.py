@@ -187,8 +187,7 @@ class PubSubQueue:
 
     def test_30(self, queue_name: str) -> None:  # TODO - this one
         """Test multiple pubs, one sub, ordered/alternatingly."""
-        sub = Queue(self.backend, name=queue_name)
-        sub._propagate_recv_error = True
+        sub = Queue(self.backend, name=queue_name, suppress_ctx_errors=False)
 
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
@@ -419,8 +418,7 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        sub = Queue(self.backend, name=queue_name)
-        sub._propagate_recv_error = True  # pylint: disable=W0212
+        sub = Queue(self.backend, name=queue_name, suppress_ctx_errors=False)
         excepted = False
         try:
             with sub.recv(timeout=1) as gen:
