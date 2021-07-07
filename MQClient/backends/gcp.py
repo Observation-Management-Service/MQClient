@@ -366,12 +366,14 @@ class Backend(backend_interface.Backend):
     def _figure_host_address(address: str) -> str:
         """If the pub-sub emulator enviro var is set, use that address."""
         try:
-            address = os.environ[Backend.PUBSUB_EMULATOR_HOST]
-            logging.debug(f"GCP-Backend: Using Pub-Sub Emulator at {address}.")
+            emulator = os.environ[Backend.PUBSUB_EMULATOR_HOST]
+            logging.warning(
+                f"Environment variable `{Backend.PUBSUB_EMULATOR_HOST}` is set: "
+                f"using Pub-Sub Emulator at {emulator} (overriding `{address}`)."
+            )
+            return emulator
         except KeyError:
-            pass
-
-        return address
+            return address
 
     @staticmethod
     def create_pub_queue(address: str, name: str) -> GCPPub:
