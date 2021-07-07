@@ -22,13 +22,13 @@ class BackendUnitTest:
     backend = None  # type: Backend
     con_patch = ''
 
-    @pytest.fixture 
+    @pytest.fixture
     def mock_con(self, mocker: Any) -> Any:
         """Patch mock_con."""
         return mocker.patch(self.con_patch)
 
     @staticmethod
-    @pytest.fixture 
+    @pytest.fixture
     def queue_name() -> str:
         """Get random queue name."""
         name = Queue.make_name()
