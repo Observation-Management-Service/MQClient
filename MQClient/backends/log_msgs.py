@@ -43,7 +43,8 @@ MSGGEN_PROPAGATING_ERROR = "[message_generator()] Propagating error..."
 MSGGEN_EXCEPTED_DOWNSTREAM_ERROR = (
     "[message_generator()] Excepted downstream error (not re-raising):"
 )
-MSGGEN_GENERATOR_EXIT = "[message_generator()] Exited generator."
+MSGGEN_GENERATOR_EXITING = "[message_generator()] Exiting generator..."
+MSGGEN_GENERATOR_EXITED = "[message_generator()] Exited generator."
 MSGGEN_CLOSED_QUEUE = "[message_generator()] Closed queue."
 
 TRYCALL_CONNECTION_CLOSED_BY_BROKER = "[try_call()] ConnectionClosedByBroker..."

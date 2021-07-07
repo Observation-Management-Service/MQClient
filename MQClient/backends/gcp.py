@@ -329,10 +329,12 @@ class GCPSub(GCP, Sub):
 
         # generator exit (explicit close(), or break in consumer's loop)
         except GeneratorExit:
-            logging.debug(log_msgs.MSGGEN_GENERATOR_EXIT)
+            logging.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
             if auto_ack and (not acked) and msg:
+                # FIXME - a raised error in here is suppressed
                 self.ack_message(msg.msg_id)
                 acked = True
+            logging.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
         # generator is closed (also, garbage collected)
         finally:
