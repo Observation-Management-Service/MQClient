@@ -125,7 +125,7 @@ class Backend:
 
 
 class MessageGeneratorContext:
-    """A context manager wrapping backend.message_generator()."""
+    """A context manager wrapping `Sub.message_generator()`."""
 
     RUNTIME_ERROR_CONTEXT_STRING = "'MessageGeneratorContext' object's runtime context has not been entered. Use 'with as' syntax."
 
@@ -141,7 +141,7 @@ class MessageGeneratorContext:
 
         Triggered by 'with ... as'.
         """
-        logging.debug("[MessageGeneratorContext.__enter__()]")
+        logging.debug("[MessageGeneratorContext.__enter__()] entered `with-as` block")
         self.entered = True
         return self
 
@@ -160,7 +160,9 @@ class MessageGeneratorContext:
             exc_val {Optional[Type[BaseException]]} -- Exception object.
             exc_tb {Optional[types.TracebackType]} -- Exception Traceback.
         """
-        logging.debug(f"[MessageGeneratorContext.__exit__()]: {exc_type}")
+        logging.debug(
+            f"[MessageGeneratorContext.__exit__()] exiting `with-as` block (exc:{exc_type})"
+        )
         if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
@@ -177,21 +179,23 @@ class MessageGeneratorContext:
 
         Triggered with 'for'/'iter()'.
         """
-        logging.debug("[MessageGeneratorContext.__iter__()]")
+        logging.debug("[MessageGeneratorContext.__iter__()] entered loop/`iter()`")
         if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
     def __next__(self) -> Any:
         """Return next Message in queue."""
-        logging.debug("[MessageGeneratorContext.__next__()] entering...")
+        logging.debug("[MessageGeneratorContext.__next__()] next iteration...")
         if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         try:
             msg = next(self.message_generator)
         except StopIteration:
-            logging.debug("[MessageGeneratorContext.__next__()]: StopIteration")
+            logging.debug(
+                "[MessageGeneratorContext.__next__()] end of loop (StopIteration)"
+            )
             raise
         if not msg:
             raise RuntimeError(

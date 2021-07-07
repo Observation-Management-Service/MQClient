@@ -193,8 +193,10 @@ class PubSubQueue:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
+            import time
 
             with sub.recv(timeout=1) as gen:
+                time.sleep(10)
                 received_data = list(gen)
             _log_recv_multiple(received_data)
 
