@@ -399,7 +399,7 @@ class BackendUnitTest:
         Same as test_queue_recv_comsumer_exception_2() but with error
         propagation.
         """
-        q = Queue(self.backend, address="localhost", name=queue_name, suppress_ctx_errors=False)
+        q = Queue(self.backend, address="localhost", name=queue_name)
         num_msgs = 12
 
         fake_data = [Message.serialize_data(f'baz-{i}') for i in range(num_msgs)]
@@ -410,7 +410,7 @@ class BackendUnitTest:
             pass
 
         with pytest.raises(TestException):
-            with q.recv() as gen:  # propagate_error=True
+            with q.recv(suppress_ctx_errors=False) as gen:
                 for msg in gen:
                     logging.debug(msg)
                     raise TestException
@@ -429,7 +429,7 @@ class BackendUnitTest:
             self._enqueue_mock_messages(mock_con, fake_data[1:], fake_ids[1:])
 
         # continue where we left off
-        with q.recv() as gen:  # propagate_error=True
+        with q.recv(suppress_ctx_errors=False) as gen:
             self._get_mock_ack(mock_con).assert_not_called()
             for i, msg in enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")
