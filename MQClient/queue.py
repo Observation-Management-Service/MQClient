@@ -2,10 +2,11 @@
 
 import contextlib
 import logging
+import types
 import uuid
-from typing import Any, Generator, Optional
+from typing import Any, Callable, Generator, Optional, Type
 
-from .backend_interface import Backend, Message, MessageGeneratorContext, Pub, Sub
+from .backend_interface import Backend, Message, Pub, Sub
 
 
 class Queue:
@@ -24,7 +25,6 @@ class Queue:
         address: str = "localhost",
         name: str = "",
         prefetch: int = 1,
-        suppress_ctx_errors: bool = True,
     ) -> None:
         self._backend = backend
         self._address = address
@@ -32,8 +32,6 @@ class Queue:
         self._prefetch = prefetch
         self._pub_queue: Optional[Pub] = None
         self._sub_queue: Optional[Sub] = None
-        self._message_generator_ctx: Optional[MessageGeneratorContext] = None
-        self._suppress_ctx_errors = suppress_ctx_errors
 
     @staticmethod
     def make_name() -> str:
@@ -129,17 +127,16 @@ class Queue:
         """
         self.raw_pub_queue.send_message(Message.serialize_data(data))
 
-    def recv(self, timeout: int = 60) -> MessageGeneratorContext:
+    def recv(
+        self, timeout: int = 60, suppress_ctx_errors: bool = True
+    ) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.
 
-        This returns a context-manager/generator. Its iterator stops
-        when no messages are received for `timeout` seconds. If an exception
-        is raised (internally), the message is rejected and messages can
-        continue to be received (configured by `self._suppress_ctx_errors`).
-        Multiple calls to `recv()` and/or recycling an instance are both okay,
-        however if the queue has not been closed (e.g. premature termination
-        of the iterator by a consumer-sider raised exception) the original
-        config (timeout, error suppression/propagation) is reused.
+        This returns a context-manager/generator. Its iterator stops when no
+        messages are received for `timeout` seconds. If an exception is raised
+        (inside the context), the message is rejected and messages can continue
+        to be received (configured by `suppress_ctx_errors`). Multiple calls to
+        `recv()` is okay.
 
         Example:
             with queue.recv() as stream:
@@ -147,23 +144,20 @@ class Queue:
                     ...
 
         Keyword Arguments:
-            timeout {int} -- seconds to wait idle before stopping (default: {60})
+            timeout -- seconds to wait for a message to be delivered
+            suppress_ctx_errors -- whether to suppress interior context errors to the consumer
+                    (when `True`, the context manager will also act like a `try-except` block)
 
         Returns:
             MessageGeneratorContext -- context manager and generator object
         """
-        if (
-            (not self._message_generator_ctx)
-            or (not self._sub_queue)
-            or self._sub_queue.was_closed
-        ):
-            logging.debug("Creating new MessageGeneratorContext instance.")
-            self._message_generator_ctx = MessageGeneratorContext(
-                sub=self.raw_sub_queue,
-                timeout=timeout,
-                propagate_error=(not self._suppress_ctx_errors),
-            )
-        return self._message_generator_ctx
+        logging.debug("Creating new MessageGeneratorContext instance.")
+        return MessageGeneratorContext(
+            sub=self.raw_sub_queue,
+            timeout=timeout,
+            propagate_error=(not suppress_ctx_errors),
+            close_queue_fn=self.close,
+        )
 
     @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:
@@ -197,3 +191,96 @@ class Queue:
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
         return f"Queue({self.backend.__class__.__name__}, address={self.address}, name={self.name}, prefetch={self.prefetch}, pub={bool(self._pub_queue)}, sub={bool(self._sub_queue)})"
+
+
+class MessageGeneratorContext:
+    """A context manager wrapping `Sub.message_generator()`."""
+
+    RUNTIME_ERROR_CONTEXT_STRING = (
+        "'MessageGeneratorContext' object's runtime "
+        "context has not been entered. Use 'with as' syntax."
+    )
+
+    def __init__(
+        self,
+        sub: Sub,
+        timeout: int,
+        propagate_error: bool,
+        close_queue_fn: Callable[[], None],
+    ) -> None:
+        logging.debug("[MessageGeneratorContext.__init__()]")
+        self.message_generator = sub.message_generator(
+            timeout=timeout, propagate_error=propagate_error
+        )
+        self.entered = False
+        self.close_queue = close_queue_fn
+
+    def __enter__(self) -> "MessageGeneratorContext":
+        """Return instance.
+
+        Triggered by 'with ... as'.
+        """
+        logging.debug("[MessageGeneratorContext.__enter__()] entered `with-as` block")
+        self.entered = True
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[types.TracebackType],
+    ) -> bool:
+        """Return `True` to suppress any Exception raised by consumer code.
+
+        Return `False` to re-raise/propagate that Exception.
+
+        Arguments:
+            exc_type {Optional[BaseException]} -- Exception type.
+            exc_val {Optional[Type[BaseException]]} -- Exception object.
+            exc_tb {Optional[types.TracebackType]} -- Exception Traceback.
+        """
+        logging.debug(
+            f"[MessageGeneratorContext.__exit__()] exiting `with-as` block (exc:{exc_type})"
+        )
+        if not self.entered:
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+
+        self.close_queue()
+
+        # Exception was raised
+        if exc_type and exc_val:
+            try:
+                self.message_generator.throw(exc_type, exc_val, exc_tb)
+            except exc_type:  # message_generator re-raised Exception
+                return False  # don't suppress the Exception
+        return True  # suppress any Exception
+
+    def __iter__(self) -> "MessageGeneratorContext":
+        """Return instance.
+
+        Triggered with 'for'/'iter()'.
+        """
+        logging.debug("[MessageGeneratorContext.__iter__()] entered loop/`iter()`")
+        if not self.entered:
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+        return self
+
+    def __next__(self) -> Any:
+        """Return next Message in queue."""
+        logging.debug("[MessageGeneratorContext.__next__()] next iteration...")
+        if not self.entered:
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+
+        try:
+            msg = next(self.message_generator)
+        except StopIteration:
+            logging.debug(
+                "[MessageGeneratorContext.__next__()] end of loop (StopIteration)"
+            )
+            raise
+        if not msg:
+            raise RuntimeError(
+                "Yielded value is `None`. This should not have happened."
+            )
+
+        return msg.deserialize_data()

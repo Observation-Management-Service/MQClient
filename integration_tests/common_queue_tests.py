@@ -213,14 +213,14 @@ class PubSubQueue:
         """Test multiple pubs, one sub, ordered/alternatingly."""
         all_recvd: List[Any] = []
 
-        sub = Queue(self.backend, name=queue_name, suppress_ctx_errors=False)
+        sub = Queue(self.backend, name=queue_name)
 
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
 
-            with sub.recv(timeout=1) as gen:
+            with sub.recv(timeout=1, suppress_ctx_errors=False) as gen:
                 received_data = list(gen)
             all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -459,10 +459,10 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        sub = Queue(self.backend, name=queue_name, suppress_ctx_errors=False)
+        sub = Queue(self.backend, name=queue_name)
         excepted = False
         try:
-            with sub.recv(timeout=1) as gen:
+            with sub.recv(timeout=1, suppress_ctx_errors=False) as gen:
                 for i, d in enumerate(gen):
                     if i == 2:
                         raise TestException()
@@ -474,7 +474,7 @@ class PubSubQueue:
 
         # continue where we left off
         reused = False
-        with sub.recv(timeout=1) as gen:
+        with sub.recv(timeout=1, suppress_ctx_errors=False) as gen:
             for i, d in enumerate(gen, start=2):
                 reused = True
                 all_recvd.append(_log_recv(d))

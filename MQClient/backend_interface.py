@@ -1,9 +1,8 @@
 """Define an interface that backends will adhere to."""
 
-import logging
+
 import pickle
-import types
-from typing import Any, Generator, Optional, Type, Union
+from typing import Any, Generator, Optional, Union
 
 MessageID = Union[int, str, bytes]
 
@@ -126,89 +125,3 @@ class Backend:
     def create_sub_queue(address: str, name: str, prefetch: int = 1) -> Sub:
         """Create a subscription queue."""
         raise NotImplementedError()
-
-
-# --------------------------------------------------------------------------------
-# classes to interface between Queue and backend_interface's (implemented) classes
-# --------------------------------------------------------------------------------
-
-
-class MessageGeneratorContext:
-    """A context manager wrapping `Sub.message_generator()`."""
-
-    RUNTIME_ERROR_CONTEXT_STRING = "'MessageGeneratorContext' object's runtime context has not been entered. Use 'with as' syntax."
-
-    def __init__(self, sub: Sub, timeout: int, propagate_error: bool) -> None:
-        logging.debug("[MessageGeneratorContext.__init__()]")
-        self.message_generator = sub.message_generator(
-            timeout=timeout, propagate_error=propagate_error
-        )
-        self.entered = False
-
-    def __enter__(self) -> "MessageGeneratorContext":
-        """Return instance.
-
-        Triggered by 'with ... as'.
-        """
-        logging.debug("[MessageGeneratorContext.__enter__()] entered `with-as` block")
-        self.entered = True
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[types.TracebackType],
-    ) -> bool:
-        """Return `True` to suppress any Exception raised by consumer code.
-
-        Return `False` to re-raise/propagate that Exception.
-
-        Arguments:
-            exc_type {Optional[BaseException]} -- Exception type.
-            exc_val {Optional[Type[BaseException]]} -- Exception object.
-            exc_tb {Optional[types.TracebackType]} -- Exception Traceback.
-        """
-        logging.debug(
-            f"[MessageGeneratorContext.__exit__()] exiting `with-as` block (exc:{exc_type})"
-        )
-        if not self.entered:
-            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
-
-        # Exception was raised
-        if exc_type and exc_val:
-            try:
-                self.message_generator.throw(exc_type, exc_val, exc_tb)
-            except exc_type:  # message_generator re-raised Exception
-                return False  # don't suppress the Exception
-        return True  # suppress any Exception
-
-    def __iter__(self) -> "MessageGeneratorContext":
-        """Return instance.
-
-        Triggered with 'for'/'iter()'.
-        """
-        logging.debug("[MessageGeneratorContext.__iter__()] entered loop/`iter()`")
-        if not self.entered:
-            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
-        return self
-
-    def __next__(self) -> Any:
-        """Return next Message in queue."""
-        logging.debug("[MessageGeneratorContext.__next__()] next iteration...")
-        if not self.entered:
-            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
-
-        try:
-            msg = next(self.message_generator)
-        except StopIteration:
-            logging.debug(
-                "[MessageGeneratorContext.__next__()] end of loop (StopIteration)"
-            )
-            raise
-        if not msg:
-            raise RuntimeError(
-                "Yielded value is `None`. This should not have happened."
-            )
-
-        return msg.deserialize_data()
