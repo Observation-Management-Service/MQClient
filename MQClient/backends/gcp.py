@@ -331,6 +331,7 @@ class GCPSub(GCP, Sub):
         except GeneratorExit:
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
             logging.critical(msg)
+            logging.critical(msg.deserialize_data() if msg else None)
             if auto_ack and (not acked) and msg:
                 # FIXME - a raised error in here is suppressed
                 self.ack_message(msg.msg_id)

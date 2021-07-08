@@ -1,7 +1,7 @@
 """Utility data and functions."""
 
 import logging
-from typing import Any
+from typing import Any, List, Optional
 
 import pytest
 
@@ -32,12 +32,14 @@ DATA_LIST = [
 ]
 
 
-def _log_recv(data: Any) -> None:
+def _log_recv(data: Any) -> Any:
     _log_data("RECV", data)
+    return data
 
 
-def _log_recv_multiple(data: Any) -> None:
+def _log_recv_multiple(data: List[Any]) -> List[Any]:
     _log_data("RECV", data, is_list=True)
+    return data
 
 
 def _log_send(data: Any) -> None:
@@ -49,3 +51,34 @@ def _log_data(_type: str, data: Any, is_list: bool = False) -> None:
         logging.info(f"{_type} - {len(data)} :: {data}")
     else:
         logging.info(f"{_type} :: {data}")
+
+
+def all_were_received(recvd: List[Any], expected: Optional[List[Any]] = None) -> bool:
+    """Return True if `recvd` list is set equal to `expected`.
+
+    If `expected` is None, use DATA_LIST.
+    """
+    if expected is None:  # don't override `[]`
+        expected = DATA_LIST
+
+    def log_false() -> bool:
+        logging.critical(f"received ({len(recvd)}): {recvd}")
+        logging.critical(
+            f"expected ({len(expected) if expected is not None else 'none'}): {expected}"
+        )
+        return False
+
+    # can't do set() b/c objects aren't guaranteed to be hashable
+
+    for thing in expected:
+        if thing not in recvd:
+            return log_false()
+
+    for thing in recvd:
+        if thing not in expected:
+            return log_false()
+
+    if len(recvd) != len(expected):
+        return log_false()
+
+    return True
