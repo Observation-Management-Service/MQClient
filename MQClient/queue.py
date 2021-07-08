@@ -4,7 +4,7 @@ import contextlib
 import logging
 import types
 import uuid
-from typing import Any, Callable, Generator, Optional, Type
+from typing import Any, Generator, Optional, Type
 
 from .backend_interface import Backend, Message, Pub, Sub
 
@@ -31,7 +31,6 @@ class Queue:
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
         self._pub_queue: Optional[Pub] = None
-        self._sub_queue: Optional[Sub] = None
 
     @staticmethod
     def make_name() -> str:
@@ -67,8 +66,6 @@ class Queue:
             raise Exception("prefetch must be positive")
         if self._prefetch != val:
             self._prefetch = val
-            if self._sub_queue:
-                del self.raw_sub_queue
 
     @property
     def raw_pub_queue(self) -> Pub:
@@ -91,32 +88,12 @@ class Queue:
             self._pub_queue.close()
             self._pub_queue = None
 
-    @property
-    def raw_sub_queue(self) -> Sub:
-        """Get subscriber queue."""
-        if not self._sub_queue:
-            self._sub_queue = self._backend.create_sub_queue(
-                self._address, self._name, self._prefetch
-            )
-
-        if not self._sub_queue:
-            raise Exception("Sub queue failed to be created.")
-        return self._sub_queue
-
-    @raw_sub_queue.deleter
-    def raw_sub_queue(self) -> None:
-        logging.debug("Deleter Queue.raw_sub_queue")
-        self._close_sub_queue()
-
-    def _close_sub_queue(self) -> None:
-        if self._sub_queue:
-            logging.debug("Closing Queue._sub_queue")
-            self._sub_queue.close()
-            self._sub_queue = None
+    def _create_sub_queue(self) -> Sub:
+        """Wrap `self._backend.create_sub_queue()` with instance's config."""
+        return self._backend.create_sub_queue(self._address, self._name, self._prefetch)
 
     def close(self) -> None:
         """Close all connections."""
-        self._close_sub_queue()
         self._close_pub_queue()
 
     def send(self, data: Any) -> None:
@@ -153,10 +130,9 @@ class Queue:
         """
         logging.debug("Creating new MessageGeneratorContext instance.")
         return MessageGeneratorContext(
-            sub=self.raw_sub_queue,
+            sub=self._create_sub_queue(),
             timeout=timeout,
             propagate_error=(not suppress_ctx_errors),
-            close_queue_fn=self.close,
         )
 
     @contextlib.contextmanager
@@ -174,23 +150,34 @@ class Queue:
         Raises:
             Exception -- [description]
         """
-        msg = self.raw_sub_queue.get_message()
+        sub = self._create_sub_queue()
+        msg = sub.get_message()
+
         if not msg:
             raise Exception("No message available")
+
         try:
             yield msg.deserialize_data()
         except Exception:
-            self.raw_sub_queue.reject_message(msg.msg_id)
+            sub.reject_message(msg.msg_id)
             # TODO - check for self._suppress_ctx_errors
             raise
         else:
-            self.raw_sub_queue.ack_message(msg.msg_id)
+            sub.ack_message(msg.msg_id)
         finally:
-            self.close()
+            sub.close()
 
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
-        return f"Queue({self.backend.__class__.__name__}, address={self.address}, name={self.name}, prefetch={self.prefetch}, pub={bool(self._pub_queue)}, sub={bool(self._sub_queue)})"
+        return (
+            f"Queue("
+            f"{self.backend.__class__.__name__}, "
+            f"address={self.address}, "
+            f"name={self.name}, "
+            f"prefetch={self.prefetch}, "
+            f"pub={bool(self._pub_queue)}"
+            f")"
+        )
 
 
 class MessageGeneratorContext:
@@ -201,19 +188,13 @@ class MessageGeneratorContext:
         "context has not been entered. Use 'with as' syntax."
     )
 
-    def __init__(
-        self,
-        sub: Sub,
-        timeout: int,
-        propagate_error: bool,
-        close_queue_fn: Callable[[], None],
-    ) -> None:
+    def __init__(self, sub: Sub, timeout: int, propagate_error: bool) -> None:
         logging.debug("[MessageGeneratorContext.__init__()]")
+        self.sub = sub
         self.message_generator = sub.message_generator(
             timeout=timeout, propagate_error=propagate_error
         )
         self.entered = False
-        self.close_queue = close_queue_fn
 
     def __enter__(self) -> "MessageGeneratorContext":
         """Return instance.
@@ -245,7 +226,7 @@ class MessageGeneratorContext:
         if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
-        self.close_queue()
+        self.sub.close()
 
         # Exception was raised
         if exc_type and exc_val:

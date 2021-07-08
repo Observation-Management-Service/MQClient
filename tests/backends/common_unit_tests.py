@@ -303,13 +303,13 @@ class BackendUnitTest:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        with q.recv() as gen:  # propagate_error=False
+        with q.recv() as gen:  # suppress_errors=True
             for i, msg in enumerate(gen):
                 assert i == 0
                 logging.debug(msg)
                 raise TestException
 
-        self._get_mock_close(mock_con).assert_not_called()
+        self._get_mock_close(mock_con).assert_called()
         self._get_mock_nack(mock_con).assert_called_with(0)
 
     def test_queue_recv_comsumer_exception_1(self, mock_con: Any, queue_name: str) -> None:
@@ -329,18 +329,18 @@ class BackendUnitTest:
             pass
 
         g = q.recv()
-        with g as gen:  # propagate_error=False
+        with g as gen:  # suppress_errors=True
             for msg in gen:
                 logging.debug(msg)
                 raise TestException
 
-        self._get_mock_close(mock_con).assert_not_called()
+        self._get_mock_close(mock_con).assert_called()
         self._get_mock_nack(mock_con).assert_called_with(0)
 
         logging.info("Round 2")
 
         # continue where we left off
-        with g as gen:  # propagate_error=False
+        with g as gen:  # suppress_errors=True
             self._get_mock_ack(mock_con).assert_not_called()
             for i, msg in enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")
@@ -369,19 +369,19 @@ class BackendUnitTest:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        with q.recv() as gen:  # propagate_error=False
+        with q.recv() as gen:  # suppress_errors=True
             for msg in gen:
                 logging.debug(msg)
                 raise TestException
 
-        self._get_mock_close(mock_con).assert_not_called()
+        self._get_mock_close(mock_con).assert_called()
         self._get_mock_nack(mock_con).assert_called_with(0)
 
         logging.info("Round 2")
 
         # continue where we left off
-        with q.recv() as gen:  # propagate_error=False
-            self._get_mock_ack(mock_con).assert_not_called()
+        with q.recv() as gen:  # suppress_errors=True
+            # self._get_mock_ack(mock_con).assert_not_called()
             for i, msg in enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")
                 if i > 1:  # see if previous msg was acked
@@ -392,6 +392,7 @@ class BackendUnitTest:
             self._get_mock_ack(mock_con).assert_called_with(last_id)
 
         self._get_mock_close(mock_con).assert_called()
+        assert 0
 
     def test_queue_recv_comsumer_exception_3(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test Queue.recv().
