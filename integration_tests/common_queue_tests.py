@@ -406,10 +406,13 @@ class PubSubQueue:
                 assert d == DATA_LIST[i]
 
         # continue where we left off
+        reused = False
         with recv_gen as gen:
             for i, d in enumerate(gen, start=2):
+                reused = True
                 all_recvd.append(_log_recv(d))
                 assert d == DATA_LIST[i]
+        assert reused
 
         assert all_were_received(all_recvd)
 
@@ -434,10 +437,13 @@ class PubSubQueue:
                 assert d == DATA_LIST[i]
 
         # continue where we left off
+        reused = False
         with sub.recv(timeout=1) as gen:
             for i, d in enumerate(gen, start=2):
+                reused = True
                 all_recvd.append(_log_recv(d))
                 assert d == DATA_LIST[i]
+        assert reused
 
         assert all_were_received(all_recvd)
 
@@ -467,9 +473,12 @@ class PubSubQueue:
         assert excepted
 
         # continue where we left off
+        reused = False
         with sub.recv(timeout=1) as gen:
             for i, d in enumerate(gen, start=2):
+                reused = True
                 all_recvd.append(_log_recv(d))
                 assert d == DATA_LIST[i]
+        assert reused
 
         assert all_were_received(all_recvd)
