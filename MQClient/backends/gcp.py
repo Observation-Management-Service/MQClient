@@ -198,6 +198,8 @@ class GCPSub(GCP, Sub):
         if not self.sub:
             raise RuntimeError("subscriber is not connected")
 
+        # TODO / FIXME - is pull secretly a context manager?
+        # That would explain the auto-closing that's happening...
         response = self.sub.pull(  # pylint: disable=no-member
             subscription=self._subscription_path,
             max_messages=num_messages,
@@ -285,7 +287,6 @@ class GCPSub(GCP, Sub):
             auto_ack {bool} -- Ack each message after successful processing (default: {True})
             propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
-        # TODO/FIXME
         logging.debug(log_msgs.MSGGEN_ENTERED)
         if not self.sub:
             raise RuntimeError("subscriber is not connected")
