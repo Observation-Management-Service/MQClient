@@ -93,7 +93,7 @@ class Queue:
         return self._backend.create_sub_queue(self._address, self._name, self._prefetch)
 
     def close(self) -> None:
-        """Close all connections."""
+        """Close all persisted connections."""
         self._close_pub_queue()
 
     def send(self, data: Any) -> None:

@@ -11,7 +11,7 @@ from MQClient import Queue
 from MQClient.backend_interface import Backend, Message
 
 
-def test_Queue_init() -> None:
+def test_init() -> None:
     """Test constructor."""
     backend = Backend()
     q = Queue(backend)
@@ -23,21 +23,14 @@ def test_Queue_init() -> None:
     assert q.prefetch == 999
 
 
-def test_Queue_pub() -> None:
+def test_pub() -> None:
     """Test pub."""
     backend = MagicMock()
     q = Queue(backend)
     assert q.raw_pub_queue == backend.create_pub_queue.return_value
 
 
-def test_Queue_sub() -> None:
-    """Test sub."""
-    backend = MagicMock()
-    q = Queue(backend)
-    assert q.raw_sub_queue == backend.create_sub_queue.return_value
-
-
-def test_Queue_send() -> None:
+def test_send() -> None:
     """Test send."""
     backend = MagicMock()
 
@@ -49,7 +42,7 @@ def test_Queue_send() -> None:
     q.raw_pub_queue.send_message.assert_called_with(Message.serialize_data(data))  # type: ignore
 
 
-def test_Queue_recv() -> None:
+def test_recv() -> None:
     """Test recv."""
 
     def gen(data: List[Any], *args: Any, **kwargs: Any) -> Generator[Message, None, None]:
@@ -61,14 +54,15 @@ def test_Queue_recv() -> None:
     q = Queue(backend)
 
     data = ['a', {'b': 100}, ['foo', 'bar']]
-    q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
+    # q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
+    backend.create_sub_queue.return_value.message_generator.side_effect = partial(gen, data)
 
     with q.recv() as recv_gen:
         recv_data = list(recv_gen)
         assert data == recv_data
 
 
-def test_Queue_recv_one() -> None:
+def test_recv_one() -> None:
     """Test recv_one."""
     backend = MagicMock()
 
@@ -76,10 +70,10 @@ def test_Queue_recv_one() -> None:
 
     data = {"b": 100}
     msg = Message(0, Message.serialize_data(data))
-    q.raw_sub_queue.get_message.return_value = msg  # type: ignore
+    backend.create_sub_queue.return_value.get_message.return_value = msg
 
     with q.recv_one() as d:
         recv_data = d
 
     assert data == recv_data
-    q.raw_sub_queue.ack_message.assert_called_with(0)  # type: ignore
+    backend.create_sub_queue.return_value.ack_message.assert_called_with(0)
