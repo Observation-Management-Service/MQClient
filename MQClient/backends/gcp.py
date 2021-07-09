@@ -10,7 +10,15 @@ from google.api_core import exceptions  # type: ignore[import]
 from google.cloud import pubsub_v1 as api  # type: ignore[import]
 
 from .. import backend_interface
-from ..backend_interface import GET_MSG_TIMEOUT, Message, MessageID, Pub, RawQueue, Sub
+from ..backend_interface import (
+    GET_MSG_TIMEOUT,
+    ClosingFailedExcpetion,
+    Message,
+    MessageID,
+    Pub,
+    RawQueue,
+    Sub,
+)
 from . import log_msgs
 
 
@@ -119,6 +127,8 @@ class GCPPub(GCP, Pub):
         """Close connection."""
         logging.debug(log_msgs.CLOSING_PUB)
         super().close()
+        if not self.pub:
+            raise ClosingFailedExcpetion("No pub to sub.")
         logging.debug(log_msgs.CLOSED_PUB)
 
     def send_message(self, msg: bytes) -> None:
@@ -176,8 +186,12 @@ class GCPSub(GCP, Sub):
         """Close connection."""
         logging.debug(log_msgs.CLOSING_SUB)
         super().close()
-        if self.sub:
+        if not self.sub:
+            raise ClosingFailedExcpetion("No consumer to sub.")
+        try:
             self.sub.close()
+        except Exception as e:
+            raise ClosingFailedExcpetion(str(e)) from e
         logging.debug(log_msgs.CLOSED_SUB)
 
     @staticmethod

@@ -9,6 +9,14 @@ MessageID = Union[int, str, bytes]
 GET_MSG_TIMEOUT = 1000
 
 
+class ClosingFailedExcpetion(Exception):
+    """Raised when a `close()` invocation fails."""
+
+
+class AlreadyClosedExcpetion(ClosingFailedExcpetion):
+    """Raised when a `close()` invocation fails on an already closed interface."""
+
+
 class Message:
     """Message object.
 

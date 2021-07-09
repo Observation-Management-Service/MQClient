@@ -7,7 +7,16 @@ from typing import Generator, Optional
 import pulsar  # type: ignore
 
 from .. import backend_interface
-from ..backend_interface import GET_MSG_TIMEOUT, Message, MessageID, Pub, RawQueue, Sub
+from ..backend_interface import (
+    GET_MSG_TIMEOUT,
+    AlreadyClosedExcpetion,
+    ClosingFailedExcpetion,
+    Message,
+    MessageID,
+    Pub,
+    RawQueue,
+    Sub,
+)
 from . import log_msgs
 
 
@@ -40,13 +49,15 @@ class Pulsar(RawQueue):
     def close(self) -> None:
         """Close client."""
         super().close()
-        if self.client:
-            try:
-                self.client.close()
-            except Exception as e:  # pylint: disable=W0703
-                # https://github.com/apache/pulsar/issues/3127
-                if str(e) != "Pulsar error: AlreadyClosed":
-                    raise
+        if not self.client:
+            raise ClosingFailedExcpetion("No client to close.")
+        try:
+            self.client.close()
+        except Exception as e:
+            # https://github.com/apache/pulsar/issues/3127
+            if str(e) == "Pulsar error: AlreadyClosed":
+                raise AlreadyClosedExcpetion(str(e)) from e
+            raise ClosingFailedExcpetion(str(e)) from e
 
 
 class PulsarPub(Pulsar, Pub):
@@ -74,6 +85,8 @@ class PulsarPub(Pulsar, Pub):
         """Close connection."""
         logging.debug(log_msgs.CLOSING_PUB)
         super().close()
+        if not self.producer:
+            raise ClosingFailedExcpetion("No producer to sub.")
         logging.debug(log_msgs.CLOSED_PUB)
 
     def send_message(self, msg: bytes) -> None:
@@ -119,8 +132,9 @@ class PulsarSub(Pulsar, Sub):
     def close(self) -> None:
         """Close client and redeliver any unacknowledged messages."""
         logging.debug(log_msgs.CLOSING_SUB)
-        if self.consumer:
-            self.consumer.redeliver_unacknowledged_messages()
+        if not self.consumer:
+            raise ClosingFailedExcpetion("No consumer to close.")
+        self.consumer.redeliver_unacknowledged_messages()
         super().close()
         logging.debug(log_msgs.CLOSED_SUB)
 

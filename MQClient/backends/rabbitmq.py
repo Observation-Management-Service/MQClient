@@ -8,7 +8,16 @@ from typing import Any, Callable, Generator, Optional, Union
 import pika  # type: ignore
 
 from .. import backend_interface
-from ..backend_interface import GET_MSG_TIMEOUT, Message, MessageID, Pub, RawQueue, Sub
+from ..backend_interface import (
+    GET_MSG_TIMEOUT,
+    AlreadyClosedExcpetion,
+    ClosingFailedExcpetion,
+    Message,
+    MessageID,
+    Pub,
+    RawQueue,
+    Sub,
+)
 from . import log_msgs
 
 
@@ -39,8 +48,17 @@ class RabbitMQ(RawQueue):
     def close(self) -> None:
         """Close connection."""
         super().close()
-        if (self.connection) and (not self.connection.is_closed):
+        if not self.connection:
+            raise ClosingFailedExcpetion("No connection to close.")
+        if not self.channel:
+            raise ClosingFailedExcpetion("No channel to close.")
+        if self.connection.is_closed:
+            raise AlreadyClosedExcpetion()
+        try:
+            self.channel.cancel()  # rejects all pending ackable messages
             self.connection.close()
+        except Exception as e:
+            raise ClosingFailedExcpetion() from e
 
 
 class RabbitMQPub(RabbitMQ, Pub):
@@ -264,8 +282,7 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         # generator is closed (also, garbage collected)
         finally:
-            try_call(self, self.channel.cancel)
-            self.was_closed = True
+            self.close()
             logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
 
 
