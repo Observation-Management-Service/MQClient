@@ -202,6 +202,12 @@ class MessageGeneratorContext:
         Triggered by 'with ... as'.
         """
         logging.debug("[MessageGeneratorContext.__enter__()] entered `with-as` block")
+
+        if self.entered:
+            raise RuntimeError(
+                "A 'MessageGeneratorContext' instance cannot be re-entered."
+            )
+
         self.entered = True
         return self
 

@@ -289,9 +289,9 @@ class PulsarSub(Pulsar, Sub):
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
         # generator is closed (also, garbage collected)
-        finally:
-            self.close()
-            logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
+        # finally:
+        #     self.close()
+        #     logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
 
 
 class Backend(backend_interface.Backend):

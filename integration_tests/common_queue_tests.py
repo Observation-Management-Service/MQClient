@@ -19,6 +19,7 @@ from .utils import (
 )
 
 logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 class PubSubQueue:
@@ -380,7 +381,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     def test_60(self, queue_name: str) -> None:
-        """Test recv() fail and recovery, with one recv() call.
+        """Test recv() fail and recovery, with multiple recv() calls.
 
         # TODO - this one fails in ack *after* error suppression (currently turned off tho)
         """
@@ -397,17 +398,18 @@ class PubSubQueue:
         sub = Queue(
             self.backend, name=queue_name  # , suppress_ctx_errors=False
         )  # TODO - remove `suppress_ctx_errors` to see real error
-        recv_gen = sub.recv(timeout=1)
-        with recv_gen as gen:
+        with sub.recv(timeout=1) as gen:
             for i, d in enumerate(gen):
                 if i == 2:
                     raise TestException()
                 all_recvd.append(_log_recv(d))
                 assert d == DATA_LIST[i]
 
+        logging.warning("Round 2!")
+
         # continue where we left off
         reused = False
-        with recv_gen as gen:
+        with sub.recv(timeout=1) as gen:
             for i, d in enumerate(gen, start=2):
                 reused = True
                 all_recvd.append(_log_recv(d))
@@ -417,37 +419,6 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     def test_61(self, queue_name: str) -> None:
-        """Test recv() fail and recovery, with multiple recv() calls."""
-        all_recvd: List[Any] = []
-
-        pub = Queue(self.backend, name=queue_name)
-        for d in DATA_LIST:
-            pub.send(d)
-            _log_send(d)
-
-        class TestException(Exception):  # pylint: disable=C0115
-            pass
-
-        sub = Queue(self.backend, name=queue_name)
-        with sub.recv(timeout=1) as gen:
-            for i, d in enumerate(gen):
-                if i == 2:
-                    raise TestException()
-                all_recvd.append(_log_recv(d))
-                assert d == DATA_LIST[i]
-
-        # continue where we left off
-        reused = False
-        with sub.recv(timeout=1) as gen:
-            for i, d in enumerate(gen, start=2):
-                reused = True
-                all_recvd.append(_log_recv(d))
-                assert d == DATA_LIST[i]
-        assert reused
-
-        assert all_were_received(all_recvd)
-
-    def test_62(self, queue_name: str) -> None:
         """Test recv() fail and recovery, with error propagation."""
         all_recvd: List[Any] = []
 
@@ -472,6 +443,8 @@ class PubSubQueue:
             excepted = True
         assert excepted
 
+        logging.warning("Round 2!")
+
         # continue where we left off
         reused = False
         with sub.recv(timeout=1, suppress_ctx_errors=False) as gen:
@@ -482,3 +455,23 @@ class PubSubQueue:
         assert reused
 
         assert all_were_received(all_recvd)
+
+    def test_70_fail(self, queue_name: str) -> None:
+        """Failure-test recv() with reusing a 'MessageGeneratorContext' instance."""
+        pub = Queue(self.backend, name=queue_name)
+        for d in DATA_LIST:
+            pub.send(d)
+            _log_send(d)
+
+        sub = Queue(self.backend, name=queue_name)
+        recv_gen = sub.recv(timeout=1)
+        with recv_gen as gen:
+            for i, d in enumerate(gen):
+                assert d == DATA_LIST[i]
+
+        logging.warning("Round 2!")
+
+        # continue where we left off
+        with pytest.raises(RuntimeError):
+            with recv_gen as gen:
+                assert 0  # we should never get here

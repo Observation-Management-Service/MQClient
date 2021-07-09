@@ -14,6 +14,7 @@ from MQClient.backend_interface import Backend, Message
 from .utils import DATA_LIST, _log_recv, _log_send
 
 logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 def _log_recv_message(recv_msg: Optional[Message]) -> None:

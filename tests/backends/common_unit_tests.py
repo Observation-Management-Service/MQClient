@@ -14,6 +14,7 @@ from MQClient.backend_interface import Backend, Message
 from MQClient.backends import rabbitmq
 
 logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 class BackendUnitTest:
@@ -74,23 +75,23 @@ class BackendUnitTest:
 
     def test_ack_message(self, mock_con: Any, queue_name: str) -> None:
         """Test acking message."""
-        q = self.backend.create_sub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
-        q.ack_message(12)
+        sub.ack_message(12)
         self._get_mock_ack(mock_con).assert_called_with(12)
 
     def test_reject_message(self, mock_con: Any, queue_name: str) -> None:
         """Test rejecting message."""
-        q = self.backend.create_sub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
-        q.reject_message(12)
+        sub.reject_message(12)
         self._get_mock_nack(mock_con).assert_called_with(12)
 
     def test_message_generator_0(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
-        q = self.backend.create_sub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
@@ -100,7 +101,7 @@ class BackendUnitTest:
         fake_ids = [i * 10 for i in range(num_msgs)]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        for i, msg in enumerate(q.message_generator()):
+        for i, msg in enumerate(sub.message_generator()):
             logging.debug(i)
             if i > 0:  # see if previous msg was acked
                 prev_id = (i - 1) * 10
@@ -111,11 +112,11 @@ class BackendUnitTest:
 
         last_id = (num_msgs - 1) * 10
         self._get_mock_ack(mock_con).assert_called_with(last_id)
-        self._get_mock_close(mock_con).assert_called()
+        self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
     def test_message_generator_1(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
-        q = self.backend.create_sub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
@@ -124,7 +125,7 @@ class BackendUnitTest:
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids, append_none=False)
 
         m = None
-        for i, x in enumerate(q.message_generator()):
+        for i, x in enumerate(sub.message_generator()):
             m = x
             if i == 0:
                 break
@@ -133,25 +134,25 @@ class BackendUnitTest:
         assert m.msg_id == 12
         assert m.data == b'foo, bar'
         self._get_mock_ack(mock_con).assert_called_with(12)
-        self._get_mock_close(mock_con).assert_called()
+        self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
     def test_message_generator_2(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
-        q = self.backend.create_sub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         self._enqueue_mock_messages(mock_con, [b'foo, bar'], [12])
 
         m = None
-        for i, x in enumerate(q.message_generator()):
+        for i, x in enumerate(sub.message_generator()):
             assert i < 1
             m = x
         assert m is not None
         assert m.msg_id == 12
         assert m.data == b'foo, bar'
         self._get_mock_ack(mock_con).assert_called_with(12)
-        self._get_mock_close(mock_con).assert_called()
+        self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
     def test_message_generator_upstream_error(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test message generator.
@@ -166,7 +167,7 @@ class BackendUnitTest:
 
         Generator should not ack messages.
         """
-        q = self.backend.create_sub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
@@ -174,7 +175,7 @@ class BackendUnitTest:
         fake_ids = [0, 1, 2]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        gen = q.message_generator(auto_ack=False)
+        gen = sub.message_generator(auto_ack=False)
         i = 0
         for msg in gen:
             logging.debug(i)
@@ -193,7 +194,7 @@ class BackendUnitTest:
         Generator should raise Exception, nack, and close. Unlike in an
         integration test, nacked messages are not put back on the queue.
         """
-        q = self.backend.create_sub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
@@ -201,7 +202,7 @@ class BackendUnitTest:
         fake_ids = [0, 1, 2]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids, append_none=False)
 
-        gen = q.message_generator()  # propagate_error=True
+        gen = sub.message_generator()  # propagate_error=True
         i = 0
         for msg in gen:
             logging.debug(i)
@@ -217,7 +218,7 @@ class BackendUnitTest:
                 with pytest.raises(Exception):
                     gen.throw(Exception)
                 self._get_mock_nack(mock_con).assert_called_with(i)
-                self._get_mock_close(mock_con).assert_called()
+                self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
             i += 1
 
@@ -227,7 +228,7 @@ class BackendUnitTest:
         Generator should not raise Exception. Unlike in an integration
         test, nacked messages are not put back on the queue.
         """
-        q = self.backend.create_sub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
@@ -239,7 +240,7 @@ class BackendUnitTest:
         fake_ids = [i * 10 for i in range(num_msgs)]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        gen = q.message_generator(propagate_error=False)
+        gen = sub.message_generator(propagate_error=False)
         i = 0
         # odds are acked and evens are nacked
         for msg in gen:
@@ -261,7 +262,7 @@ class BackendUnitTest:
                 self._get_mock_nack(mock_con).assert_called_with(i * 10)
 
             i += 1
-        self._get_mock_close(mock_con).assert_called()
+        self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
     def test_message_generator_consumer_exception_fail(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test message generator.
@@ -269,7 +270,7 @@ class BackendUnitTest:
         Not so much a test, as an example of why MessageGeneratorContext
         is needed.
         """
-        q = self.backend.create_sub_queue("localhost", queue_name)
+        sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
@@ -277,16 +278,14 @@ class BackendUnitTest:
 
         excepted = False
         try:
-            for msg in q.message_generator(propagate_error=False):
+            for msg in sub.message_generator(propagate_error=False):
                 logging.debug(msg)
                 raise Exception
         except Exception:
             excepted = True  # MessageGeneratorContext would've suppressed the Exception
         assert excepted
 
-        # MessageGeneratorContext would've guaranteed both of these
-        with pytest.raises(AssertionError):
-            self._get_mock_close(mock_con).assert_not_called()
+        self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
         with pytest.raises(AssertionError):
             self._get_mock_nack(mock_con).assert_called_with(0)
 
