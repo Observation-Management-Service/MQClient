@@ -417,7 +417,10 @@ class PubSubQueue:
 
         assert all_were_received(all_recvd)
 
-        assert 0  # FIXME! Look in the logs, there's a silent error about closing!
+        import MQClient.backends.gcp
+
+        if isinstance(self.backend, MQClient.backends.gcp.Backend):
+            assert 0  # FIXME! Look in the logs, there's a silent error about closing!
 
     def test_61(self, queue_name: str) -> None:
         """Test recv() fail and recovery, with error propagation."""
