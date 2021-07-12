@@ -273,7 +273,7 @@ class PulsarSub(Pulsar, Sub):
                         f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.",
                         exc_info=True,
                     )
-                    yield None
+                    yield None  # hand back to consumer
                 # consumer requests again, aka next()
                 else:
                     if auto_ack:
@@ -287,11 +287,6 @@ class PulsarSub(Pulsar, Sub):
                 self.ack_message(msg.msg_id)
                 acked = True
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
-
-        # generator is closed (also, garbage collected)
-        # finally:
-        #     self.close()
-        #     logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
 
 
 class Backend(backend_interface.Backend):

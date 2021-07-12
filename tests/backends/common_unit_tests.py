@@ -338,50 +338,6 @@ class BackendUnitTest:
     def test_queue_recv_comsumer_exception_1(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test Queue.recv().
 
-        The Queue.recv()'s context manager should be reusable after
-        suppressing an Exception.
-        """
-        q = Queue(self.backend, address="localhost", name=queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
-            mock_con.return_value.is_closed = False
-
-        num_msgs = 12
-
-        fake_data = [Message.serialize_data(f'baz-{i}') for i in range(num_msgs)]
-        fake_ids = [i * 10 for i in range(num_msgs)]
-        self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
-
-        class TestException(Exception):  # pylint: disable=C0115
-            pass
-
-        g = q.recv()
-        with g as gen:  # suppress_errors=True
-            for msg in gen:
-                logging.debug(msg)
-                raise TestException
-
-        self._get_mock_close(mock_con).assert_called()
-        self._get_mock_nack(mock_con).assert_called_with(0)
-
-        logging.info("Round 2")
-
-        # continue where we left off
-        with g as gen:  # suppress_errors=True
-            self._get_mock_ack(mock_con).assert_not_called()
-            for i, msg in enumerate(gen, start=1):
-                logging.debug(f"{i} :: {msg}")
-                if i > 1:  # see if previous msg was acked
-                    prev_id = (i - 1) * 10
-                    self._get_mock_ack(mock_con).assert_called_with(prev_id)
-
-            last_id = (num_msgs - 1) * 10
-            self._get_mock_ack(mock_con).assert_called_with(last_id)
-
-        self._get_mock_close(mock_con).assert_called()
-
-    def test_queue_recv_comsumer_exception_2(self, mock_con: Any, queue_name: str) -> None:
-        """Failure-test Queue.recv().
-
         Same as test_queue_recv_comsumer_exception_1() but with multiple
         recv() calls.
         """
@@ -421,7 +377,6 @@ class BackendUnitTest:
             self._get_mock_ack(mock_con).assert_called_with(last_id)
 
         self._get_mock_close(mock_con).assert_called()
-        # assert 0
 
     def test_queue_recv_comsumer_exception_3(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test Queue.recv().

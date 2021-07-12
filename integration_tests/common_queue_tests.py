@@ -46,7 +46,7 @@ class PubSubQueue:
         with pub_sub.recv(timeout=1) as gen:
             for i, d in enumerate(gen):
                 all_recvd.append(_log_recv(d))
-                assert d == DATA_LIST[i]
+                # assert d == DATA_LIST[i]  # we don't guarantee order
 
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
@@ -70,7 +70,7 @@ class PubSubQueue:
         with sub.recv(timeout=1) as gen:
             for i, d in enumerate(gen):
                 all_recvd.append(_log_recv(d))
-                assert d == DATA_LIST[i]
+                # assert d == DATA_LIST[i]  # we don't guarantee order
 
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
@@ -382,8 +382,6 @@ class PubSubQueue:
 
     def test_60(self, queue_name: str) -> None:
         """Test recv() fail and recovery, with multiple recv() calls.
-
-        # TODO - this one fails in ack *after* error suppression (currently turned off tho)
         """
         all_recvd: List[Any] = []
 
@@ -395,15 +393,16 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        sub = Queue(
-            self.backend, name=queue_name  # , suppress_ctx_errors=False
-        )  # TODO - remove `suppress_ctx_errors` to see real error
+        # TODO/FIXME - this one is nacking too soon I think?
+        # TODO/FIXME - this one may need to move the ack logic from GeneratorExit to MessageGeneratorContext
+
+        sub = Queue(self.backend, name=queue_name)
         with sub.recv(timeout=1) as gen:
             for i, d in enumerate(gen):
                 if i == 2:
                     raise TestException()
                 all_recvd.append(_log_recv(d))
-                assert d == DATA_LIST[i]
+                # assert d == DATA_LIST[i]  # we don't guarantee order
 
         logging.warning("Round 2!")
 
@@ -413,10 +412,12 @@ class PubSubQueue:
             for i, d in enumerate(gen, start=2):
                 reused = True
                 all_recvd.append(_log_recv(d))
-                assert d == DATA_LIST[i]
+                # assert d == DATA_LIST[i]  # we don't guarantee order
         assert reused
 
         assert all_were_received(all_recvd)
+
+        assert 0  # FIXME! Look in the logs, there's a silent error about closing!
 
     def test_61(self, queue_name: str) -> None:
         """Test recv() fail and recovery, with error propagation."""
@@ -438,7 +439,7 @@ class PubSubQueue:
                     if i == 2:
                         raise TestException()
                     all_recvd.append(_log_recv(d))
-                    assert d == DATA_LIST[i]
+                    # assert d == DATA_LIST[i]  # we don't guarantee order
         except TestException:
             excepted = True
         assert excepted
@@ -451,7 +452,7 @@ class PubSubQueue:
             for i, d in enumerate(gen, start=2):
                 reused = True
                 all_recvd.append(_log_recv(d))
-                assert d == DATA_LIST[i]
+                # assert d == DATA_LIST[i]  # we don't guarantee order
         assert reused
 
         assert all_were_received(all_recvd)
@@ -467,7 +468,8 @@ class PubSubQueue:
         recv_gen = sub.recv(timeout=1)
         with recv_gen as gen:
             for i, d in enumerate(gen):
-                assert d == DATA_LIST[i]
+                pass
+                # assert d == DATA_LIST[i]  # we don't guarantee order
 
         logging.warning("Round 2!")
 

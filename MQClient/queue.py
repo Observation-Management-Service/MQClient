@@ -111,9 +111,10 @@ class Queue:
 
         This returns a context-manager/generator. Its iterator stops when no
         messages are received for `timeout` seconds. If an exception is raised
-        (inside the context), the message is rejected and messages can continue
-        to be received (configured by `suppress_ctx_errors`). Multiple calls to
-        `recv()` is okay.
+        (inside the context), the message is rejected, the context is exited,
+        and exception can be re-raised if configured by `suppress_ctx_errors`.
+        Multiple calls to `recv()` is okay, but reusing the returned instance
+        is not.
 
         Example:
             with queue.recv() as stream:
@@ -232,14 +233,19 @@ class MessageGeneratorContext:
         if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
-        self.sub.close()
-
         # Exception was raised
         if exc_type and exc_val:
-            try:
+            try:  # throw is caught by the message_generator's try-except around `yield`
                 self.message_generator.throw(exc_type, exc_val, exc_tb)
             except exc_type:  # message_generator re-raised Exception
+                self.sub.close()  # close after cleanup
+                logging.debug(
+                    "[MessageGeneratorContext.__exit__()] exited & propagated error."
+                )
                 return False  # don't suppress the Exception
+
+        self.sub.close()  # close after cleanup
+        logging.debug("[MessageGeneratorContext.__exit__()] exited & suppressed error.")
         return True  # suppress any Exception
 
     def __iter__(self) -> "MessageGeneratorContext":
