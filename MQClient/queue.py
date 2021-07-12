@@ -137,7 +137,7 @@ class Queue:
         )
 
     @contextlib.contextmanager
-    def recv_one(self) -> Generator[Any, None, None]:
+    def recv_one(self, auto_ack: bool = True) -> Generator[Any, None, None]:
         """Receive one message from the queue.
 
         This is a context manager. If an exception is raised, the message is rejected.
@@ -160,11 +160,13 @@ class Queue:
         try:
             yield msg.deserialize_data()
         except Exception:
-            sub.reject_message(msg.msg_id)
+            if auto_ack:
+                sub.reject_message(msg)
             # TODO - check for self._suppress_ctx_errors
             raise
         else:
-            sub.ack_message(msg.msg_id)
+            if auto_ack:
+                sub.ack_message(msg)
         finally:
             sub.close()
 
@@ -189,13 +191,17 @@ class MessageGeneratorContext:
         "context has not been entered. Use 'with as' syntax."
     )
 
-    def __init__(self, sub: Sub, timeout: int, propagate_error: bool) -> None:
+    def __init__(
+        self, sub: Sub, timeout: int, propagate_error: bool, auto_ack: bool = True
+    ) -> None:
         logging.debug("[MessageGeneratorContext.__init__()]")
         self.sub = sub
         self.message_generator = sub.message_generator(
             timeout=timeout, propagate_error=propagate_error
         )
+        self.auto_ack = auto_ack
         self.entered = False
+        self.msg: Optional[Message] = None
 
     def __enter__(self) -> "MessageGeneratorContext":
         """Return instance.
@@ -233,20 +239,40 @@ class MessageGeneratorContext:
         if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
-        # Exception was raised
+        reraise_exception = False
+
+        # Exception Was Raised
         if exc_type and exc_val:
-            try:  # throw is caught by the message_generator's try-except around `yield`
+            # reject whenever there's an exception
+            if self.msg:  # nack regardless of `auto_ack`
+                self.sub.reject_message(self.msg)
+            # see how the generator wants to handle the exception
+            try:
+                # `throw` is caught by the message_generator's try-except around `yield`
                 self.message_generator.throw(exc_type, exc_val, exc_tb)
             except exc_type:  # message_generator re-raised Exception
-                self.sub.close()  # close after cleanup
-                logging.debug(
-                    "[MessageGeneratorContext.__exit__()] exited & propagated error."
-                )
-                return False  # don't suppress the Exception
+                reraise_exception = True
+        # Good Exit (No Original Exception)
+        else:
+            if self.auto_ack and self.msg:
+                self.sub.ack_message(self.msg)
 
         self.sub.close()  # close after cleanup
-        logging.debug("[MessageGeneratorContext.__exit__()] exited & suppressed error.")
-        return True  # suppress any Exception
+
+        if reraise_exception:
+            logging.debug(
+                "[MessageGeneratorContext.__exit__()] exited & propagated error."
+            )
+            return False  # propagate the Exception!
+        else:
+            # either no exception or suppress the exception
+            if exc_type and exc_val:
+                logging.debug(
+                    "[MessageGeneratorContext.__exit__()] exited & suppressed error."
+                )
+            else:
+                logging.debug("[MessageGeneratorContext.__exit__()] exited w/o error.")
+            return True  # suppress any Exception
 
     def __iter__(self) -> "MessageGeneratorContext":
         """Return instance.
@@ -264,16 +290,20 @@ class MessageGeneratorContext:
         if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
+        # ack the previous message before getting a new one
+        if self.auto_ack and self.msg:
+            self.sub.ack_message(self.msg)
+
         try:
-            msg = next(self.message_generator)
+            self.msg = next(self.message_generator)
         except StopIteration:
             logging.debug(
                 "[MessageGeneratorContext.__next__()] end of loop (StopIteration)"
             )
             raise
-        if not msg:
+        if not self.msg:
             raise RuntimeError(
                 "Yielded value is `None`. This should not have happened."
             )
 
-        return msg.deserialize_data()
+        return self.msg.deserialize_data()

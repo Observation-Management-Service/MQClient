@@ -103,7 +103,7 @@ class PubSubBackendInterface:
                 continue
             # nack message
             nacked_msgs.append(recv_msg)
-            sub.reject_message(recv_msg.msg_id)
+            sub.reject_message(recv_msg)
             logging.info("NACK!")
 
     def test_11(self, queue_name: str) -> None:
@@ -152,7 +152,7 @@ class PubSubBackendInterface:
                 continue
             # nack message
             nacked_msgs.append(recv_msg)
-            sub.reject_message(recv_msg.msg_id)
+            sub.reject_message(recv_msg)
             logging.info("NACK!")
 
     def test_20(self, queue_name: str) -> None:

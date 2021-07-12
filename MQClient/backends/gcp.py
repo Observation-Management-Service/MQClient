@@ -255,14 +255,13 @@ class GCPSub(GCP, Sub):
         """Continuously generate messages until there are no more."""
         while True:
             msgs = self._get_messages(timeout_millis, num_messages)
-            # FIXME - maybe here? track down extra val ("RECV - 0 :: []")
             logging.critical(f"GEN-MSGS : {msgs}")
             if not msgs:
                 return
             for msg in msgs:
                 yield msg
 
-    def ack_message(self, msg_id: MessageID) -> None:
+    def ack_message(self, msg: Message) -> None:
         """Ack a message from the queue."""
         logging.debug(log_msgs.ACKING_MESSAGE)
         if not self.sub:
@@ -270,11 +269,11 @@ class GCPSub(GCP, Sub):
 
         # Acknowledges the received messages so they will not be sent again.
         self.sub.acknowledge(  # pylint: disable=no-member
-            subscription=self._subscription_path, ack_ids=[msg_id]
+            subscription=self._subscription_path, ack_ids=[msg.msg_id]
         )
-        logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
+        logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
 
-    def reject_message(self, msg_id: MessageID) -> None:
+    def reject_message(self, msg: Message) -> None:
         """Reject (nack) a message from the queue."""
         logging.debug(log_msgs.NACKING_MESSAGE)
         if not self.sub:
@@ -283,13 +282,13 @@ class GCPSub(GCP, Sub):
         # override the subscription-level ack deadline to fast-track redelivery
         self.sub.modify_ack_deadline(  # pylint: disable=no-member
             subscription=self._subscription_path,
-            ack_ids=[msg_id],
+            ack_ids=[msg.msg_id],
             ack_deadline_seconds=0,
         )
-        logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
+        logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
 
     def message_generator(
-        self, timeout: int = 60, auto_ack: bool = True, propagate_error: bool = True
+        self, timeout: int = 60, propagate_error: bool = True
     ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
@@ -298,7 +297,6 @@ class GCPSub(GCP, Sub):
 
         Keyword Arguments:
             timeout {int} -- timeout in seconds for inactivity (default: {60})
-            auto_ack {bool} -- Ack each message after successful processing (default: {True})
             propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
         logging.debug(log_msgs.MSGGEN_ENTERED)
@@ -306,7 +304,6 @@ class GCPSub(GCP, Sub):
             raise RuntimeError("subscriber is not connected")
 
         msg = None
-        acked = False
         try:
             gen = self._gen_messages(timeout * 1000, self.prefetch)
             while True:
@@ -314,7 +311,6 @@ class GCPSub(GCP, Sub):
                 logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
                 msg = next(gen, None)
                 logging.critical(f"MSG-GENERATOR : {msg}")
-                acked = False
                 if msg is None:
                     logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                     break
@@ -326,8 +322,6 @@ class GCPSub(GCP, Sub):
                 # consumer throws Exception...
                 except Exception as e:  # pylint: disable=W0703
                     logging.debug(log_msgs.MSGGEN_DOWNSTREAM_ERROR)
-                    if msg:
-                        self.reject_message(msg.msg_id)
                     if propagate_error:
                         logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
                         raise
@@ -338,19 +332,11 @@ class GCPSub(GCP, Sub):
                     yield None  # hand back to consumer
                 # consumer requests again, aka next()
                 else:
-                    if auto_ack:
-                        self.ack_message(msg.msg_id)
-                        acked = True
+                    pass
 
         # generator exit (explicit close(), or break in consumer's loop)
         except GeneratorExit:
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
-            logging.critical(msg)
-            logging.critical(msg.deserialize_data() if msg else None)
-            if auto_ack and (not acked) and msg:
-                # FIXME - a raised error in here is suppressed
-                self.ack_message(msg.msg_id)
-                acked = True
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
 

@@ -2,6 +2,7 @@
 
 
 import pickle
+from enum import Enum, auto
 from typing import Any, Generator, Optional, Union
 
 MessageID = Union[int, str, bytes]
@@ -23,6 +24,13 @@ class Message:
     Holds msg_id and data.
     """
 
+    class AckStatus(Enum):
+        """Signify the ack state of a message."""
+
+        NONE = auto()  # message has not been acked nor nacked
+        ACKED = auto()  # message has been acked
+        NACKED = auto()  # message has been nacked
+
     def __init__(self, msg_id: MessageID, data: bytes):
         if not isinstance(msg_id, (int, str, bytes)):
             raise TypeError(
@@ -32,6 +40,7 @@ class Message:
             raise TypeError(f"Message.data must be type 'bytes' (not '{type(data)}').")
         self.msg_id = msg_id
         self.data = data
+        self.ack_status: Message.AckStatus = Message.AckStatus.NONE
 
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
@@ -95,16 +104,16 @@ class Sub(RawQueue):
         """Get a single message from a queue."""
         raise NotImplementedError()
 
-    def ack_message(self, msg_id: MessageID) -> None:
+    def ack_message(self, msg: Message) -> None:
         """Ack a message from the queue."""
         raise NotImplementedError()
 
-    def reject_message(self, msg_id: MessageID) -> None:
+    def reject_message(self, msg: Message) -> None:
         """Reject (nack) a message from the queue."""
         raise NotImplementedError()
 
     def message_generator(
-        self, timeout: int = 60, auto_ack: bool = True, propagate_error: bool = True
+        self, timeout: int = 60, propagate_error: bool = True
     ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 

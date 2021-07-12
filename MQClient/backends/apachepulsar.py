@@ -204,32 +204,36 @@ class PulsarSub(Pulsar, Sub):
         logging.debug(log_msgs.GETMSG_CONNECTION_ERROR_MAX_RETRIES)
         raise Exception("Pulsar connection error")
 
-    def ack_message(self, msg_id: MessageID) -> None:
+    def ack_message(self, msg: Message) -> None:
         """Ack a message from the queue."""
         logging.debug(log_msgs.ACKING_MESSAGE)
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        if isinstance(msg_id, bytes):
-            self.consumer.acknowledge(pulsar.MessageId.deserialize(msg_id))
+        if isinstance(msg.msg_id, bytes):
+            self.consumer.acknowledge(pulsar.MessageId.deserialize(msg.msg_id))
         else:
-            self.consumer.acknowledge(msg_id)
-        logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
+            self.consumer.acknowledge(msg.msg_id)
 
-    def reject_message(self, msg_id: MessageID) -> None:
+        msg.ack_status = Message.AckStatus.ACKED
+        logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
+
+    def reject_message(self, msg: Message) -> None:
         """Reject (nack) a message from the queue."""
         logging.debug(log_msgs.NACKING_MESSAGE)
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        if isinstance(msg_id, bytes):
-            self.consumer.negative_acknowledge(pulsar.MessageId.deserialize(msg_id))
+        if isinstance(msg.msg_id, bytes):
+            self.consumer.negative_acknowledge(pulsar.MessageId.deserialize(msg.msg_id))
         else:
-            self.consumer.negative_acknowledge(msg_id)
-        logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
+            self.consumer.negative_acknowledge(msg.msg_id)
+
+        msg.ack_status = Message.AckStatus.NACKED
+        logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
 
     def message_generator(
-        self, timeout: int = 60, auto_ack: bool = True, propagate_error: bool = True
+        self, timeout: int = 60, propagate_error: bool = True
     ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
@@ -238,7 +242,6 @@ class PulsarSub(Pulsar, Sub):
 
         Keyword Arguments:
             timeout {int} -- timeout in seconds for inactivity (default: {60})
-            auto_ack {bool} -- Ack each message after successful processing (default: {True})
             propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
         logging.debug(log_msgs.MSGGEN_ENTERED)
@@ -246,13 +249,11 @@ class PulsarSub(Pulsar, Sub):
             raise RuntimeError("queue is not connected")
 
         msg = None
-        acked = False
         try:
             while True:
                 # get message
                 logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
                 msg = self.get_message(timeout_millis=timeout * 1000)
-                acked = False
                 if msg is None:
                     logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                     break
@@ -264,8 +265,6 @@ class PulsarSub(Pulsar, Sub):
                 # consumer throws Exception...
                 except Exception as e:  # pylint: disable=W0703
                     logging.debug(log_msgs.MSGGEN_DOWNSTREAM_ERROR)
-                    if msg:
-                        self.reject_message(msg.msg_id)
                     if propagate_error:
                         logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
                         raise
@@ -276,16 +275,11 @@ class PulsarSub(Pulsar, Sub):
                     yield None  # hand back to consumer
                 # consumer requests again, aka next()
                 else:
-                    if auto_ack:
-                        self.ack_message(msg.msg_id)
-                        acked = True
+                    pass
 
         # generator exit (explicit close(), or break in consumer's loop)
         except GeneratorExit:
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
-            if auto_ack and (not acked) and msg:
-                self.ack_message(msg.msg_id)
-                acked = True
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
 
