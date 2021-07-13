@@ -13,10 +13,20 @@ class Queue:
     """User-facing queue library.
 
     Args:
-        backend (Backend): the backend to use
-        address (str): address of queue (default: 'localhost')
-        name (str): name of queue (default: <random string>)
-        prefetch (int): size of prefetch buffer for receiving messages (default: 1)
+        backend: the backend to use
+        address: address of queue
+        name: name of queue
+        prefetch: size of prefetch buffer for receiving messages
+        timeout: seconds to wait for a message to be delivered
+        except_errors: whether to suppress interior context errors to
+                        the consumer (when `True`, the context manager
+                        will also act like a `try-except` block)
+        auto_ack: whether to automatically acknowledge the received
+                    message after successful receipt
+        nack_on_error: whether to automatically reject/nack the received
+                    message unsuccessful processing, i.e. exception was
+                    raised
+
     """
 
     def __init__(
@@ -25,12 +35,23 @@ class Queue:
         address: str = "localhost",
         name: str = "",
         prefetch: int = 1,
+        timeout: int = 60,
+        except_errors: bool = True,
+        auto_ack: bool = True,
+        nack_on_error: bool = True,
     ) -> None:
         self._backend = backend
         self._address = address
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
         self._pub_queue: Optional[Pub] = None
+
+        # publics
+        self._timeout = 0
+        self.timeout = timeout
+        self.except_errors = except_errors
+        self.auto_ack = auto_ack
+        self.nack_on_error = nack_on_error
 
     @staticmethod
     def make_name() -> str:
@@ -41,31 +62,15 @@ class Queue:
         return "a" + (uuid.uuid4().hex)[:20]
 
     @property
-    def backend(self) -> Backend:
-        """Get backend instance responsible for managing queuing service."""
-        return self._backend
+    def timeout(self) -> int:
+        """Get the timeout value."""
+        return self._timeout
 
-    @property
-    def address(self) -> str:
-        """Get address of the queuing daemon."""
-        return self._address
-
-    @property
-    def name(self) -> str:
-        """Get name of queue."""
-        return self._name
-
-    @property
-    def prefetch(self) -> int:
-        """Get size of prefetch buffer for receiving messages."""
-        return self._prefetch
-
-    @prefetch.setter
-    def prefetch(self, val: int) -> None:
+    @timeout.setter
+    def timeout(self, val: int) -> None:
         if val < 1:
             raise Exception("prefetch must be positive")
-        if self._prefetch != val:
-            self._prefetch = val
+        self._timeout = val
 
     @property
     def raw_pub_queue(self) -> Pub:
@@ -104,13 +109,17 @@ class Queue:
         """
         self.raw_pub_queue.send_message(Message.serialize_data(data))
 
-    def recv(
-        self,
-        timeout: int = 60,
-        except_errors: bool = True,
-        auto_ack: bool = True,
-        nack_on_error: bool = True,
-    ) -> "MessageGeneratorContext":
+    def ack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
+        """Acknowledge the message."""
+        # TODO - add guardrails
+        sub.ack_message(msg)
+
+    def nack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
+        """Reject/nack the message."""
+        # TODO - add guardrails
+        sub.reject_message(msg)
+
+    def recv(self) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.
 
         This returns a context-manager/generator. Its iterator stops when no
@@ -125,31 +134,14 @@ class Queue:
                 for data in stream:
                     ...
 
-        Keyword Arguments:
-            timeout -- seconds to wait for a message to be delivered
-            except_errors -- whether to suppress interior context errors to the consumer
-                    (when `True`, the context manager will also act like a `try-except` block)
-
         Returns:
             MessageGeneratorContext -- context manager and generator object
         """
         logging.debug("Creating new MessageGeneratorContext instance.")
-        return MessageGeneratorContext(
-            sub=self._create_sub_queue(),
-            timeout=timeout,
-            propagate_error=(not except_errors),
-            auto_ack=auto_ack,
-            nack_on_error=nack_on_error,
-        )
+        return MessageGeneratorContext(self._create_sub_queue(), self)
 
     @contextlib.contextmanager
-    def recv_one(
-        self,
-        timeout: int = 60,
-        except_errors: bool = True,
-        auto_ack: bool = True,
-        nack_on_error: bool = True,
-    ) -> Generator[Any, None, None]:
+    def recv_one(self) -> Generator[Any, None, None]:
         """Receive one message from the queue.
 
         This is a context manager. If an exception is raised, the message is rejected.
@@ -164,7 +156,7 @@ class Queue:
             Exception -- [description]
         """
         sub = self._create_sub_queue()
-        msg = sub.get_message(timeout * 1000)
+        msg = sub.get_message(self.timeout * 1000)
 
         if not msg:
             raise Exception("No message available")
@@ -172,14 +164,14 @@ class Queue:
         data = msg.deserialize_data()
         try:
             yield data
-        except Exception:
-            if nack_on_error:
-                sub.reject_message(msg)
-            if not except_errors:
+        except Exception:  # pylint:disable=broad-except
+            if self.nack_on_error:
+                self.nack(sub, msg)
+            if not self.except_errors:
                 raise
         else:
-            if auto_ack:
-                sub.ack_message(msg)
+            if self.auto_ack:
+                self.ack(sub, msg)
         finally:
             sub.close()
 
@@ -187,10 +179,10 @@ class Queue:
         """Return string of basic properties/attributes."""
         return (
             f"Queue("
-            f"{self.backend.__class__.__name__}, "
-            f"address={self.address}, "
-            f"name={self.name}, "
-            f"prefetch={self.prefetch}, "
+            f"{self._backend.__class__.__name__}, "
+            f"address={self._address}, "
+            f"name={self._name}, "
+            f"prefetch={self._prefetch}, "
             f"pub={bool(self._pub_queue)}"
             f")"
         )
@@ -204,21 +196,13 @@ class MessageGeneratorContext:
         "context has not been entered. Use 'with as' syntax."
     )
 
-    def __init__(
-        self,
-        sub: Sub,
-        timeout: int,
-        propagate_error: bool,
-        auto_ack: bool,
-        nack_on_error: bool,
-    ) -> None:
+    def __init__(self, sub: Sub, queue: Queue) -> None:
         logging.debug("[MessageGeneratorContext.__init__()]")
         self.sub = sub
         self.message_generator = sub.message_generator(
-            timeout=timeout, propagate_error=propagate_error
+            timeout=queue.timeout, propagate_error=(not queue.except_errors)
         )
-        self.auto_ack = auto_ack
-        self.nack_on_error = nack_on_error
+        self.queue = queue
 
         self.entered = False
         self.msg: Optional[Message] = None
@@ -263,9 +247,8 @@ class MessageGeneratorContext:
 
         # Exception Was Raised
         if exc_type and exc_val:
-            # reject whenever there's an exception
-            if self.msg and self.nack_on_error:
-                self.sub.reject_message(self.msg)
+            if self.msg and self.queue.nack_on_error:
+                self.queue.nack(self.sub, self.msg)
             # see how the generator wants to handle the exception
             try:
                 # `throw` is caught by the message_generator's try-except around `yield`
@@ -274,8 +257,8 @@ class MessageGeneratorContext:
                 reraise_exception = True
         # Good Exit (No Original Exception)
         else:
-            if self.auto_ack and self.msg:
-                self.sub.ack_message(self.msg)
+            if self.queue.auto_ack and self.msg:
+                self.queue.ack(self.sub, self.msg)
 
         self.sub.close()  # close after cleanup
 
@@ -311,8 +294,8 @@ class MessageGeneratorContext:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         # ack the previous message before getting a new one
-        if self.auto_ack and self.msg:
-            self.sub.ack_message(self.msg)
+        if self.queue.auto_ack and self.msg:
+            self.queue.ack(self.sub, self.msg)
 
         try:
             self.msg = next(self.message_generator)

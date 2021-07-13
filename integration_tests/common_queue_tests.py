@@ -1,5 +1,7 @@
 """Run integration tests for given backend, on Queue class."""
 
+# pylint:disable=invalid-name
+
 import logging
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
@@ -43,8 +45,10 @@ class PubSubQueue:
             pub_sub.send(d)
             _log_send(d)
 
-        with pub_sub.recv(timeout=1) as gen:
+        pub_sub.timeout = 1
+        with pub_sub.recv() as gen:
             for i, d in enumerate(gen):
+                print(i)
                 all_recvd.append(_log_recv(d))
                 # assert d == DATA_LIST[i]  # we don't guarantee order
 
@@ -67,8 +71,10 @@ class PubSubQueue:
             pub.send(d)
             _log_send(d)
 
-        with sub.recv(timeout=1) as gen:
+        sub.timeout = 1
+        with sub.recv() as gen:
             for i, d in enumerate(gen):
+                print(i)
                 all_recvd.append(_log_recv(d))
                 # assert d == DATA_LIST[i]  # we don't guarantee order
 
@@ -125,7 +131,8 @@ class PubSubQueue:
 
         def recv_thread(_: int) -> List[Any]:
             sub = Queue(self.backend, name=queue_name)
-            with sub.recv(timeout=1) as gen:
+            sub.timeout = 1
+            with sub.recv() as gen:
                 recv_data_list = list(gen)
             return _log_recv_multiple(recv_data_list)
 
@@ -221,7 +228,9 @@ class PubSubQueue:
             pub.send(data)
             _log_send(data)
 
-            with sub.recv(timeout=1, except_errors=False) as gen:
+            sub.timeout = 1
+            sub.except_errors = False
+            with sub.recv() as gen:
                 received_data = list(gen)
             all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -240,7 +249,8 @@ class PubSubQueue:
             _log_send(data)
 
         sub = Queue(self.backend, name=queue_name)
-        with sub.recv(timeout=1) as gen:
+        sub.timeout = 1
+        with sub.recv() as gen:
             received_data = list(gen)
         all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -259,7 +269,8 @@ class PubSubQueue:
             _log_send(data)
 
             sub = Queue(self.backend, name=queue_name)
-            with sub.recv(timeout=1) as gen:
+            sub.timeout = 1
+            with sub.recv() as gen:
                 received_data = list(gen)
             all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -374,7 +385,8 @@ class PubSubQueue:
         # sub.close() -- no longer needed
 
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)
-        with sub2.recv(timeout=1) as gen:
+        sub2.timeout = 1
+        with sub2.recv() as gen:
             for _, d in enumerate(gen):
                 all_recvd.append(_log_recv(d))
 
@@ -394,7 +406,8 @@ class PubSubQueue:
             pass
 
         sub = Queue(self.backend, name=queue_name)
-        with sub.recv(timeout=1) as gen:
+        sub.timeout = 1
+        with sub.recv() as gen:
             for i, d in enumerate(gen):
                 print(i)
                 if i == 2:
@@ -406,7 +419,8 @@ class PubSubQueue:
 
         # continue where we left off
         reused = False
-        with sub.recv(timeout=1) as gen:
+        sub.timeout = 1
+        with sub.recv() as gen:
             for i, d in enumerate(gen, start=2):
                 print(i)
                 reused = True
@@ -431,7 +445,9 @@ class PubSubQueue:
         sub = Queue(self.backend, name=queue_name)
         excepted = False
         try:
-            with sub.recv(timeout=1, except_errors=False) as gen:
+            sub.timeout = 1
+            sub.except_errors = False
+            with sub.recv() as gen:
                 for i, d in enumerate(gen):
                     if i == 2:
                         raise TestException()
@@ -445,7 +461,9 @@ class PubSubQueue:
 
         # continue where we left off
         reused = False
-        with sub.recv(timeout=1, except_errors=False) as gen:
+        sub.timeout = 1
+        sub.except_errors = False
+        with sub.recv() as gen:
             for i, d in enumerate(gen, start=2):
                 reused = True
                 all_recvd.append(_log_recv(d))
@@ -462,10 +480,11 @@ class PubSubQueue:
             _log_send(d)
 
         sub = Queue(self.backend, name=queue_name)
-        recv_gen = sub.recv(timeout=1)
+        sub.timeout = 1
+        recv_gen = sub.recv()
         with recv_gen as gen:
             for i, d in enumerate(gen):
-                pass
+                print(i)
                 # assert d == DATA_LIST[i]  # we don't guarantee order
 
         logging.warning("Round 2!")
