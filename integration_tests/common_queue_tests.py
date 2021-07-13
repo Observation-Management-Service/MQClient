@@ -221,7 +221,7 @@ class PubSubQueue:
             pub.send(data)
             _log_send(data)
 
-            with sub.recv(timeout=1, suppress_ctx_errors=False) as gen:
+            with sub.recv(timeout=1, except_errors=False) as gen:
                 received_data = list(gen)
             all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -431,7 +431,7 @@ class PubSubQueue:
         sub = Queue(self.backend, name=queue_name)
         excepted = False
         try:
-            with sub.recv(timeout=1, suppress_ctx_errors=False) as gen:
+            with sub.recv(timeout=1, except_errors=False) as gen:
                 for i, d in enumerate(gen):
                     if i == 2:
                         raise TestException()
@@ -445,7 +445,7 @@ class PubSubQueue:
 
         # continue where we left off
         reused = False
-        with sub.recv(timeout=1, suppress_ctx_errors=False) as gen:
+        with sub.recv(timeout=1, except_errors=False) as gen:
             for i, d in enumerate(gen, start=2):
                 reused = True
                 all_recvd.append(_log_recv(d))

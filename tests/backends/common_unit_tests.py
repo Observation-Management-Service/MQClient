@@ -398,7 +398,7 @@ class BackendUnitTest:
             pass
 
         with pytest.raises(TestException):
-            with q.recv(suppress_ctx_errors=False) as gen:
+            with q.recv(except_errors=False) as gen:
                 for msg in gen:
                     logging.debug(msg)
                     raise TestException
@@ -417,7 +417,7 @@ class BackendUnitTest:
             self._enqueue_mock_messages(mock_con, fake_data[1:], fake_ids[1:])
 
         # continue where we left off
-        with q.recv(suppress_ctx_errors=False) as gen:
+        with q.recv(except_errors=False) as gen:
             self._get_mock_ack(mock_con).assert_not_called()
             for i, msg in enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")

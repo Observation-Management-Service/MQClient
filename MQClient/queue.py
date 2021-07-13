@@ -105,14 +105,18 @@ class Queue:
         self.raw_pub_queue.send_message(Message.serialize_data(data))
 
     def recv(
-        self, timeout: int = 60, suppress_ctx_errors: bool = True
+        self,
+        timeout: int = 60,
+        except_errors: bool = True,
+        auto_ack: bool = True,
+        nack_on_error: bool = True,
     ) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.
 
         This returns a context-manager/generator. Its iterator stops when no
         messages are received for `timeout` seconds. If an exception is raised
         (inside the context), the message is rejected, the context is exited,
-        and exception can be re-raised if configured by `suppress_ctx_errors`.
+        and exception can be re-raised if configured by `except_errors`.
         Multiple calls to `recv()` is okay, but reusing the returned instance
         is not.
 
@@ -123,7 +127,7 @@ class Queue:
 
         Keyword Arguments:
             timeout -- seconds to wait for a message to be delivered
-            suppress_ctx_errors -- whether to suppress interior context errors to the consumer
+            except_errors -- whether to suppress interior context errors to the consumer
                     (when `True`, the context manager will also act like a `try-except` block)
 
         Returns:
@@ -133,11 +137,19 @@ class Queue:
         return MessageGeneratorContext(
             sub=self._create_sub_queue(),
             timeout=timeout,
-            propagate_error=(not suppress_ctx_errors),
+            propagate_error=(not except_errors),
+            auto_ack=auto_ack,
+            nack_on_error=nack_on_error,
         )
 
     @contextlib.contextmanager
-    def recv_one(self, auto_ack: bool = True) -> Generator[Any, None, None]:
+    def recv_one(
+        self,
+        timeout: int = 60,
+        except_errors: bool = True,
+        auto_ack: bool = True,
+        nack_on_error: bool = True,
+    ) -> Generator[Any, None, None]:
         """Receive one message from the queue.
 
         This is a context manager. If an exception is raised, the message is rejected.
@@ -152,16 +164,19 @@ class Queue:
             Exception -- [description]
         """
         sub = self._create_sub_queue()
-        msg = sub.get_message()
+        msg = sub.get_message(timeout * 1000)
 
         if not msg:
             raise Exception("No message available")
 
+        data = msg.deserialize_data()
         try:
-            yield msg.deserialize_data()
+            yield data
         except Exception:
-            sub.reject_message(msg)  # nack regardless of `auto_ack`
-            raise
+            if nack_on_error:
+                sub.reject_message(msg)
+            if not except_errors:
+                raise
         else:
             if auto_ack:
                 sub.ack_message(msg)
@@ -190,7 +205,12 @@ class MessageGeneratorContext:
     )
 
     def __init__(
-        self, sub: Sub, timeout: int, propagate_error: bool, auto_ack: bool = True
+        self,
+        sub: Sub,
+        timeout: int,
+        propagate_error: bool,
+        auto_ack: bool,
+        nack_on_error: bool,
     ) -> None:
         logging.debug("[MessageGeneratorContext.__init__()]")
         self.sub = sub
@@ -198,6 +218,8 @@ class MessageGeneratorContext:
             timeout=timeout, propagate_error=propagate_error
         )
         self.auto_ack = auto_ack
+        self.nack_on_error = nack_on_error
+
         self.entered = False
         self.msg: Optional[Message] = None
 
@@ -242,7 +264,7 @@ class MessageGeneratorContext:
         # Exception Was Raised
         if exc_type and exc_val:
             # reject whenever there's an exception
-            if self.msg:  # nack regardless of `auto_ack`
+            if self.msg and self.nack_on_error:
                 self.sub.reject_message(self.msg)
             # see how the generator wants to handle the exception
             try:
