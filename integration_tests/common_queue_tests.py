@@ -22,6 +22,7 @@ from .utils import (
 
 logging.getLogger().setLevel(logging.DEBUG)
 logging.getLogger("pika").setLevel(logging.WARNING)
+logging.getLogger("flake8").setLevel(logging.WARNING)
 
 
 class PubSubQueue:

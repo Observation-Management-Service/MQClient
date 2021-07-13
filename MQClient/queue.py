@@ -117,7 +117,9 @@ class Queue:
             except Exception as e:
                 raise AckException("Acking failed on backend") from e
         elif msg.ack_status == Message.AckStatus.NACKED:
-            raise AckException("Message has already been nacked, it cannot be acked")
+            raise AckException(
+                "Message has already been rejected/nacked, it cannot be acked"
+            )
         elif msg.ack_status == Message.AckStatus.ACKED:
             pass  # needless, so we'll skip it
         else:

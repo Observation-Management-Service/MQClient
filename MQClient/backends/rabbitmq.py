@@ -13,7 +13,6 @@ from ..backend_interface import (
     AlreadyClosedExcpetion,
     ClosingFailedExcpetion,
     Message,
-    MessageID,
     Pub,
     RawQueue,
     Sub,

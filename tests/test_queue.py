@@ -1,6 +1,7 @@
 """Unit test Queue class."""
 
 # fmt: off
+# pylint:disable=invalid-name,protected-access
 
 from functools import partial
 from typing import Any, Generator, List
@@ -15,12 +16,12 @@ def test_init() -> None:
     """Test constructor."""
     backend = Backend()
     q = Queue(backend)
-    assert q.backend == backend
+    assert q._backend == backend
 
     q = Queue(Backend(), name='nnn', address='aaa', prefetch=999)
-    assert q.name == 'nnn'
-    assert q.address == 'aaa'
-    assert q.prefetch == 999
+    assert q._name == 'nnn'
+    assert q._address == 'aaa'
+    assert q._prefetch == 999
 
 
 def test_pub() -> None:
@@ -76,4 +77,4 @@ def test_recv_one() -> None:
         recv_data = d
 
     assert data == recv_data
-    backend.create_sub_queue.return_value.ack_message.assert_called_with(0)
+    backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)

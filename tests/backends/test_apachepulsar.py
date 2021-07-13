@@ -82,7 +82,7 @@ class TestUnitApachePulsar(BackendUnitTest):
         assert m.msg_id == 12
         assert m.data == b"foo, bar"
 
-    def test_message_generator_upstream_error(
+    def test_message_generator_10_upstream_error(
         self, mock_con: Any, queue_name: str
     ) -> None:
         """Failure-test message generator.

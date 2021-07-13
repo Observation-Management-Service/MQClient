@@ -1,12 +1,13 @@
 """Parent class for backend unit tests."""
 
 # fmt: off
+# pylint:disable=invalid-name,protected-access
 
 import logging
 import pickle
 from typing import Any, List
 
-import pytest  # type: ignore
+import pytest
 
 # local imports
 from MQClient import Queue
@@ -15,6 +16,7 @@ from MQClient.backends import rabbitmq
 
 logging.getLogger().setLevel(logging.DEBUG)
 logging.getLogger("pika").setLevel(logging.WARNING)
+logging.getLogger("flake8").setLevel(logging.WARNING)
 
 
 class BackendUnitTest:
@@ -78,7 +80,7 @@ class BackendUnitTest:
         sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
-        sub.ack_message(12)
+        sub.ack_message(Message(12, b""))
         self._get_mock_ack(mock_con).assert_called_with(12)
 
     def test_reject_message(self, mock_con: Any, queue_name: str) -> None:
@@ -86,10 +88,10 @@ class BackendUnitTest:
         sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
-        sub.reject_message(12)
+        sub.reject_message(Message(12, b""))
         self._get_mock_nack(mock_con).assert_called_with(12)
 
-    def test_message_generator_0(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_00(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
         sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
@@ -104,17 +106,17 @@ class BackendUnitTest:
         for i, msg in enumerate(sub.message_generator()):
             logging.debug(i)
             if i > 0:  # see if previous msg was acked
-                prev_id = (i - 1) * 10
-                self._get_mock_ack(mock_con).assert_called_with(prev_id)
+                # prev_id = (i - 1) * 10
+                self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
             assert msg is not None
             assert msg.msg_id == fake_ids[i]
             assert msg.data == fake_data[i]
 
-        last_id = (num_msgs - 1) * 10
-        self._get_mock_ack(mock_con).assert_called_with(last_id)
+        # last_id = (num_msgs - 1) * 10
+        self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
         self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
-    def test_message_generator_1(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_01(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
         sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
@@ -133,10 +135,10 @@ class BackendUnitTest:
         assert m is not None
         assert m.msg_id == 12
         assert m.data == b'foo, bar'
-        self._get_mock_ack(mock_con).assert_called_with(12)
+        self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
         self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
-    def test_message_generator_2(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_02(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
         sub = self.backend.create_sub_queue("localhost", queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
@@ -151,10 +153,10 @@ class BackendUnitTest:
         assert m is not None
         assert m.msg_id == 12
         assert m.data == b'foo, bar'
-        self._get_mock_ack(mock_con).assert_called_with(12)
+        self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
         self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
-    def test_message_generator_upstream_error(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_10_upstream_error(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test message generator.
 
         Generator should raise Exception originating upstream (a.k.a.
@@ -162,7 +164,7 @@ class BackendUnitTest:
         """
         raise NotImplementedError()
 
-    def test_message_generator_no_auto_ack(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_20_no_auto_ack(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator.
 
         Generator should not ack messages.
@@ -175,12 +177,12 @@ class BackendUnitTest:
         fake_ids = [0, 1, 2]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        gen = sub.message_generator(auto_ack=False)
+        gen = sub.message_generator()
         i = 0
         for msg in gen:
             logging.debug(i)
             if i > 0:  # see if previous msg was acked
-                self._get_mock_ack(mock_con).assert_not_called()
+                self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
 
             assert msg is not None
             assert msg.msg_id == i
@@ -188,7 +190,7 @@ class BackendUnitTest:
 
             i += 1
 
-    def test_message_generator_propagate_error(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_30_propagate_error(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test message generator.
 
         Generator should raise Exception, nack, and close. Unlike in an
@@ -208,7 +210,7 @@ class BackendUnitTest:
             logging.debug(i)
             assert i < 3
             if i > 0:  # see if previous msg was acked
-                self._get_mock_ack(mock_con).assert_called_with(i - 1)
+                self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
 
             assert msg is not None
             assert msg.msg_id == i
@@ -217,12 +219,12 @@ class BackendUnitTest:
             if i == 2:
                 with pytest.raises(Exception):
                     gen.throw(Exception)
-                self._get_mock_nack(mock_con).assert_called_with(i)
+                self._get_mock_nack(mock_con).assert_not_called()  # would be called by Queue
                 self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
             i += 1
 
-    def test_message_generator_suppress_error(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_40_suppress_error(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test message generator.
 
         Generator should not raise Exception. Unlike in an integration
@@ -242,16 +244,8 @@ class BackendUnitTest:
 
         gen = sub.message_generator(propagate_error=False)
         i = 0
-        # odds are acked and evens are nacked
         for msg in gen:
             logging.debug(i)
-            if i > 0:
-                prev_id = (i - 1) * 10
-                if i % 2 == 0:  # see if previous EVEN msg was acked
-                    self._get_mock_ack(mock_con).assert_called_with(prev_id)
-                else:  # see if previous ODD msg was NOT acked
-                    with pytest.raises(AssertionError):
-                        self._get_mock_ack(mock_con).assert_called_with(prev_id)
 
             assert msg is not None
             assert msg.msg_id == i * 10
@@ -259,12 +253,12 @@ class BackendUnitTest:
 
             if i % 2 == 0:
                 gen.throw(Exception)
-                self._get_mock_nack(mock_con).assert_called_with(i * 10)
+                self._get_mock_nack(mock_con).assert_not_called()  # would be called by Queue
 
             i += 1
         self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
-    def test_message_generator_consumer_exception_fail(self, mock_con: Any, queue_name: str) -> None:
+    def test_message_generator_50_consumer_exception_fail(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test message generator.
 
         Not so much a test, as an example of why MessageGeneratorContext
@@ -289,7 +283,7 @@ class BackendUnitTest:
         with pytest.raises(AssertionError):
             self._get_mock_nack(mock_con).assert_called_with(0)
 
-    def test_queue_recv_consumer(self, mock_con: Any, queue_name: str) -> None:
+    def test_queue_recv_00_consumer(self, mock_con: Any, queue_name: str) -> None:
         """Test Queue.recv()."""
         q = Queue(self.backend, address="localhost", name=queue_name)
         if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
@@ -307,7 +301,7 @@ class BackendUnitTest:
         self._get_mock_close(mock_con).assert_called()
         self._get_mock_ack(mock_con).assert_called_with(0)
 
-    def test_queue_recv_comsumer_exception_0(self, mock_con: Any, queue_name: str) -> None:
+    def test_queue_recv_10_comsumer_exception(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test Queue.recv().
 
         When an Exception is raised in `with` block, the Queue should:
@@ -335,10 +329,10 @@ class BackendUnitTest:
         self._get_mock_close(mock_con).assert_called()
         self._get_mock_nack(mock_con).assert_called_with(0)
 
-    def test_queue_recv_comsumer_exception_1(self, mock_con: Any, queue_name: str) -> None:
+    def test_queue_recv_11_comsumer_exception(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test Queue.recv().
 
-        Same as test_queue_recv_comsumer_exception_1() but with multiple
+        Same as test_queue_recv_10_comsumer_exception() but with multiple
         recv() calls.
         """
         q = Queue(self.backend, address="localhost", name=queue_name)
@@ -378,10 +372,10 @@ class BackendUnitTest:
 
         self._get_mock_close(mock_con).assert_called()
 
-    def test_queue_recv_comsumer_exception_3(self, mock_con: Any, queue_name: str) -> None:
+    def test_queue_recv_12_comsumer_exception(self, mock_con: Any, queue_name: str) -> None:
         """Failure-test Queue.recv().
 
-        Same as test_queue_recv_comsumer_exception_2() but with error
+        Same as test_queue_recv_11_comsumer_exception() but with error
         propagation.
         """
         q = Queue(self.backend, address="localhost", name=queue_name)
@@ -398,7 +392,8 @@ class BackendUnitTest:
             pass
 
         with pytest.raises(TestException):
-            with q.recv(except_errors=False) as gen:
+            q.except_errors = False
+            with q.recv() as gen:
                 for msg in gen:
                     logging.debug(msg)
                     raise TestException
@@ -413,11 +408,12 @@ class BackendUnitTest:
         # the entire original list.
         # ***Note***: this hack isn't needed in non-mocking tests, see
         # common_queue_tests.py integration tests #60+.
-        if isinstance(q.backend, rabbitmq.Backend):
+        if isinstance(q._backend, rabbitmq.Backend):
             self._enqueue_mock_messages(mock_con, fake_data[1:], fake_ids[1:])
 
         # continue where we left off
-        with q.recv(except_errors=False) as gen:
+        q.except_errors = False
+        with q.recv() as gen:
             self._get_mock_ack(mock_con).assert_not_called()
             for i, msg in enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")

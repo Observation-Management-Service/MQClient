@@ -14,7 +14,6 @@ from ..backend_interface import (
     TIMEOUT_MILLIS_DEFAULT,
     ClosingFailedExcpetion,
     Message,
-    MessageID,
     Pub,
     RawQueue,
     Sub,
