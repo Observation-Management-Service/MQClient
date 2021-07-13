@@ -23,9 +23,9 @@ class Queue:
                         will also act like a `try-except` block)
         auto_ack: whether to automatically acknowledge the received
                     message after successful receipt
-        nack_on_error: whether to automatically reject/nack the received
-                    message unsuccessful processing, i.e. exception was
-                    raised
+        auto_nack_on_error: whether to automatically reject/nack the
+                    received message after unsuccessful processing,
+                    i.e. exception was raised
 
     """
 
@@ -38,7 +38,7 @@ class Queue:
         timeout: int = 60,
         except_errors: bool = True,
         auto_ack: bool = True,
-        nack_on_error: bool = True,
+        auto_nack_on_error: bool = True,
     ) -> None:
         self._backend = backend
         self._address = address
@@ -51,7 +51,7 @@ class Queue:
         self.timeout = timeout
         self.except_errors = except_errors
         self.auto_ack = auto_ack
-        self.nack_on_error = nack_on_error
+        self.auto_nack_on_error = auto_nack_on_error
 
     @staticmethod
     def make_name() -> str:
@@ -165,7 +165,7 @@ class Queue:
         try:
             yield data
         except Exception:  # pylint:disable=broad-except
-            if self.nack_on_error:
+            if self.auto_nack_on_error:
                 self.nack(sub, msg)
             if not self.except_errors:
                 raise
@@ -247,7 +247,7 @@ class MessageGeneratorContext:
 
         # Exception Was Raised
         if exc_type and exc_val:
-            if self.msg and self.queue.nack_on_error:
+            if self.msg and self.queue.auto_nack_on_error:
                 self.queue.nack(self.sub, self.msg)
             # see how the generator wants to handle the exception
             try:
