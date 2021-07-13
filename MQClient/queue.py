@@ -6,7 +6,7 @@ import types
 import uuid
 from typing import Any, Generator, Optional, Type
 
-from .backend_interface import Backend, Message, Pub, Sub
+from .backend_interface import AckException, Backend, Message, NackException, Pub, Sub
 
 
 class Queue:
@@ -111,13 +111,27 @@ class Queue:
 
     def ack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
         """Acknowledge the message."""
-        # TODO - add guardrails
-        sub.ack_message(msg)
+        if msg.ack_status == Message.AckStatus.NONE:
+            sub.ack_message(msg)
+        elif msg.ack_status == Message.AckStatus.NACKED:
+            raise AckException("Message has already been nacked, it cannot be acked")
+        elif msg.ack_status == Message.AckStatus.ACKED:
+            pass  # needless, so we'll skip it
+        else:
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
     def nack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
         """Reject/nack the message."""
-        # TODO - add guardrails
-        sub.reject_message(msg)
+        if msg.ack_status == Message.AckStatus.NONE:
+            sub.reject_message(msg)
+        elif msg.ack_status == Message.AckStatus.NACKED:
+            pass  # needless, so we'll skip it
+        elif msg.ack_status == Message.AckStatus.ACKED:
+            raise NackException(
+                "Message has already been acked, it cannot be rejected/nacked"
+            )
+        else:
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
     def recv(self) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.

@@ -18,6 +18,14 @@ class AlreadyClosedExcpetion(ClosingFailedExcpetion):
     """Raised when a `close()` invocation fails on an already closed interface."""
 
 
+class AckException(Exception):
+    """Raised when there's a problem with acking."""
+
+
+class NackException(Exception):
+    """Raised when there's a problem with nacking."""
+
+
 class Message:
     """Message object.
 
