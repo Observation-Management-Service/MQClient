@@ -160,9 +160,7 @@ class Queue:
         try:
             yield msg.deserialize_data()
         except Exception:
-            if auto_ack:
-                sub.reject_message(msg)
-            # TODO - check for self._suppress_ctx_errors
+            sub.reject_message(msg)  # nack regardless of `auto_ack`
             raise
         else:
             if auto_ack:
