@@ -8,7 +8,7 @@ import pulsar  # type: ignore
 
 from .. import backend_interface
 from ..backend_interface import (
-    GET_MSG_TIMEOUT,
+    TIMEOUT_MILLIS_DEFAULT,
     AlreadyClosedExcpetion,
     ClosingFailedExcpetion,
     Message,
@@ -156,7 +156,7 @@ class PulsarSub(Pulsar, Sub):
             return Message(id_, data)
 
     def get_message(
-        self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
+        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
     ) -> Optional[Message]:
         """Get a single message from a queue.
 

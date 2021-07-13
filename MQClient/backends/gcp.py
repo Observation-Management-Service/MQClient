@@ -11,7 +11,7 @@ from google.cloud import pubsub_v1 as api  # type: ignore[import]
 
 from .. import backend_interface
 from ..backend_interface import (
-    GET_MSG_TIMEOUT,
+    TIMEOUT_MILLIS_DEFAULT,
     ClosingFailedExcpetion,
     Message,
     MessageID,
@@ -233,7 +233,7 @@ class GCPSub(GCP, Sub):
         return msgs
 
     def get_message(
-        self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
+        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
     ) -> Optional[Message]:
         """Get a message.
 

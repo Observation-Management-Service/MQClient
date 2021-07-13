@@ -9,7 +9,7 @@ import pika  # type: ignore
 
 from .. import backend_interface
 from ..backend_interface import (
-    GET_MSG_TIMEOUT,
+    TIMEOUT_MILLIS_DEFAULT,
     AlreadyClosedExcpetion,
     ClosingFailedExcpetion,
     Message,
@@ -162,7 +162,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             return Message(method_frame.delivery_tag, body)
 
     def get_message(
-        self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
+        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
     ) -> Optional[Message]:
         """Get a message from a queue.
 

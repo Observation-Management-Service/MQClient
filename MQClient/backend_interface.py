@@ -7,7 +7,7 @@ from typing import Any, Generator, Optional, Union
 
 MessageID = Union[int, str, bytes]
 
-GET_MSG_TIMEOUT = 1000
+TIMEOUT_MILLIS_DEFAULT = 1000
 
 
 class ClosingFailedExcpetion(Exception):
@@ -99,7 +99,7 @@ class Sub(RawQueue):
         raise NotImplementedError()
 
     def get_message(
-        self, timeout_millis: Optional[int] = GET_MSG_TIMEOUT
+        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
     ) -> Optional[Message]:
         """Get a single message from a queue."""
         raise NotImplementedError()
