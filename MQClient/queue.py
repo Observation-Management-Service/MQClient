@@ -112,7 +112,10 @@ class Queue:
     def ack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
         """Acknowledge the message."""
         if msg.ack_status == Message.AckStatus.NONE:
-            sub.ack_message(msg)
+            try:
+                sub.ack_message(msg)
+            except Exception as e:
+                raise AckException("Acking failed on backend") from e
         elif msg.ack_status == Message.AckStatus.NACKED:
             raise AckException("Message has already been nacked, it cannot be acked")
         elif msg.ack_status == Message.AckStatus.ACKED:
@@ -123,7 +126,10 @@ class Queue:
     def nack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
         """Reject/nack the message."""
         if msg.ack_status == Message.AckStatus.NONE:
-            sub.reject_message(msg)
+            try:
+                sub.reject_message(msg)
+            except Exception as e:
+                raise NackException("Nacking failed on backend") from e
         elif msg.ack_status == Message.AckStatus.NACKED:
             pass  # needless, so we'll skip it
         elif msg.ack_status == Message.AckStatus.ACKED:
