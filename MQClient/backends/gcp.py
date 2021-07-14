@@ -69,7 +69,10 @@ class GCP(RawQueue):
 
         try:
             sub.create_subscription(  # pylint: disable=no-member
-                subscription_path, topic_path
+                subscription_path,
+                topic_path,
+                retry=_DEFAULT_RETRY,
+                ack_deadline_seconds=600,  # 10min is the GCP max
             )
             logging.debug(f"Subscription created ({subscription_path})")
         except exceptions.AlreadyExists:
