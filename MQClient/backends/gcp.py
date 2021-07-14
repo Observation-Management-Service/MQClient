@@ -226,7 +226,6 @@ class GCPSub(GCP, Sub):
         for recvd in response.received_messages:
             logging.debug(f"Got Message w/ Origin ID: {recvd.message.message_id}")
             msg = GCPSub._to_message(recvd)
-            logging.critical(f"GET-MSG : {msg}")
             if msg:
                 msgs.append(msg)
         return msgs
@@ -254,7 +253,6 @@ class GCPSub(GCP, Sub):
         """Continuously generate messages until there are no more."""
         while True:
             msgs = self._get_messages(timeout_millis, num_messages)
-            logging.critical(f"GEN-MSGS : {msgs}")
             if not msgs:
                 return
             for msg in msgs:
@@ -309,7 +307,6 @@ class GCPSub(GCP, Sub):
                 # get message
                 logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
                 msg = next(gen, None)
-                logging.critical(f"MSG-GENERATOR : {msg}")
                 if msg is None:
                     logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                     break

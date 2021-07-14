@@ -49,7 +49,7 @@ class PubSubQueue:
         pub_sub.timeout = 1
         with pub_sub.recv() as gen:
             for i, d in enumerate(gen):
-                print(i)
+                print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
                 # assert d == DATA_LIST[i]  # we don't guarantee order
 
@@ -75,7 +75,7 @@ class PubSubQueue:
         sub.timeout = 1
         with sub.recv() as gen:
             for i, d in enumerate(gen):
-                print(i)
+                print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
                 # assert d == DATA_LIST[i]  # we don't guarantee order
 
@@ -410,7 +410,7 @@ class PubSubQueue:
         sub.timeout = 1
         with sub.recv() as gen:
             for i, d in enumerate(gen):
-                print(i)
+                print(f"{i}: `{d}`")
                 if i == 2:
                     raise TestException()
                 all_recvd.append(_log_recv(d))
@@ -422,8 +422,8 @@ class PubSubQueue:
         reused = False
         sub.timeout = 1
         with sub.recv() as gen:
-            for i, d in enumerate(gen, start=2):
-                print(i)
+            for i, d in enumerate(gen):
+                print(f"{i}: `{d}`")
                 reused = True
                 all_recvd.append(_log_recv(d))
                 # assert d == DATA_LIST[i]  # we don't guarantee order
@@ -465,7 +465,7 @@ class PubSubQueue:
         sub.timeout = 1
         sub.except_errors = False
         with sub.recv() as gen:
-            for i, d in enumerate(gen, start=2):
+            for i, d in enumerate(gen):
                 reused = True
                 all_recvd.append(_log_recv(d))
                 # assert d == DATA_LIST[i]  # we don't guarantee order
@@ -485,7 +485,7 @@ class PubSubQueue:
         recv_gen = sub.recv()
         with recv_gen as gen:
             for i, d in enumerate(gen):
-                print(i)
+                print(f"{i}: `{d}`")
                 # assert d == DATA_LIST[i]  # we don't guarantee order
 
         logging.warning("Round 2!")
@@ -494,3 +494,30 @@ class PubSubQueue:
         with pytest.raises(RuntimeError):
             with recv_gen as gen:
                 assert 0  # we should never get here
+
+    def test_80_break(self, queue_name: str) -> None:
+        """Test recv() with a `break` statement."""
+        pub = Queue(self.backend, name=queue_name)
+        for d in DATA_LIST:
+            pub.send(d)
+            _log_send(d)
+
+        sub = Queue(self.backend, name=queue_name)
+        sub.timeout = 1
+        all_recvd = []
+        with sub.recv() as gen:
+            for i, d in enumerate(gen):
+                print(f"{i}: `{d}`")
+                all_recvd.append(_log_recv(d))
+                if i == 2:
+                    break  # NOTE: break is treated as a good exit, so the msg is acked
+
+        logging.warning("Round 2!")
+
+        # continue where we left off
+        with sub.recv() as gen:
+            for i, d in enumerate(gen):
+                print(f"{i}: `{d}`")
+                all_recvd.append(_log_recv(d))
+
+        assert all_were_received(all_recvd)
