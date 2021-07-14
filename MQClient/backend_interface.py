@@ -127,12 +127,11 @@ class Sub(RawQueue):
     ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
-        Generate messages with variable timeout. Close instance on exit and error.
+        Generate messages with variable timeout.
         Yield `None` on `throw()`.
 
         Keyword Arguments:
             timeout {int} -- timeout in seconds for inactivity (default: {60})
-            auto_ack {bool} -- Ack each message after successful processing (default: {True})
             propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
         """
         raise NotImplementedError()

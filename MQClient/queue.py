@@ -18,15 +18,9 @@ class Queue:
         name: name of queue
         prefetch: size of prefetch buffer for receiving messages
         timeout: seconds to wait for a message to be delivered
-        except_errors: whether to suppress interior context errors to
+        except_errors: whether to suppress interior context errors for
                         the consumer (when `True`, the context manager
-                        will also act like a `try-except` block)
-        auto_ack: whether to automatically acknowledge the received
-                    message after successful receipt
-        auto_nack_on_error: whether to automatically reject/nack the
-                    received message after unsuccessful processing,
-                    i.e. exception was raised
-
+                        will act like a `try-except` block)
     """
 
     def __init__(
@@ -37,8 +31,6 @@ class Queue:
         prefetch: int = 1,
         timeout: int = 60,
         except_errors: bool = True,
-        auto_ack: bool = True,
-        auto_nack_on_error: bool = True,
     ) -> None:
         self._backend = backend
         self._address = address
@@ -50,8 +42,6 @@ class Queue:
         self._timeout = 0
         self.timeout = timeout
         self.except_errors = except_errors
-        self.auto_ack = auto_ack
-        self.auto_nack_on_error = auto_nack_on_error
 
     @staticmethod
     def make_name() -> str:
@@ -156,6 +146,9 @@ class Queue:
                 for data in stream:
                     ...
 
+        NOTE: If using the GCP backend, a message is allocated for
+        redelivery if the consumer's iteration takes longer than 10 minutes.
+
         Returns:
             MessageGeneratorContext -- context manager and generator object
         """
@@ -166,16 +159,18 @@ class Queue:
     def recv_one(self) -> Generator[Any, None, None]:
         """Receive one message from the queue.
 
-        This is a context manager. If an exception is raised, the message is rejected.
+        This is a context manager. If an exception is raised (inside the
+        context), the message is rejected, the context is exited, and
+        exception can be re-raised if configured by `except_errors`.
+
+        NOTE: If using the GCP backend, a message is allocated for
+        redelivery if the context is open for longer than 10 minutes.
 
         Decorators:
             contextlib.contextmanager
 
         Yields:
             Any -- object of data received, or None if queue is empty
-
-        Raises:
-            Exception -- [description]
         """
         sub = self._create_sub_queue()
         msg = sub.get_message(self.timeout * 1000)
@@ -187,13 +182,11 @@ class Queue:
         try:
             yield data
         except Exception:  # pylint:disable=broad-except
-            if self.auto_nack_on_error:
-                self.nack(sub, msg)
+            self.nack(sub, msg)
             if not self.except_errors:
                 raise
         else:
-            if self.auto_ack:
-                self.ack(sub, msg)
+            self.ack(sub, msg)
         finally:
             sub.close()
 
@@ -269,7 +262,7 @@ class MessageGeneratorContext:
 
         # Exception Was Raised
         if exc_type and exc_val:
-            if self.msg and self.queue.auto_nack_on_error:
+            if self.msg:
                 self.queue.nack(self.sub, self.msg)
             # see how the generator wants to handle the exception
             try:
@@ -279,7 +272,7 @@ class MessageGeneratorContext:
                 reraise_exception = True
         # Good Exit (No Original Exception)
         else:
-            if self.queue.auto_ack and self.msg:
+            if self.msg:
                 self.queue.ack(self.sub, self.msg)
 
         self.sub.close()  # close after cleanup
@@ -316,7 +309,7 @@ class MessageGeneratorContext:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         # ack the previous message before getting a new one
-        if self.queue.auto_ack and self.msg:
+        if self.msg:
             self.queue.ack(self.sub, self.msg)
 
         try:
