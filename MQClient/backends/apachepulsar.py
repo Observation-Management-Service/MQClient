@@ -8,7 +8,9 @@ import pulsar  # type: ignore
 
 from .. import backend_interface
 from ..backend_interface import (
+    RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
+    TRY_ATTEMPTS,
     AlreadyClosedExcpetion,
     ClosingFailedExcpetion,
     Message,
@@ -166,7 +168,7 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        for i in range(3):
+        for i in range(TRY_ATTEMPTS):
             if i > 0:
                 logging.debug(
                     f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
@@ -192,7 +194,7 @@ class PulsarSub(Pulsar, Sub):
                 # https://github.com/apache/pulsar/issues/3127
                 if str(e) == "Pulsar error: AlreadyClosed":
                     self.close()
-                    time.sleep(1)
+                    time.sleep(RETRY_DELAY)
                     self.connect()
                     continue
                 logging.debug(
@@ -236,7 +238,7 @@ class PulsarSub(Pulsar, Sub):
     ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
-        Generate messages with variable timeout. Close instance on exit and error.
+        Generate messages with variable timeout.
         Yield `None` on `throw()`.
 
         Keyword Arguments:
@@ -277,7 +279,6 @@ class PulsarSub(Pulsar, Sub):
                     pass
 
         # generator exit (explicit close(), or break in consumer's loop)
-        # TODO - test `break`
         except GeneratorExit:
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
             logging.debug(log_msgs.MSGGEN_GENERATOR_EXITED)

@@ -7,7 +7,9 @@ from typing import Any, Generator, Optional, Union
 
 MessageID = Union[int, str, bytes]
 
-TIMEOUT_MILLIS_DEFAULT = 1000
+TIMEOUT_MILLIS_DEFAULT = 1000  # milliseconds
+RETRY_DELAY = 1  # seconds
+TRY_ATTEMPTS = 3  # ex: 3 means 1 initial try and 2 retries
 
 
 class ClosingFailedExcpetion(Exception):

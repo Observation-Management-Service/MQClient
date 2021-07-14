@@ -9,7 +9,9 @@ import pika  # type: ignore
 
 from .. import backend_interface
 from ..backend_interface import (
+    RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
+    TRY_ATTEMPTS,
     AlreadyClosedExcpetion,
     ClosingFailedExcpetion,
     Message,
@@ -219,7 +221,7 @@ class RabbitMQSub(RabbitMQ, Sub):
     ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
-        Generate messages with variable timeout. Close instance on exit and error.
+        Generate messages with variable timeout.
         Yield `None` on `throw()`.
 
         Keyword Arguments:
@@ -270,9 +272,9 @@ class RabbitMQSub(RabbitMQ, Sub):
 def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
     """Try to call `func` and return value.
 
-    Try up to 3 times, for connection-related errors.
+    Try up to `TRY_ATTEMPTS` times, for connection-related errors.
     """
-    for i in range(3):
+    for i in range(TRY_ATTEMPTS):
         if i > 0:
             logging.debug(
                 f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
@@ -291,7 +293,7 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
             logging.debug(log_msgs.TRYCALL_AMQP_CONNECTION_ERROR)
 
         queue.close()
-        time.sleep(1)
+        time.sleep(RETRY_DELAY)
         queue.connect()
 
     logging.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
@@ -301,9 +303,9 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
 def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None, None]:
     """Try to call `func` and yield value(s).
 
-    Try up to 3 times, for connection-related errors.
+    Try up to `TRY_ATTEMPTS` times, for connection-related errors.
     """
-    for i in range(3):
+    for i in range(TRY_ATTEMPTS):
         if i > 0:
             logging.debug(
                 f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
@@ -323,7 +325,7 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
             logging.debug(log_msgs.TRYYIELD_AMQP_CONNECTION_ERROR)
 
         queue.close()
-        time.sleep(1)
+        time.sleep(RETRY_DELAY)
         queue.connect()
 
     logging.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)

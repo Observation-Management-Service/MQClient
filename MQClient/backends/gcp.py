@@ -2,16 +2,16 @@
 
 import logging
 import os
-
-# from functools import partial
 from typing import Generator, List, Optional, Tuple
 
-from google.api_core import exceptions  # type: ignore[import]
+from google.api_core import exceptions, retry  # type: ignore[import]
 from google.cloud import pubsub_v1 as api  # type: ignore[import]
 
 from .. import backend_interface
 from ..backend_interface import (
+    RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
+    TRY_ATTEMPTS,
     ClosingFailedExcpetion,
     Message,
     Pub,
@@ -19,6 +19,13 @@ from ..backend_interface import (
     Sub,
 )
 from . import log_msgs
+
+_DEFAULT_RETRY = retry.Retry(
+    initial=RETRY_DELAY,
+    # maximum=RETRY_DELAY,  # same as initial, not really needed if multiplier=1.0
+    multiplier=1.0,  # change if we want exponential retries
+    deadline=RETRY_DELAY * (TRY_ATTEMPTS - 1),
+)  # Ex: RETRY_DELAY=1, TRY_ATTEMPTS=3: <try> ...1sec... <try> ...1sec... <try>
 
 
 class GCP(RawQueue):
@@ -72,7 +79,7 @@ class GCP(RawQueue):
 
 
 class GCPPub(GCP, Pub):
-    """Wrapper around queue with delivery-confirm mode in the channel.
+    """Wrapper around PublisherClient, with topic and subscription creation.
 
     Extends:
         GCP
@@ -95,18 +102,19 @@ class GCPPub(GCP, Pub):
         self.subscription_ids = subscription_ids if subscription_ids else []
 
     def connect(self) -> None:
-        """Set up connection, channel, and queue.
-
-        Turn on delivery confirmations.
-        """
+        """Set up pub, then create topic and any subscriptions indicated."""
         logging.debug(log_msgs.CONNECTING_PUB)
         super().connect()
 
-        self.pub = api.PublisherClient(client_options={"api_endpoint": self.endpoint})
-        # publisher_options=api.types.PublisherOptions(enable_message_ordering=True),
+        self.pub = api.PublisherClient(
+            publisher_options=api.types.PublisherOptions(enable_message_ordering=True),
+            client_options={"api_endpoint": self.endpoint},
+        )
 
         try:
-            self.pub.create_topic(self._topic_path)  # pylint: disable=no-member
+            self.pub.create_topic(  # pylint: disable=no-member
+                self._topic_path, retry=_DEFAULT_RETRY
+            )
             logging.debug(f"Topic created ({self._topic_path})")
         except exceptions.AlreadyExists:
             logging.debug(f"Topic already exists ({self._topic_path})")
@@ -123,7 +131,7 @@ class GCPPub(GCP, Pub):
             )
 
     def close(self) -> None:
-        """Close connection."""
+        """Close pub (no-op)."""
         logging.debug(log_msgs.CLOSING_PUB)
         super().close()
         if not self.pub:
@@ -131,13 +139,16 @@ class GCPPub(GCP, Pub):
         logging.debug(log_msgs.CLOSED_PUB)
 
     def send_message(self, msg: bytes) -> None:
-        """Send a message on a queue."""
+        """Send a message (publish)."""
         logging.debug(log_msgs.SENDING_MESSAGE)
         if not self.pub:
             raise RuntimeError("publisher is not connected")
 
-        # try_call(self, partial(self.publisher.publish, self.topic_path, msg)) # TODO
-        future = self.pub.publish(self._topic_path, msg)
+        future = self.pub.publish(
+            self._topic_path,
+            msg,
+            # retry=_DEFAULT_RETRY)  # TODO add back when moving to 2.0+
+        )
         logging.debug(f"Sent Message w/ Origin ID: {future.result()}")
         logging.debug(log_msgs.SENT_MESSAGE)
 
@@ -165,9 +176,7 @@ class GCPSub(GCP, Sub):
         self._subscription_id = subscription_id
 
     def connect(self) -> None:
-        """Set up connection, channel, and queue.
-        TODO - fix all these block comments
-        Turn on prefetching.
+        """Set up sub (subscriber) and create subscription if necessary.
 
         NOTE: Based on `examples/gcp/subscriber.create_subscription()`
         """
@@ -179,10 +188,8 @@ class GCPSub(GCP, Sub):
         )
         logging.debug(log_msgs.CONNECTED_SUB)
 
-        # TODO - test when subscription has not been created (by a publisher)
-
     def close(self) -> None:
-        """Close connection."""
+        """Close sub."""
         logging.debug(log_msgs.CLOSING_SUB)
         super().close()
         if not self.sub:
@@ -206,17 +213,15 @@ class GCPSub(GCP, Sub):
         """Get n messages.
 
         The subscriber pulls a specific number of messages. The actual
-        number of messages pulled may be smaller than max_messages.
+        number of messages pulled may be smaller than `num_messages`.
         """
         if not self.sub:
             raise RuntimeError("subscriber is not connected")
 
-        # TODO / FIXME - is pull secretly a context manager?
-        # That would explain the auto-closing that's happening...
         response = self.sub.pull(  # pylint: disable=no-member
             subscription=self._subscription_path,
             max_messages=num_messages,
-            # retry=retry.Retry(deadline=300),  # TODO
+            retry=_DEFAULT_RETRY,
             # return_immediately=True, # NOTE - use is discourage for performance reasons
             timeout=timeout_millis / 1000 if timeout_millis else 0,
             # NOTE - if `retry` is specified, the timeout applies to each individual attempt
@@ -289,7 +294,7 @@ class GCPSub(GCP, Sub):
     ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
-        Generate messages with variable timeout. Close instance on exit and error.
+        Generate messages with variable timeout.
         Yield `None` on `throw()`.
 
         Keyword Arguments:
