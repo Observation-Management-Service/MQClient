@@ -49,12 +49,9 @@ class RabbitMQ(RawQueue):
         super().close()
         if not self.connection:
             raise ClosingFailedExcpetion("No connection to close.")
-        if not self.channel:
-            raise ClosingFailedExcpetion("No channel to close.")
         if self.connection.is_closed:
             raise AlreadyClosedExcpetion()
         try:
-            self.channel.cancel()  # rejects all pending ackable messages
             self.connection.close()
         except Exception as e:
             raise ClosingFailedExcpetion() from e
@@ -145,6 +142,14 @@ class RabbitMQSub(RabbitMQ, Sub):
         """Close connection."""
         logging.debug(log_msgs.CLOSING_SUB)
         super().close()
+
+        if not self.channel:
+            raise ClosingFailedExcpetion("No channel to close.")
+        try:
+            self.channel.cancel()  # rejects all pending ackable messages
+        except Exception as e:
+            raise ClosingFailedExcpetion() from e
+
         logging.debug(log_msgs.CLOSED_SUB)
 
     @staticmethod

@@ -61,6 +61,8 @@ class PubSubBackendInterface:
             assert recv_msg
             assert DATA_LIST[i] == recv_msg.deserialize_data()
 
+            sub.ack_message(recv_msg)
+
     def test_10(self, queue_name: str) -> None:
         """Test nacking, front-loaded sending.
 
@@ -96,16 +98,17 @@ class PubSubBackendInterface:
                 continue
             assert recv_msg.deserialize_data() in DATA_LIST
 
-            # message was redelivered
+            # message was redelivered, so ack it
             if recv_msg in nacked_msgs:
                 logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
-                continue
-            # nack message
-            nacked_msgs.append(recv_msg)
-            sub.reject_message(recv_msg)
-            logging.info("NACK!")
+                sub.ack_message(recv_msg)
+            # otherwise, nack message
+            else:
+                nacked_msgs.append(recv_msg)
+                sub.reject_message(recv_msg)
+                logging.info("NACK!")
 
     def test_11(self, queue_name: str) -> None:
         """Test nacking, mixed sending and receiving.
@@ -145,16 +148,17 @@ class PubSubBackendInterface:
                 continue
             assert recv_msg.deserialize_data() in DATA_LIST
 
-            # message was redelivered
+            # message was redelivered, so ack it
             if recv_msg in nacked_msgs:
                 logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
-                continue
-            # nack message
-            nacked_msgs.append(recv_msg)
-            sub.reject_message(recv_msg)
-            logging.info("NACK!")
+                sub.ack_message(recv_msg)
+            # otherwise, nack message
+            else:
+                nacked_msgs.append(recv_msg)
+                sub.reject_message(recv_msg)
+                logging.info("NACK!")
 
     def test_20(self, queue_name: str) -> None:
         """Sanity test message generator."""
@@ -175,5 +179,6 @@ class PubSubBackendInterface:
             assert recv_msg
             assert recv_msg.deserialize_data() in DATA_LIST
             last = i
+            sub.ack_message(recv_msg)
 
         assert last == len(DATA_LIST) - 1
