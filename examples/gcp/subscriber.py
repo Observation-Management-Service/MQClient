@@ -19,16 +19,13 @@ subscriptions with the Cloud Pub/Sub API.
 
 For more information, see the README.md under /pubsub and the documentation
 at https://cloud.google.com/pubsub/docs.
-
-See:
- - https://github.com/googleapis/python-pubsub/tree/master/samples/snippets.
- - https://cloud.google.com/pubsub/docs/emulator#using_the_emulator
 """
-
-# pylint: disable=import-outside-toplevel
 
 import argparse
 import os
+
+# fmt: off
+
 
 for env in ["PUBSUB_EMULATOR_HOST"]:  # , "PUBSUB_PROJECT_ID"):
     print(f"{env}:{os.getenv(env)}")
@@ -97,11 +94,9 @@ def create_subscription(project_id, topic_id, subscription_id):
     # Wrap the subscriber in a 'with' block to automatically call close() to
     # close the underlying gRPC channel when done.
     with subscriber:
-        # subscription = subscriber.create_subscription(
-        #     request={"name": subscription_path, "topic": topic_path}
-        # )
-        # TODO - https://github.com/googleapis/python-pubsub/issues/182#issuecomment-690951537
-        subscription = subscriber.create_subscription(subscription_path, topic_path)
+        subscription = subscriber.create_subscription(
+            request={"name": subscription_path, "topic": topic_path}
+        )
 
     print(f"Subscription created: {subscription}")
     # [END pubsub_create_pull_subscription]
@@ -327,7 +322,7 @@ def update_subscription_with_dead_letter_policy(
     # after the update. Here, values in the required fields (name, topic) help
     # identify the subscription.
     subscription = pubsub_v1.types.Subscription(
-        name=subscription_path, topic=topic_path, dead_letter_policy=dead_letter_policy
+        name=subscription_path, topic=topic_path, dead_letter_policy=dead_letter_policy,
     )
 
     with subscriber:
@@ -521,12 +516,12 @@ def receive_messages_with_blocking_shutdown(project_id, subscription_id, timeout
 
     def callback(message):
         print(f"Received {message.data}.")
-        time.sleep(timeout + 5.0)  # Pocess longer than streaming pull future timeout.
+        time.sleep(timeout + 3.0)  # Pocess longer than streaming pull future timeout.
         message.ack()
         print(f"Done processing the message {message.data}.")
 
     streaming_pull_future = subscriber.subscribe(
-        subscription_path, callback=callback, await_callbacks_on_shutdown=True
+        subscription_path, callback=callback, await_callbacks_on_shutdown=True,
     )
     print(f"Listening for messages on {subscription_path}..\n")
 
@@ -731,7 +726,7 @@ def receive_messages_with_delivery_attempts(project_id, subscription_id, timeout
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("project_id", help="Your Google Cloud project ID")
 
@@ -876,7 +871,7 @@ if __name__ == "__main__":
         )
     elif args.command == "create-push":
         create_push_subscription(
-            args.project_id, args.topic_id, args.subscription_id, args.endpoint
+            args.project_id, args.topic_id, args.subscription_id, args.endpoint,
         )
     elif args.command == "create-with-ordering":
         create_subscription_with_ordering(
@@ -886,7 +881,7 @@ if __name__ == "__main__":
         delete_subscription(args.project_id, args.subscription_id)
     elif args.command == "update-push":
         update_push_subscription(
-            args.project_id, args.topic_id, args.subscription_id, args.endpoint
+            args.project_id, args.topic_id, args.subscription_id, args.endpoint,
         )
     elif args.command == "update-dead-letter-policy":
         update_subscription_with_dead_letter_policy(

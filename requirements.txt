@@ -1,7 +1,7 @@
 apache-bookkeeper-client
 google-api-core==1.30.0
 google-auth==1.31.0
-google-cloud-pubsub==1.7.0
+google-cloud-pubsub==2.6.1
 googleapis-common-protos==1.53.0
 mypy
 pika

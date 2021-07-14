@@ -5,7 +5,7 @@ import os
 from typing import Generator, List, Optional, Tuple
 
 from google.api_core import exceptions, retry  # type: ignore[import]
-from google.cloud import pubsub_v1 as api  # type: ignore[import]
+from google.cloud import pubsub  # type: ignore[import]
 
 from .. import backend_interface
 from ..backend_interface import (
@@ -41,7 +41,7 @@ class GCP(RawQueue):
         self._project_id = project_id
 
         # create a temporary PublisherClient just to get `topic_path`
-        self._topic_path = api.PublisherClient().topic_path(  # pylint: disable=no-member
+        self._topic_path = pubsub.PublisherClient().topic_path(  # pylint: disable=no-member
             self._project_id, topic_id
         )
         logging.debug(f"Topic Path: {self._topic_path}")
@@ -57,22 +57,24 @@ class GCP(RawQueue):
     @staticmethod
     def _create_and_connect_sub(
         endpoint: str, project_id: str, topic_path: str, subscription_id: str
-    ) -> Tuple[api.SubscriberClient, str]:
+    ) -> Tuple[pubsub.SubscriberClient, str]:
         """Create a subscription, then return a subscriber instance and path.
 
         If the subscription already exists, the subscription is unaffected.
         """
-        sub = api.SubscriberClient(client_options={"api_endpoint": endpoint})
+        sub = pubsub.SubscriberClient(client_options={"api_endpoint": endpoint})
         subscription_path = sub.subscription_path(  # pylint: disable=no-member
             project_id, subscription_id
         )
 
         try:
             sub.create_subscription(  # pylint: disable=no-member
-                subscription_path,
-                topic_path,
+                request={
+                    "name": subscription_path,
+                    "topic": topic_path,
+                    "ack_deadline_seconds": 600,  # 10min is the GCP max
+                },
                 retry=_DEFAULT_RETRY,
-                ack_deadline_seconds=600,  # 10min is the GCP max
             )
             logging.debug(f"Subscription created ({subscription_path})")
         except exceptions.AlreadyExists:
@@ -101,7 +103,7 @@ class GCPPub(GCP, Pub):
             f"({endpoint}; {project_id}; {topic_id}; {subscription_ids})"
         )
         super().__init__(endpoint, project_id, topic_id)
-        self.pub: Optional[api.PublisherClient] = None
+        self.pub: Optional[pubsub.PublisherClient] = None
         self.subscription_ids = subscription_ids if subscription_ids else []
 
     def connect(self) -> None:
@@ -109,14 +111,16 @@ class GCPPub(GCP, Pub):
         logging.debug(log_msgs.CONNECTING_PUB)
         super().connect()
 
-        self.pub = api.PublisherClient(
-            publisher_options=api.types.PublisherOptions(enable_message_ordering=True),
+        self.pub = pubsub.PublisherClient(
+            publisher_options=pubsub.types.PublisherOptions(
+                enable_message_ordering=True
+            ),
             client_options={"api_endpoint": self.endpoint},
         )
 
         try:
             self.pub.create_topic(  # pylint: disable=no-member
-                self._topic_path, retry=_DEFAULT_RETRY
+                request={"name": self._topic_path}, retry=_DEFAULT_RETRY
             )
             logging.debug(f"Topic created ({self._topic_path})")
         except exceptions.AlreadyExists:
@@ -147,11 +151,7 @@ class GCPPub(GCP, Pub):
         if not self.pub:
             raise RuntimeError("publisher is not connected")
 
-        future = self.pub.publish(
-            self._topic_path,
-            msg,
-            # retry=_DEFAULT_RETRY)  # TODO add back when moving to 2.0+
-        )
+        future = self.pub.publish(self._topic_path, msg, retry=_DEFAULT_RETRY)
         logging.debug(f"Sent Message w/ Origin ID: {future.result()}")
         logging.debug(log_msgs.SENT_MESSAGE)
 
@@ -172,7 +172,7 @@ class GCPSub(GCP, Sub):
             f"({endpoint}; {project_id}; {topic_id}; {subscription_id})"
         )
         super().__init__(endpoint, project_id, topic_id)
-        self.sub: Optional[api.SubscriberClient] = None
+        self.sub: Optional[pubsub.SubscriberClient] = None
         self.prefetch = 1
 
         self._subscription_path: Optional[str] = None
@@ -205,7 +205,7 @@ class GCPSub(GCP, Sub):
 
     @staticmethod
     def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
-        msg: api.types.ReceivedMessage  # pylint: disable=no-member
+        msg: pubsub.types.ReceivedMessage  # pylint: disable=no-member
     ) -> Optional[Message]:
         """Transform GCP-Message to Message type."""
         return Message(msg.ack_id, msg.message.data)
@@ -222,8 +222,10 @@ class GCPSub(GCP, Sub):
             raise RuntimeError("subscriber is not connected")
 
         response = self.sub.pull(  # pylint: disable=no-member
-            subscription=self._subscription_path,
-            max_messages=num_messages,
+            request={
+                "subscription": self._subscription_path,
+                "max_messages": num_messages,
+            },
             retry=_DEFAULT_RETRY,
             # return_immediately=True, # NOTE - use is discourage for performance reasons
             timeout=timeout_millis / 1000 if timeout_millis else 0,
@@ -274,7 +276,7 @@ class GCPSub(GCP, Sub):
 
         # Acknowledges the received messages so they will not be sent again.
         self.sub.acknowledge(  # pylint: disable=no-member
-            subscription=self._subscription_path, ack_ids=[msg.msg_id]
+            request={"subscription": self._subscription_path, "ack_ids": [msg.msg_id]}
         )
         logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
 
@@ -286,9 +288,11 @@ class GCPSub(GCP, Sub):
 
         # override the subscription-level ack deadline to fast-track redelivery
         self.sub.modify_ack_deadline(  # pylint: disable=no-member
-            subscription=self._subscription_path,
-            ack_ids=[msg.msg_id],
-            ack_deadline_seconds=0,
+            request={
+                "subscription": self._subscription_path,
+                "ack_ids": [msg.msg_id],
+                "ack_deadline_seconds": 0,
+            }
         )
         logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
 
