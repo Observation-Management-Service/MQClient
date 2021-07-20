@@ -1,18 +1,28 @@
 """Run integration tests for given backend, on Queue class."""
 
+# pylint:disable=invalid-name
+
 import logging
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
 
-import pytest  # type: ignore
+import pytest
 
 # local imports
 from MQClient import Queue
 from MQClient.backend_interface import Backend
 
-from .utils import DATA_LIST, _log_recv, _log_recv_multiple, _log_send
+from .utils import (
+    DATA_LIST,
+    _log_recv,
+    _log_recv_multiple,
+    _log_send,
+    all_were_received,
+)
 
 logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger("pika").setLevel(logging.WARNING)
+logging.getLogger("flake8").setLevel(logging.WARNING)
 
 
 class PubSubQueue:
@@ -22,45 +32,59 @@ class PubSubQueue:
 
     def test_10(self, queue_name: str) -> None:
         """Test one pub, one sub."""
+        all_recvd: List[Any] = []
+
         pub_sub = Queue(self.backend, name=queue_name)
         pub_sub.send(DATA_LIST[0])
         _log_send(DATA_LIST[0])
 
         with pub_sub.recv_one() as d:
-            _log_recv(d)
+            all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
         for d in DATA_LIST:
             pub_sub.send(d)
             _log_send(d)
 
-        with pub_sub.recv(timeout=1) as gen:
+        pub_sub.timeout = 1
+        with pub_sub.recv() as gen:
             for i, d in enumerate(gen):
-                _log_recv(d)
-                assert d == DATA_LIST[i]
+                print(f"{i}: `{d}`")
+                all_recvd.append(_log_recv(d))
+                # assert d == DATA_LIST[i]  # we don't guarantee order
+
+        assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     def test_11(self, queue_name: str) -> None:
         """Test an individual pub and an individual sub."""
+        all_recvd: List[Any] = []
+
         pub = Queue(self.backend, name=queue_name)
         pub.send(DATA_LIST[0])
         _log_send(DATA_LIST[0])
 
         sub = Queue(self.backend, name=queue_name)
         with sub.recv_one() as d:
-            _log_recv(d)
+            all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
         for d in DATA_LIST:
             pub.send(d)
             _log_send(d)
 
-        with sub.recv(timeout=1) as gen:
+        sub.timeout = 1
+        with sub.recv() as gen:
             for i, d in enumerate(gen):
-                _log_recv(d)
-                assert d == DATA_LIST[i]
+                print(f"{i}: `{d}`")
+                all_recvd.append(_log_recv(d))
+                # assert d == DATA_LIST[i]  # we don't guarantee order
+
+        assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     def test_12(self, queue_name: str) -> None:
         """Failure-test one pub, two subs (one subscribed to wrong queue)."""
+        all_recvd: List[Any] = []
+
         pub = Queue(self.backend, name=queue_name)
         pub.send(DATA_LIST[0])
         _log_send(DATA_LIST[0])
@@ -68,16 +92,20 @@ class PubSubQueue:
         sub_fail = Queue(self.backend, name=f"{queue_name}-fail")
         with pytest.raises(Exception) as excinfo:
             with sub_fail.recv_one() as d:
-                _log_recv(d)
+                all_recvd.append(_log_recv(d))
             assert "No message available" in str(excinfo.value)
 
         sub = Queue(self.backend, name=queue_name)
         with sub.recv_one() as d:
-            _log_recv(d)
+            all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
+
+        assert all_were_received(all_recvd, [DATA_LIST[0]])
 
     def test_20(self, queue_name: str) -> None:
         """Test one pub, multiple subs, ordered/alternatingly."""
+        all_recvd: List[Any] = []
+
         pub = Queue(self.backend, name=queue_name)
 
         # for each send, create and receive message via a new sub
@@ -87,12 +115,16 @@ class PubSubQueue:
 
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                _log_recv(d)
+                all_recvd.append(_log_recv(d))
                 assert d == data
             # sub.close() -- no longer needed
 
+        assert all_were_received(all_recvd)
+
     def _test_21(self, queue_name: str, num_subs: int) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending)."""
+        all_recvd: List[Any] = []
+
         pub = Queue(self.backend, name=queue_name)
         for data in DATA_LIST:
             pub.send(data)
@@ -100,18 +132,16 @@ class PubSubQueue:
 
         def recv_thread(_: int) -> List[Any]:
             sub = Queue(self.backend, name=queue_name)
-            with sub.recv(timeout=1) as gen:
+            sub.timeout = 1
+            with sub.recv() as gen:
                 recv_data_list = list(gen)
-            _log_recv_multiple(recv_data_list)
-            return recv_data_list
+            return _log_recv_multiple(recv_data_list)
 
         with ThreadPool(num_subs) as p:
             received_data = p.map(recv_thread, range(num_subs))
-        received_data = [item for sublist in received_data for item in sublist]
+        all_recvd.extend(item for sublist in received_data for item in sublist)
 
-        assert len(DATA_LIST) == len(received_data)
-        for data in DATA_LIST:
-            assert data in received_data
+        assert all_were_received(all_recvd)
 
     def test_21_fewer(self, queue_name: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
@@ -139,6 +169,8 @@ class PubSubQueue:
 
         Use the same number of subs as number of messages.
         """
+        all_recvd: List[Any] = []
+
         pub = Queue(self.backend, name=queue_name)
         for data in DATA_LIST:
             pub.send(data)
@@ -149,15 +181,12 @@ class PubSubQueue:
             with sub.recv_one() as d:
                 recv_data = d
             # sub.close() -- no longer needed
-            _log_recv(recv_data)
-            return recv_data
+            return _log_recv(recv_data)
 
         with ThreadPool(len(DATA_LIST)) as p:
-            received_data = p.map(recv_thread, range(len(DATA_LIST)))
+            all_recvd = p.map(recv_thread, range(len(DATA_LIST)))
 
-        assert len(DATA_LIST) == len(received_data)
-        for data in DATA_LIST:
-            assert data in received_data
+        assert all_were_received(all_recvd)
 
     def test_23(self, queue_name: str) -> None:
         """Failure-test one pub, and too many subs.
@@ -165,6 +194,8 @@ class PubSubQueue:
         More subs than messages with `recv_one()` will raise an
         exception.
         """
+        all_recvd: List[Any] = []
+
         pub = Queue(self.backend, name=queue_name)
         for data in DATA_LIST:
             pub.send(data)
@@ -175,18 +206,22 @@ class PubSubQueue:
             with sub.recv_one() as d:
                 recv_data = d
             # sub.close() -- no longer needed
-            _log_recv(recv_data)
+            return _log_recv(recv_data)
 
         with ThreadPool(len(DATA_LIST)) as p:
-            p.map(recv_thread, range(len(DATA_LIST)))
+            all_recvd = p.map(recv_thread, range(len(DATA_LIST)))
 
         # Extra Sub
         with pytest.raises(Exception) as excinfo:
             recv_thread(0)
             assert "No message available" in str(excinfo.value)
 
+        assert all_were_received(all_recvd)
+
     def test_30(self, queue_name: str) -> None:
         """Test multiple pubs, one sub, ordered/alternatingly."""
+        all_recvd: List[Any] = []
+
         sub = Queue(self.backend, name=queue_name)
 
         for data in DATA_LIST:
@@ -194,120 +229,126 @@ class PubSubQueue:
             pub.send(data)
             _log_send(data)
 
-            with sub.recv(timeout=1) as gen:
+            sub.timeout = 1
+            sub.except_errors = False
+            with sub.recv() as gen:
                 received_data = list(gen)
-            _log_recv_multiple(received_data)
+            all_recvd.extend(_log_recv_multiple(received_data))
 
             assert len(received_data) == 1
             assert data == received_data[0]
 
+        assert all_were_received(all_recvd)
+
     def test_31(self, queue_name: str) -> None:
         """Test multiple pubs, one sub, unordered (front-loaded sending)."""
+        all_recvd: List[Any] = []
+
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
 
         sub = Queue(self.backend, name=queue_name)
-        with sub.recv(timeout=1) as gen:
+        sub.timeout = 1
+        with sub.recv() as gen:
             received_data = list(gen)
-        _log_recv_multiple(received_data)
+        all_recvd.extend(_log_recv_multiple(received_data))
 
-        assert len(DATA_LIST) == len(received_data)
-        for data in DATA_LIST:
-            assert data in received_data
+        assert all_were_received(all_recvd)
 
     def test_40(self, queue_name: str) -> None:
         """Test multiple pubs, multiple subs, ordered/alternatingly.
 
         Use the same number of pubs as subs.
         """
+        all_recvd: List[Any] = []
+
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
 
             sub = Queue(self.backend, name=queue_name)
-            with sub.recv(timeout=1) as gen:
+            sub.timeout = 1
+            with sub.recv() as gen:
                 received_data = list(gen)
-            _log_recv_multiple(received_data)
+            all_recvd.extend(_log_recv_multiple(received_data))
 
             assert len(received_data) == 1
             assert data == received_data[0]
+
+        assert all_were_received(all_recvd)
 
     def test_41(self, queue_name: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the same number of pubs as subs.
         """
+        all_recvd: List[Any] = []
+
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
 
-        received_data = []
         for _ in range(len(DATA_LIST)):
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                _log_recv(d)
-                received_data.append(d)
+                all_recvd.append(_log_recv(d))
             # sub.close() -- no longer needed
 
-        assert len(DATA_LIST) == len(received_data)
-        for data in DATA_LIST:
-            assert data in received_data
+        assert all_were_received(all_recvd)
 
     def test_42(self, queue_name: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the more pubs than subs.
         """
+        all_recvd: List[Any] = []
+
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
 
-        received_data = []
         for i in range(len(DATA_LIST)):
-            if i % 2 == 0:
+            if i % 2 == 0:  # each sub receives 2 messages back-to-back
                 sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                _log_recv(d)
-                received_data.append(d)
+                all_recvd.append(_log_recv(d))
             # sub.close() -- no longer needed
 
-        assert len(DATA_LIST) == len(received_data)
-        for data in DATA_LIST:
-            assert data in received_data
+        assert all_were_received(all_recvd)
 
     def test_43(self, queue_name: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the fewer pubs than subs.
         """
+        all_recvd: List[Any] = []
+
         for i, data in enumerate(DATA_LIST):
-            if i % 2 == 0:
+            if i % 2 == 0:  # each pub sends 2 messages back-to-back
                 pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
 
-        received_data = []
         for _ in range(len(DATA_LIST)):
             sub = Queue(self.backend, name=queue_name)
             with sub.recv_one() as d:
-                _log_recv(d)
-                received_data.append(d)
+                all_recvd.append(_log_recv(d))
             # sub.close() -- no longer needed
 
-        assert len(DATA_LIST) == len(received_data)
-        for data in DATA_LIST:
-            assert data in received_data
+        assert all_were_received(all_recvd)
 
     def test_50(self, queue_name: str) -> None:
         """Test_20 with variable prefetching.
 
         One pub, multiple subs.
         """
+        all_recvd: List[Any] = []
+
         pub = Queue(self.backend, name=queue_name)
 
         for i in range(1, len(DATA_LIST) * 2):
@@ -318,44 +359,45 @@ class PubSubQueue:
 
                 sub = Queue(self.backend, name=queue_name, prefetch=i)
                 with sub.recv_one() as d:
-                    _log_recv(d)
+                    all_recvd.append(_log_recv(d))
                     assert d == data
                 # sub.close() -- no longer needed
+
+        assert all_were_received(all_recvd, DATA_LIST * ((len(DATA_LIST) * 2) - 1))
 
     def test_51(self, queue_name: str) -> None:
         """Test one pub, multiple subs, with prefetching.
 
         Prefetching should have no visible affect.
         """
+        all_recvd: List[Any] = []
+
         for data in DATA_LIST:
             pub = Queue(self.backend, name=queue_name)
             pub.send(data)
             _log_send(data)
 
-        received_data = []
-
         # this should not eat up the whole queue
         sub = Queue(self.backend, name=queue_name, prefetch=20)
         with sub.recv_one() as d:
-            _log_recv(d)
-            received_data.append(d)
+            all_recvd.append(_log_recv(d))
         with sub.recv_one() as d:
-            _log_recv(d)
-            received_data.append(d)
+            all_recvd.append(_log_recv(d))
         # sub.close() -- no longer needed
 
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)
-        with sub2.recv(timeout=1) as gen:
+        sub2.timeout = 1
+        with sub2.recv() as gen:
             for _, d in enumerate(gen):
-                _log_recv(d)
-                received_data.append(d)
+                all_recvd.append(_log_recv(d))
 
-        assert len(DATA_LIST) == len(received_data)
-        for data in DATA_LIST:
-            assert data in received_data
+        assert all_were_received(all_recvd)
 
     def test_60(self, queue_name: str) -> None:
-        """Test recv() fail and recovery, with one recv() call."""
+        """Test recv() fail and recovery, with multiple recv() calls.
+        """
+        all_recvd: List[Any] = []
+
         pub = Queue(self.backend, name=queue_name)
         for d in DATA_LIST:
             pub.send(d)
@@ -365,46 +407,34 @@ class PubSubQueue:
             pass
 
         sub = Queue(self.backend, name=queue_name)
-        recv_gen = sub.recv(timeout=1)
-        with recv_gen as gen:
+        sub.timeout = 1
+        with sub.recv() as gen:
             for i, d in enumerate(gen):
+                print(f"{i}: `{d}`")
                 if i == 2:
                     raise TestException()
-                _log_recv(d)
-                assert d == DATA_LIST[i]
+                all_recvd.append(_log_recv(d))
+                # assert d == DATA_LIST[i]  # we don't guarantee order
+
+        logging.warning("Round 2!")
 
         # continue where we left off
-        with recv_gen as gen:
-            for i, d in enumerate(gen, start=2):
-                _log_recv(d)
-                assert d == DATA_LIST[i]
+        reused = False
+        sub.timeout = 1
+        with sub.recv() as gen:
+            for i, d in enumerate(gen):
+                print(f"{i}: `{d}`")
+                reused = True
+                all_recvd.append(_log_recv(d))
+                # assert d == DATA_LIST[i]  # we don't guarantee order
+        assert reused
+        print(all_recvd)
+        assert all_were_received(all_recvd)
 
     def test_61(self, queue_name: str) -> None:
-        """Test recv() fail and recovery, with multiple recv() calls."""
-        pub = Queue(self.backend, name=queue_name)
-        for d in DATA_LIST:
-            pub.send(d)
-            _log_send(d)
-
-        class TestException(Exception):  # pylint: disable=C0115
-            pass
-
-        sub = Queue(self.backend, name=queue_name)
-        with sub.recv(timeout=1) as gen:
-            for i, d in enumerate(gen):
-                if i == 2:
-                    raise TestException()
-                _log_recv(d)
-                assert d == DATA_LIST[i]
-
-        # continue where we left off
-        with sub.recv(timeout=1) as gen:
-            for i, d in enumerate(gen, start=2):
-                _log_recv(d)
-                assert d == DATA_LIST[i]
-
-    def test_62(self, queue_name: str) -> None:
         """Test recv() fail and recovery, with error propagation."""
+        all_recvd: List[Any] = []
+
         pub = Queue(self.backend, name=queue_name)
         for d in DATA_LIST:
             pub.send(d)
@@ -414,21 +444,80 @@ class PubSubQueue:
             pass
 
         sub = Queue(self.backend, name=queue_name)
-        sub._propagate_recv_error = True  # pylint: disable=W0212
         excepted = False
         try:
-            with sub.recv(timeout=1) as gen:
+            sub.timeout = 1
+            sub.except_errors = False
+            with sub.recv() as gen:
                 for i, d in enumerate(gen):
                     if i == 2:
                         raise TestException()
-                    _log_recv(d)
-                    assert d == DATA_LIST[i]
+                    all_recvd.append(_log_recv(d))
+                    # assert d == DATA_LIST[i]  # we don't guarantee order
         except TestException:
             excepted = True
         assert excepted
 
+        logging.warning("Round 2!")
+
         # continue where we left off
-        with sub.recv(timeout=1) as gen:
-            for i, d in enumerate(gen, start=2):
-                _log_recv(d)
-                assert d == DATA_LIST[i]
+        reused = False
+        sub.timeout = 1
+        sub.except_errors = False
+        with sub.recv() as gen:
+            for i, d in enumerate(gen):
+                reused = True
+                all_recvd.append(_log_recv(d))
+                # assert d == DATA_LIST[i]  # we don't guarantee order
+        assert reused
+
+        assert all_were_received(all_recvd)
+
+    def test_70_fail(self, queue_name: str) -> None:
+        """Failure-test recv() with reusing a 'MessageGeneratorContext' instance."""
+        pub = Queue(self.backend, name=queue_name)
+        for d in DATA_LIST:
+            pub.send(d)
+            _log_send(d)
+
+        sub = Queue(self.backend, name=queue_name)
+        sub.timeout = 1
+        recv_gen = sub.recv()
+        with recv_gen as gen:
+            for i, d in enumerate(gen):
+                print(f"{i}: `{d}`")
+                # assert d == DATA_LIST[i]  # we don't guarantee order
+
+        logging.warning("Round 2!")
+
+        # continue where we left off
+        with pytest.raises(RuntimeError):
+            with recv_gen as gen:
+                assert 0  # we should never get here
+
+    def test_80_break(self, queue_name: str) -> None:
+        """Test recv() with a `break` statement."""
+        pub = Queue(self.backend, name=queue_name)
+        for d in DATA_LIST:
+            pub.send(d)
+            _log_send(d)
+
+        sub = Queue(self.backend, name=queue_name)
+        sub.timeout = 1
+        all_recvd = []
+        with sub.recv() as gen:
+            for i, d in enumerate(gen):
+                print(f"{i}: `{d}`")
+                all_recvd.append(_log_recv(d))
+                if i == 2:
+                    break  # NOTE: break is treated as a good exit, so the msg is acked
+
+        logging.warning("Round 2!")
+
+        # continue where we left off
+        with sub.recv() as gen:
+            for i, d in enumerate(gen):
+                print(f"{i}: `{d}`")
+                all_recvd.append(_log_recv(d))
+
+        assert all_were_received(all_recvd)

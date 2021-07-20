@@ -2,62 +2,65 @@
 
 import contextlib
 import logging
-import pickle
+import types
 import uuid
-from typing import Any, Generator, Optional
+from typing import Any, Generator, Optional, Type
 
-from .backend_interface import Backend, MessageGeneratorContext, Pub, Sub
+from .backend_interface import AckException, Backend, Message, NackException, Pub, Sub
 
 
 class Queue:
     """User-facing queue library.
 
     Args:
-        backend (Backend): the backend to use
-        address (str): address of queue (default: 'localhost')
-        name (str): name of queue (default: <random string>)
-        prefetch (int): size of prefetch buffer for receiving messages (default: 1)
+        backend: the backend to use
+        address: address of queue
+        name: name of queue
+        prefetch: size of prefetch buffer for receiving messages
+        timeout: seconds to wait for a message to be delivered
+        except_errors: whether to suppress interior context errors for
+                        the consumer (when `True`, the context manager
+                        will act like a `try-except` block)
     """
 
-    def __init__(self, backend: Backend, address: str = 'localhost',
-                 name: str = '', prefetch: int = 1) -> None:
+    def __init__(
+        self,
+        backend: Backend,
+        address: str = "localhost",
+        name: str = "",
+        prefetch: int = 1,
+        timeout: int = 60,
+        except_errors: bool = True,
+    ) -> None:
         self._backend = backend
         self._address = address
-        self._name = name if name else uuid.uuid4().hex
+        self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
-        self._pub_queue = None  # type: Optional[Pub]
-        self._sub_queue = None  # type: Optional[Sub]
-        self.message_generator_context = None  # type: Optional[MessageGeneratorContext]
-        self._propagate_recv_error = False
+        self._pub_queue: Optional[Pub] = None
+
+        # publics
+        self._timeout = 0
+        self.timeout = timeout
+        self.except_errors = except_errors
+
+    @staticmethod
+    def make_name() -> str:
+        """Return a pseudo-unique string that is a legal queue identifier.
+
+        This name is valid for any backend chosen.
+        """
+        return "a" + (uuid.uuid4().hex)[:20]
 
     @property
-    def backend(self) -> Backend:
-        """Get backend instance responsible for managing queuing service."""
-        return self._backend
+    def timeout(self) -> int:
+        """Get the timeout value."""
+        return self._timeout
 
-    @property
-    def address(self) -> str:
-        """Get address of the queuing daemon."""
-        return self._address
-
-    @property
-    def name(self) -> str:
-        """Get name of queue."""
-        return self._name
-
-    @property
-    def prefetch(self) -> int:
-        """Get size of prefetch buffer for receiving messages."""
-        return self._prefetch
-
-    @prefetch.setter
-    def prefetch(self, val: int) -> None:
+    @timeout.setter
+    def timeout(self, val: int) -> None:
         if val < 1:
-            raise Exception('prefetch must be positive')
-        if self._prefetch != val:
-            self._prefetch = val
-            if self._sub_queue:
-                del self.raw_sub_queue
+            raise Exception("prefetch must be positive")
+        self._timeout = val
 
     @property
     def raw_pub_queue(self) -> Pub:
@@ -80,100 +83,245 @@ class Queue:
             self._pub_queue.close()
             self._pub_queue = None
 
-    @property
-    def raw_sub_queue(self) -> Sub:
-        """Get subscriber queue."""
-        if not self._sub_queue:
-            self._sub_queue = self._backend.create_sub_queue(
-                self._address, self._name, self._prefetch)
-
-        if not self._sub_queue:
-            raise Exception("Sub queue failed to be created.")
-        return self._sub_queue
-
-    @raw_sub_queue.deleter
-    def raw_sub_queue(self) -> None:
-        logging.debug("Deleter Queue.raw_sub_queue")
-        self._close_sub_queue()
-
-    def _close_sub_queue(self) -> None:
-        if self._sub_queue:
-            logging.debug("Closing Queue._sub_queue")
-            self._sub_queue.close()
-            self._sub_queue = None
+    def _create_sub_queue(self) -> Sub:
+        """Wrap `self._backend.create_sub_queue()` with instance's config."""
+        return self._backend.create_sub_queue(self._address, self._name, self._prefetch)
 
     def close(self) -> None:
-        """Close all connections."""
-        self._close_sub_queue()
+        """Close all persisted connections."""
         self._close_pub_queue()
 
     def send(self, data: Any) -> None:
         """Send a message to the queue.
 
-        Args:
+        Arguments:
             data (Any): object of data to send (must be picklable)
         """
-        raw_data = pickle.dumps(data, protocol=4)
-        self.raw_pub_queue.send_message(raw_data)
+        self.raw_pub_queue.send_message(Message.serialize_data(data))
 
-    def recv(self, timeout: int = 60) -> MessageGeneratorContext:
+    def ack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
+        """Acknowledge the message."""
+        if msg.ack_status == Message.AckStatus.NONE:
+            try:
+                sub.ack_message(msg)
+            except Exception as e:
+                raise AckException("Acking failed on backend") from e
+        elif msg.ack_status == Message.AckStatus.NACKED:
+            raise AckException(
+                "Message has already been rejected/nacked, it cannot be acked"
+            )
+        elif msg.ack_status == Message.AckStatus.ACKED:
+            pass  # needless, so we'll skip it
+        else:
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
+
+    def nack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
+        """Reject/nack the message."""
+        if msg.ack_status == Message.AckStatus.NONE:
+            try:
+                sub.reject_message(msg)
+            except Exception as e:
+                raise NackException("Nacking failed on backend") from e
+        elif msg.ack_status == Message.AckStatus.NACKED:
+            pass  # needless, so we'll skip it
+        elif msg.ack_status == Message.AckStatus.ACKED:
+            raise NackException(
+                "Message has already been acked, it cannot be rejected/nacked"
+            )
+        else:
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
+
+    def recv(self) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.
 
-        This returns a context manager/ generator. It's iterator stops
-        when no messages are received for `timeout` seconds. If an exception
-        is raised, the message is rejected, but messages continue to
-        be received (this is configured by `self._propagate_recv_error`).
-        Multiple calls to `recv()` and/or recycling an instance are both okay,
-        however if the queue has not been closed (e.g. premature termination
-        of the iterator by a consumer-sider raised exception) the original
-        parameters (`timeout`) are reused.
+        This returns a context-manager/generator. Its iterator stops when no
+        messages are received for `timeout` seconds. If an exception is raised
+        (inside the context), the message is rejected, the context is exited,
+        and exception can be re-raised if configured by `except_errors`.
+        Multiple calls to `recv()` is okay, but reusing the returned instance
+        is not.
 
         Example:
             with queue.recv() as stream:
                 for data in stream:
                     ...
 
-        Keyword Arguments:
-            timeout {int} -- seconds to wait idle before stopping (default: {60})
+        NOTE: If using the GCP backend, a message is allocated for
+        redelivery if the consumer's iteration takes longer than 10 minutes.
 
         Returns:
             MessageGeneratorContext -- context manager and generator object
         """
-        if (not self.message_generator_context) or (not self._sub_queue) or self._sub_queue.was_closed:
-            logging.debug("Creating new MessageGeneratorContext instance.")
-            self.message_generator_context = MessageGeneratorContext(sub=self.raw_sub_queue,
-                                                                     timeout=timeout,
-                                                                     propagate_error=self._propagate_recv_error)
-        return self.message_generator_context
+        logging.debug("Creating new MessageGeneratorContext instance.")
+        return MessageGeneratorContext(self._create_sub_queue(), self)
 
     @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:
         """Receive one message from the queue.
 
-        This is a context manager. If an exception is raised, the message is rejected.
+        This is a context manager. If an exception is raised (inside the
+        context), the message is rejected, the context is exited, and
+        exception can be re-raised if configured by `except_errors`.
+
+        NOTE: If using the GCP backend, a message is allocated for
+        redelivery if the context is open for longer than 10 minutes.
 
         Decorators:
             contextlib.contextmanager
 
         Yields:
             Any -- object of data received, or None if queue is empty
-
-        Raises:
-            Exception -- [description]
         """
-        msg = self.raw_sub_queue.get_message()
+        sub = self._create_sub_queue()
+        msg = sub.get_message(self.timeout * 1000)
+
         if not msg:
-            raise Exception('No message available')
+            raise Exception("No message available")
+
+        data = msg.deserialize_data()
         try:
-            yield pickle.loads(msg.data)
-        except Exception:
-            self.raw_sub_queue.reject_message(msg.msg_id)
-            raise
+            yield data
+        except Exception:  # pylint:disable=broad-except
+            self.nack(sub, msg)
+            if not self.except_errors:
+                raise
         else:
-            self.raw_sub_queue.ack_message(msg.msg_id)
+            self.ack(sub, msg)
         finally:
-            self.close()
+            sub.close()
 
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
-        return f"Queue({self.backend.__class__.__name__}, address={self.address}, name={self.name}, prefetch={self.prefetch}, pub={bool(self._pub_queue)}, sub={bool(self._sub_queue)})"
+        return (
+            f"Queue("
+            f"{self._backend.__class__.__name__}, "
+            f"address={self._address}, "
+            f"name={self._name}, "
+            f"prefetch={self._prefetch}, "
+            f"pub={bool(self._pub_queue)}"
+            f")"
+        )
+
+
+class MessageGeneratorContext:
+    """A context manager wrapping `Sub.message_generator()`."""
+
+    RUNTIME_ERROR_CONTEXT_STRING = (
+        "'MessageGeneratorContext' object's runtime "
+        "context has not been entered. Use 'with as' syntax."
+    )
+
+    def __init__(self, sub: Sub, queue: Queue) -> None:
+        logging.debug("[MessageGeneratorContext.__init__()]")
+        self.sub = sub
+        self.message_generator = sub.message_generator(
+            timeout=queue.timeout, propagate_error=(not queue.except_errors)
+        )
+        self.queue = queue
+
+        self.entered = False
+        self.msg: Optional[Message] = None
+
+    def __enter__(self) -> "MessageGeneratorContext":
+        """Return instance.
+
+        Triggered by 'with ... as'.
+        """
+        logging.debug("[MessageGeneratorContext.__enter__()] entered `with-as` block")
+
+        if self.entered:
+            raise RuntimeError(
+                "A 'MessageGeneratorContext' instance cannot be re-entered."
+            )
+
+        self.entered = True
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[types.TracebackType],
+    ) -> bool:
+        """Return `True` to suppress any Exception raised by consumer code.
+
+        Return `False` to re-raise/propagate that Exception.
+
+        Arguments:
+            exc_type {Optional[BaseException]} -- Exception type.
+            exc_val {Optional[Type[BaseException]]} -- Exception object.
+            exc_tb {Optional[types.TracebackType]} -- Exception Traceback.
+        """
+        logging.debug(
+            f"[MessageGeneratorContext.__exit__()] exiting `with-as` block (exc:{exc_type})"
+        )
+        if not self.entered:
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+
+        reraise_exception = False
+
+        # Exception Was Raised
+        if exc_type and exc_val:
+            if self.msg:
+                self.queue.nack(self.sub, self.msg)
+            # see how the generator wants to handle the exception
+            try:
+                # `throw` is caught by the message_generator's try-except around `yield`
+                self.message_generator.throw(exc_type, exc_val, exc_tb)
+            except exc_type:  # message_generator re-raised Exception
+                reraise_exception = True
+        # Good Exit (No Original Exception)
+        else:
+            if self.msg:
+                self.queue.ack(self.sub, self.msg)
+
+        self.sub.close()  # close after cleanup
+
+        if reraise_exception:
+            logging.debug(
+                "[MessageGeneratorContext.__exit__()] exited & propagated error."
+            )
+            return False  # propagate the Exception!
+        else:
+            # either no exception or suppress the exception
+            if exc_type and exc_val:
+                logging.debug(
+                    "[MessageGeneratorContext.__exit__()] exited & suppressed error."
+                )
+            else:
+                logging.debug("[MessageGeneratorContext.__exit__()] exited w/o error.")
+            return True  # suppress any Exception
+
+    def __iter__(self) -> "MessageGeneratorContext":
+        """Return instance.
+
+        Triggered with 'for'/'iter()'.
+        """
+        logging.debug("[MessageGeneratorContext.__iter__()] entered loop/`iter()`")
+        if not self.entered:
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+        return self
+
+    def __next__(self) -> Any:
+        """Return next Message in queue."""
+        logging.debug("[MessageGeneratorContext.__next__()] next iteration...")
+        if not self.entered:
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+
+        # ack the previous message before getting a new one
+        if self.msg:
+            self.queue.ack(self.sub, self.msg)
+
+        try:
+            self.msg = next(self.message_generator)
+        except StopIteration:
+            logging.debug(
+                "[MessageGeneratorContext.__next__()] end of loop (StopIteration)"
+            )
+            raise
+        if not self.msg:
+            raise RuntimeError(
+                "Yielded value is `None`. This should not have happened."
+            )
+
+        return self.msg.deserialize_data()

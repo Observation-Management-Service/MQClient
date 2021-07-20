@@ -3,12 +3,22 @@
 import logging
 import time
 from functools import partial
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Callable, Generator, Optional, Union
 
 import pika  # type: ignore
 
 from .. import backend_interface
-from ..backend_interface import Message, MessageID, Pub, RawQueue, Sub
+from ..backend_interface import (
+    RETRY_DELAY,
+    TIMEOUT_MILLIS_DEFAULT,
+    TRY_ATTEMPTS,
+    AlreadyClosedExcpetion,
+    ClosingFailedExcpetion,
+    Message,
+    Pub,
+    RawQueue,
+    Sub,
+)
 from . import log_msgs
 
 
@@ -22,25 +32,31 @@ class RabbitMQ(RawQueue):
     def __init__(self, address: str, queue: str) -> None:
         super().__init__()
         self.address = address
-        if not self.address.startswith('ampq'):
-            self.address = 'amqp://' + self.address
+        if not self.address.startswith("ampq"):
+            self.address = "amqp://" + self.address
         self.queue = queue
         self.connection = None  # type: pika.BlockingConnection
         self.channel = None  # type: pika.adapters.blocking_connection.BlockingChannel
-        self.consumer_id = None
-        self.prefetch = 1
 
     def connect(self) -> None:
         """Set up connection and channel."""
         super().connect()
-        self.connection = pika.BlockingConnection(pika.connection.URLParameters(self.address))
+        self.connection = pika.BlockingConnection(
+            pika.connection.URLParameters(self.address)
+        )
         self.channel = self.connection.channel()
 
     def close(self) -> None:
         """Close connection."""
         super().close()
-        if (self.connection) and (not self.connection.is_closed):
+        if not self.connection:
+            raise ClosingFailedExcpetion("No connection to close.")
+        if self.connection.is_closed:
+            raise AlreadyClosedExcpetion()
+        try:
             self.connection.close()
+        except Exception as e:
+            raise ClosingFailedExcpetion() from e
 
 
 class RabbitMQPub(RabbitMQ, Pub):
@@ -51,15 +67,27 @@ class RabbitMQPub(RabbitMQ, Pub):
         Pub
     """
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        logging.debug(f"{log_msgs.INIT_PUB} ({args}; {kwargs})")
+        super().__init__(*args, **kwargs)
+
     def connect(self) -> None:
         """Set up connection, channel, and queue.
 
         Turn on delivery confirmations.
         """
+        logging.debug(log_msgs.CONNECTING_PUB)
         super().connect()
 
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.confirm_delivery()
+        logging.debug(log_msgs.CONNECTED_PUB)
+
+    def close(self) -> None:
+        """Close connection."""
+        logging.debug(log_msgs.CLOSING_PUB)
+        super().close()
+        logging.debug(log_msgs.CLOSED_PUB)
 
     def send_message(self, msg: bytes) -> None:
         """Send a message on a queue.
@@ -71,12 +99,19 @@ class RabbitMQPub(RabbitMQ, Pub):
         Returns:
             RawQueue: queue
         """
+        logging.debug(log_msgs.SENDING_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.SENDING_MESSAGE)
-        try_call(self, partial(self.channel.basic_publish, exchange='',
-                               routing_key=self.queue, body=msg))
+        try_call(
+            self,
+            partial(
+                self.channel.basic_publish,
+                exchange="",
+                routing_key=self.queue,
+                body=msg,
+            ),
+        )
         logging.debug(log_msgs.SENT_MESSAGE)
 
 
@@ -89,8 +124,8 @@ class RabbitMQSub(RabbitMQ, Sub):
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        logging.debug(f"{log_msgs.INIT_SUB} ({args}; {kwargs})")
         super().__init__(*args, **kwargs)
-
         self.consumer_id = None
         self.prefetch = 1
 
@@ -99,90 +134,115 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         Turn on prefetching.
         """
+        logging.debug(log_msgs.CONNECTING_SUB)
         super().connect()
-
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
+        logging.debug(log_msgs.CONNECTED_SUB)
 
-    def get_message(self) -> Optional[Message]:
-        """Get a message from a queue."""
+    def close(self) -> None:
+        """Close connection."""
+        logging.debug(log_msgs.CLOSING_SUB)
+        super().close()
+
+        if not self.channel:
+            raise ClosingFailedExcpetion("No channel to close.")
+        try:
+            self.channel.cancel()  # rejects all pending ackable messages
+        except Exception as e:
+            raise ClosingFailedExcpetion() from e
+
+        logging.debug(log_msgs.CLOSED_SUB)
+
+    @staticmethod
+    def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
+        method_frame: Optional[pika.spec.Basic.GetOk], body: Optional[Union[str, bytes]]
+    ) -> Optional[Message]:
+        """Transform RabbitMQ-Message to Message type."""
+        if not method_frame or body is None:
+            return None
+
+        if isinstance(body, str):
+            return Message(method_frame.delivery_tag, body.encode())
+        else:
+            return Message(method_frame.delivery_tag, body)
+
+    def get_message(
+        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
+    ) -> Optional[Message]:
+        """Get a message from a queue.
+
+        NOTE - `timeout_millis` is not used.
+        """
+        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
-        method_frame, _, body = try_call(self, partial(self.channel.basic_get, self.queue))
+        method_frame, _, body = try_call(
+            self, partial(self.channel.basic_get, self.queue)
+        )
+        msg = RabbitMQSub._to_message(method_frame, body)
 
-        if method_frame:
-            msg = Message(method_frame.delivery_tag, body)
-            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({int(msg.msg_id)}).")
+        if msg:
+            logging.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
             return msg
+        else:
+            logging.debug(log_msgs.GETMSG_NO_MESSAGE)
+            return None
 
-        logging.debug(log_msgs.GETMSG_NO_MESSAGE)
-        return None
-
-    def ack_message(self, msg_id: MessageID) -> None:
+    def ack_message(self, msg: Message) -> None:
         """Ack a message from the queue.
 
         Note that RabbitMQ acks messages in-order, so acking message
         3 of 3 in-progress messages will ack them all.
-
-        Args:
-            queue (RabbitMQSub): queue object
-            msg_id (MessageID): message id
         """
+        logging.debug(log_msgs.ACKING_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.ACKING_MESSAGE)
-        try_call(self, partial(self.channel.basic_ack, msg_id))
-        logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg_id!r}).")
+        try_call(self, partial(self.channel.basic_ack, msg.msg_id))
+        logging.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
 
-    def reject_message(self, msg_id: MessageID) -> None:
+    def reject_message(self, msg: Message) -> None:
         """Reject (nack) a message from the queue.
 
         Note that RabbitMQ acks messages in-order, so nacking message
         3 of 3 in-progress messages will nack them all.
-
-        Args:
-            queue (RabbitMQSub): queue object
-            msg_id (MessageID): message id
         """
+        logging.debug(log_msgs.NACKING_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        logging.debug(log_msgs.NACKING_MESSAGE)
-        try_call(self, partial(self.channel.basic_nack, msg_id))
-        logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg_id!r}).")
+        try_call(self, partial(self.channel.basic_nack, msg.msg_id))
+        logging.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
 
-    def message_generator(self, timeout: int = 60, auto_ack: bool = True,
-                          propagate_error: bool = True) -> Generator[Optional[Message], None, None]:
+    def message_generator(
+        self, timeout: int = 60, propagate_error: bool = True
+    ) -> Generator[Optional[Message], None, None]:
         """Yield Messages.
 
-        Generate messages with variable timeout. Close instance on exit and error.
+        Generate messages with variable timeout.
         Yield `None` on `throw()`.
 
         Keyword Arguments:
             timeout {int} -- timeout in seconds for inactivity (default: {60})
-            auto_ack {bool} -- Ack each message after successful processing (default: {True})
-            propagate_error {bool} -- should errors from downstream code kill the generator? (default: {True})
+            propagate_error -- should errors from downstream kill the generator? (default: {True})
         """
+        logging.debug(log_msgs.MSGGEN_ENTERED)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
         msg = None
-        acked = False
         try:
             gen = partial(self.channel.consume, self.queue, inactivity_timeout=timeout)
 
             for method_frame, _, body in try_yield(self, gen):
                 # get message
-                msg = None
+                msg = RabbitMQSub._to_message(method_frame, body)
                 logging.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
-                if not method_frame:
+                if not msg:
                     logging.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                     break
-                msg = Message(method_frame.delivery_tag, body)
-                acked = False
 
                 # yield message to consumer
                 try:
@@ -191,41 +251,34 @@ class RabbitMQSub(RabbitMQ, Sub):
                 # consumer throws Exception...
                 except Exception as e:  # pylint: disable=W0703
                     logging.debug(log_msgs.MSGGEN_DOWNSTREAM_ERROR)
-                    if msg:
-                        self.reject_message(msg.msg_id)
                     if propagate_error:
                         logging.debug(log_msgs.MSGGEN_PROPAGATING_ERROR)
                         raise
-                    logging.warning(f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.", exc_info=True)
-                    yield None
+                    logging.warning(
+                        f"{log_msgs.MSGGEN_EXCEPTED_DOWNSTREAM_ERROR} {e}.",
+                        exc_info=True,
+                    )
+                    yield None  # hand back to consumer
                 # consumer requests again, aka next()
                 else:
-                    if auto_ack:
-                        self.ack_message(msg.msg_id)
-                        acked = True
+                    pass
 
-        # generator exit (explicit close(), or break in consumer's loop)
+        # Garbage Collection (or explicit close(), or break in consumer's loop)
         except GeneratorExit:
-            logging.debug(log_msgs.MSGGEN_GENERATOR_EXIT)
-            if auto_ack and (not acked) and msg:
-                self.ack_message(msg.msg_id)
-                acked = True
-
-        # generator is closed (also, garbage collected)
-        finally:
-            try_call(self, self.channel.cancel)
-            self.was_closed = True
-            logging.debug(log_msgs.MSGGEN_CLOSED_QUEUE)
+            logging.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
+            logging.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
 
 def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
     """Try to call `func` and return value.
 
-    Try up to 3 times, for connection-related errors.
+    Try up to `TRY_ATTEMPTS` times, for connection-related errors.
     """
-    for i in range(3):
+    for i in range(TRY_ATTEMPTS):
         if i > 0:
-            logging.debug(f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})...")
+            logging.debug(
+                f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
+            )
 
         try:
             return func()
@@ -240,24 +293,26 @@ def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
             logging.debug(log_msgs.TRYCALL_AMQP_CONNECTION_ERROR)
 
         queue.close()
-        time.sleep(1)
+        time.sleep(RETRY_DELAY)
         queue.connect()
 
     logging.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception('RabbitMQ connection error')
+    raise Exception("RabbitMQ connection error")
 
 
 def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None, None]:
     """Try to call `func` and yield value(s).
 
-    Try up to 3 times, for connection-related errors.
+    Try up to `TRY_ATTEMPTS` times, for connection-related errors.
     """
-    for i in range(3):
+    for i in range(TRY_ATTEMPTS):
         if i > 0:
-            logging.debug(f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})...")
+            logging.debug(
+                f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
+            )
 
         try:
-            for x in func():
+            for x in func():  # pylint: disable=invalid-name
                 yield x
         except pika.exceptions.ConnectionClosedByBroker:
             logging.debug(log_msgs.TRYYIELD_CONNECTION_CLOSED_BY_BROKER)
@@ -270,11 +325,11 @@ def try_yield(queue: RabbitMQ, func: Callable[..., Any]) -> Generator[Any, None,
             logging.debug(log_msgs.TRYYIELD_AMQP_CONNECTION_ERROR)
 
         queue.close()
-        time.sleep(1)
+        time.sleep(RETRY_DELAY)
         queue.connect()
 
     logging.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception('RabbitMQ connection error')
+    raise Exception("RabbitMQ connection error")
 
 
 class Backend(backend_interface.Backend):
@@ -295,7 +350,7 @@ class Backend(backend_interface.Backend):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQPub(address, name)
+        q = RabbitMQPub(address, name)  # pylint: disable=invalid-name
         q.connect()
         return q
 
@@ -310,7 +365,7 @@ class Backend(backend_interface.Backend):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQSub(address, name)
+        q = RabbitMQSub(address, name)  # pylint: disable=invalid-name
         q.prefetch = prefetch
         q.connect()
         return q
