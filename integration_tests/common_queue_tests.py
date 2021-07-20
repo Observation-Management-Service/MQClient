@@ -9,8 +9,8 @@ from typing import Any, List
 import pytest
 
 # local imports
-from MQClient import Queue
-from MQClient.backend_interface import Backend
+from mqclient import Queue
+from mqclient.backend_interface import Backend
 
 from .utils import (
     DATA_LIST,

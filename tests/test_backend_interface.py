@@ -3,7 +3,7 @@
 # fmt: off
 
 # local imports
-from MQClient import backend_interface
+from mqclient import backend_interface
 
 
 def test_RawQueue() -> None:

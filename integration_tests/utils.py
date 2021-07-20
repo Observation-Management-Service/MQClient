@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 import pytest
 
 # local imports
-from MQClient import Queue
+from mqclient import Queue
 
 
 @pytest.fixture

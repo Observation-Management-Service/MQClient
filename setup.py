@@ -10,7 +10,7 @@ kwargs = {}
 
 current_path = os.path.dirname(os.path.realpath(__file__))
 
-with open(os.path.join(current_path, "MQClient", "__init__.py")) as f:
+with open(os.path.join(current_path, "mqclient", "__init__.py")) as f:
     for line in f.readlines():
         if "__version__" in line:
             # grab "X.Y.Z" from "__version__ = 'X.Y.Z'" (quote-style insensitive)
@@ -23,7 +23,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="MQClient",
+    name="mqclient",
     author="IceCube Developers",
     author_email="developers@icecube.wisc.edu",
     description="Message queue client abstraction",
@@ -31,7 +31,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/WIPACrepo/MQClient",
     packages=setuptools.find_packages(),
-    package_data={"MQClient": ["py.typed"]},
+    package_data={"mqclient": ["py.typed"]},
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Programming Language :: Python :: 3",
