@@ -8,8 +8,8 @@ from typing import Any, Generator, List
 from unittest.mock import MagicMock
 
 # local imports
-from MQClient import Queue
-from MQClient.backend_interface import Backend, Message
+from mqclient import Queue
+from mqclient.backend_interface import Backend, Message
 
 
 def test_init() -> None:

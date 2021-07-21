@@ -10,9 +10,8 @@ from typing import Any, List
 import pytest
 
 # local imports
-from MQClient import Queue
-from MQClient.backend_interface import Backend, Message
-from MQClient.backends import rabbitmq
+from ... import Queue
+from ...backend_interface import Backend, Message
 
 logging.getLogger().setLevel(logging.DEBUG)
 logging.getLogger("pika").setLevel(logging.WARNING)

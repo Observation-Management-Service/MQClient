@@ -1,9 +1,10 @@
 """Public init."""
 
-from . import backends
+
+from . import backend_interface, log_msgs, testing_frameworks
 from .queue import Queue
 
-__all__ = ["Queue", "backends"]
+__all__ = ["Queue", "backend_interface", "log_msgs", "testing_frameworks"]
 
 # version is a human-readable version number.
 
