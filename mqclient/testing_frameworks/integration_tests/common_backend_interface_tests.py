@@ -9,8 +9,7 @@ import logging
 from typing import List, Optional
 
 # local imports
-from mqclient.backend_interface import Backend, Message
-
+from ...backend_interface import Backend, Message
 from .utils import DATA_LIST, _log_recv, _log_send
 
 logging.getLogger().setLevel(logging.DEBUG)
