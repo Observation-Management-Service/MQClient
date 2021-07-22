@@ -12,10 +12,7 @@ import pytest
 # local imports
 from ..backend_interface import Backend, Message
 from ..queue import Queue
-
-logging.getLogger().setLevel(logging.DEBUG)
-logging.getLogger("pika").setLevel(logging.WARNING)
-logging.getLogger("flake8").setLevel(logging.WARNING)
+from .utils import is_instance_by_name
 
 
 class BackendUnitTest:
@@ -77,7 +74,7 @@ class BackendUnitTest:
     def test_ack_message(self, mock_con: Any, queue_name: str) -> None:
         """Test acking message."""
         sub = self.backend.create_sub_queue("localhost", queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
         sub.ack_message(Message(12, b""))
         self._get_mock_ack(mock_con).assert_called_with(12)
@@ -85,7 +82,7 @@ class BackendUnitTest:
     def test_reject_message(self, mock_con: Any, queue_name: str) -> None:
         """Test rejecting message."""
         sub = self.backend.create_sub_queue("localhost", queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
         sub.reject_message(Message(12, b""))
         self._get_mock_nack(mock_con).assert_called_with(12)
@@ -93,7 +90,7 @@ class BackendUnitTest:
     def test_message_generator_00(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
         sub = self.backend.create_sub_queue("localhost", queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         num_msgs = 100
@@ -118,7 +115,7 @@ class BackendUnitTest:
     def test_message_generator_01(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
         sub = self.backend.create_sub_queue("localhost", queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [b'foo, bar', b'baz']
@@ -140,7 +137,7 @@ class BackendUnitTest:
     def test_message_generator_02(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
         sub = self.backend.create_sub_queue("localhost", queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         self._enqueue_mock_messages(mock_con, [b'foo, bar'], [12])
@@ -169,7 +166,7 @@ class BackendUnitTest:
         Generator should not ack messages.
         """
         sub = self.backend.create_sub_queue("localhost", queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [b'baz-0', b'baz-1', b'baz-2']
@@ -196,7 +193,7 @@ class BackendUnitTest:
         integration test, nacked messages are not put back on the queue.
         """
         sub = self.backend.create_sub_queue("localhost", queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [b'baz-0', b'baz-1', b'baz-2']
@@ -230,7 +227,7 @@ class BackendUnitTest:
         test, nacked messages are not put back on the queue.
         """
         sub = self.backend.create_sub_queue("localhost", queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         num_msgs = 11
@@ -264,7 +261,7 @@ class BackendUnitTest:
         is needed.
         """
         sub = self.backend.create_sub_queue("localhost", queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         self._enqueue_mock_messages(mock_con, [b'baz'], [0], append_none=False)
@@ -285,7 +282,7 @@ class BackendUnitTest:
     def test_queue_recv_00_consumer(self, mock_con: Any, queue_name: str) -> None:
         """Test Queue.recv()."""
         q = Queue(self.backend, address="localhost", name=queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [Message.serialize_data('baz')]
@@ -309,7 +306,7 @@ class BackendUnitTest:
         - suppress the Exception
         """
         q = Queue(self.backend, address="localhost", name=queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [Message.serialize_data('baz-0'), Message.serialize_data('baz-1')]
@@ -335,7 +332,7 @@ class BackendUnitTest:
         recv() calls.
         """
         q = Queue(self.backend, address="localhost", name=queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         num_msgs = 12
@@ -378,7 +375,7 @@ class BackendUnitTest:
         propagation.
         """
         q = Queue(self.backend, address="localhost", name=queue_name)
-        if isinstance(self.backend, rabbitmq.Backend):  # HACK - manually set attr
+        if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
         num_msgs = 12
@@ -407,7 +404,7 @@ class BackendUnitTest:
         # the entire original list.
         # ***Note***: this hack isn't needed in non-mocking tests, see
         # integrate_queue.py integration tests #60+.
-        if isinstance(q._backend, rabbitmq.Backend):
+        if is_instance_by_name(q._backend, "rabbitmq.Backend"):
             self._enqueue_mock_messages(mock_con, fake_data[1:], fake_ids[1:])
 
         # continue where we left off

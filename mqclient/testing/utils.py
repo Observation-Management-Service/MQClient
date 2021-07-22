@@ -9,6 +9,13 @@ import pytest
 from ..queue import Queue
 
 
+def is_instance_by_name(obj: Any, name: str) -> bool:
+    """Return the object's name, fully qualified with its module's name. """
+    obj_name = f"{obj.__class__.__module__}.{obj.__class__.__name__}"
+
+    return obj_name == name or obj_name.endswith("." + name)
+
+
 @pytest.fixture
 def queue_name() -> str:
     """Get random queue name.
