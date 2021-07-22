@@ -9,8 +9,8 @@ from typing import Any, List
 import pytest
 
 # local imports
-from ... import Queue
-from ...backend_interface import Backend
+from ..backend_interface import Backend
+from ..queue import Queue
 from .utils import (
     DATA_LIST,
     _log_recv,
@@ -18,10 +18,6 @@ from .utils import (
     _log_send,
     all_were_received,
 )
-
-logging.getLogger().setLevel(logging.DEBUG)
-logging.getLogger("pika").setLevel(logging.WARNING)
-logging.getLogger("flake8").setLevel(logging.WARNING)
 
 
 class PubSubQueue:

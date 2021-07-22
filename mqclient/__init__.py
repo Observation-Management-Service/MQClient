@@ -1,11 +1,6 @@
 """Public init."""
 
 
-from . import backend_interface, log_msgs
-from .queue import Queue
-
-__all__ = ["Queue", "backend_interface", "log_msgs"]
-
 # version is a human-readable version number.
 
 # version_info is a four-tuple for programmatic comparison. The first
