@@ -9,8 +9,8 @@ from typing import Any, List
 import pytest
 
 # local imports
-from .. import Queue
 from ..backend_interface import Backend
+from ..queue import Queue
 from .utils import (
     DATA_LIST,
     _log_recv,

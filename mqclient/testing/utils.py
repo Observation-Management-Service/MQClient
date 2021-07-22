@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 import pytest
 
 # local imports
-from .. import Queue
+from ..queue import Queue
 
 
 @pytest.fixture
