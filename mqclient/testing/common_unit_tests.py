@@ -10,8 +10,8 @@ from typing import Any, List
 import pytest
 
 # local imports
-from ... import Queue
-from ...backend_interface import Backend, Message
+from .. import Queue
+from ..backend_interface import Backend, Message
 
 logging.getLogger().setLevel(logging.DEBUG)
 logging.getLogger("pika").setLevel(logging.WARNING)
