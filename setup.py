@@ -22,5 +22,5 @@ shop = SetupShop(
 setup(
     url="https://github.com/WIPACrepo/MQClient",
     package_data={shop.name: ["py.typed", "requirements.txt"]},
-    **shop.get_kwargs(),
+    **shop.get_kwargs(subpackages=["testing"]),
 )
