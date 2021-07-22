@@ -406,7 +406,7 @@ class BackendUnitTest:
         # is called, so we need to re-enqueue messages to avoid getting
         # the entire original list.
         # ***Note***: this hack isn't needed in non-mocking tests, see
-        # common_queue_tests.py integration tests #60+.
+        # integrate_queue.py integration tests #60+.
         if isinstance(q._backend, rabbitmq.Backend):
             self._enqueue_mock_messages(mock_con, fake_data[1:], fake_ids[1:])
 
