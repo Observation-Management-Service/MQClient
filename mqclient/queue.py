@@ -35,7 +35,7 @@ class Queue:
         except_errors: bool = True,
     ) -> None:
         self._backend = backend
-        self._backend_name = self._backend.__class__.__name__
+        self._backend_name = str(self._backend.__class__)
         self._address = address
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
