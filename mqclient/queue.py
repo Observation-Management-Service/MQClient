@@ -208,7 +208,9 @@ class Queue:
             MessageGeneratorContext -- context manager and generator object
         """
         logging.debug("Creating new MessageGeneratorContext instance.")
-        return MessageGeneratorContext(self._create_sub_queue(), self)
+        return MessageGeneratorContext(
+            self._create_sub_queue(), self, wtt.get_current_span()
+        )
 
     @wtt.spanned(
         these=[
@@ -277,13 +279,14 @@ class MessageGeneratorContext:
         "context has not been entered. Use 'with as' syntax."
     )
 
-    def __init__(self, sub: Sub, queue: Queue) -> None:
+    def __init__(self, sub: Sub, queue: Queue, _span_parent: wtt.Span) -> None:
         logging.debug("[MessageGeneratorContext.__init__()]")
         self.sub = sub
         self.message_generator = sub.message_generator(
             timeout=queue.timeout, propagate_error=(not queue.except_errors)
         )
         self.queue = queue
+        self._span_parent = _span_parent
 
         self.entered = False
         self.msg: Optional[Message] = None
@@ -297,6 +300,7 @@ class MessageGeneratorContext:
             "self.queue.timeout",
         ],
         kind=wtt.SpanKind.CONSUMER,
+        carrier="self._span_parent",
     )
     def __enter__(self) -> "MessageGeneratorContext":
         """Return instance.
@@ -322,6 +326,7 @@ class MessageGeneratorContext:
             "self.queue.timeout",
         ],
         kind=wtt.SpanKind.CONSUMER,
+        carrier="self._span_parent",
     )
     def __exit__(  # TODO: better as an event?
         self,
@@ -387,6 +392,7 @@ class MessageGeneratorContext:
             "self.queue.timeout",
         ],
         kind=wtt.SpanKind.CONSUMER,
+        carrier="self._span_parent",
     )
     def __iter__(self) -> "MessageGeneratorContext":
         """Return instance.
@@ -407,6 +413,7 @@ class MessageGeneratorContext:
             "self.queue.timeout",
         ],
         kind=wtt.SpanKind.CONSUMER,
+        carrier="self._span_parent",
     )
     def __next__(self) -> Any:
         """Return next Message in queue."""
