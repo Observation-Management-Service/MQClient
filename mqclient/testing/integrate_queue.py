@@ -50,6 +50,8 @@ class PubSubQueue:
 
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
+        assert 0  # TODO: remove
+
     def test_11(self, queue_name: str) -> None:
         """Test an individual pub and an individual sub."""
         all_recvd: List[Any] = []
