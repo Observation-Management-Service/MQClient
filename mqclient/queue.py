@@ -289,11 +289,14 @@ class MessageGeneratorContext:
         )
         self.queue = queue
         self._span_parent_carrier = _span_parent_carrier
+        self._span: Optional[wtt.Span] = None
+
+        self.i = 0
 
         self.entered = False
         self.msg: Optional[Message] = None
 
-    @wtt.spanned(  # TODO: better as an event?
+    @wtt.spanned(
         these=[
             "self.queue._backend_name",
             "self.queue._address",
@@ -303,6 +306,7 @@ class MessageGeneratorContext:
         ],
         kind=wtt.SpanKind.CONSUMER,
         carrier="self._span_parent_carrier",
+        behavior=wtt.SpanBehavior.ONLY_END_ON_EXCEPTION,
     )
     def __enter__(self) -> "MessageGeneratorContext":
         """Return instance.
@@ -317,20 +321,15 @@ class MessageGeneratorContext:
             )
 
         self.entered = True
+        self._span = wtt.get_current_span()
+
         return self
 
-    @wtt.spanned(
-        these=[
-            "self.queue._backend_name",
-            "self.queue._address",
-            "self.queue._name",
-            "self.queue._prefetch",
-            "self.queue.timeout",
-        ],
-        kind=wtt.SpanKind.CONSUMER,
-        carrier="self._span_parent_carrier",
+    @wtt.respanned(
+        "self._span",
+        behavior=wtt.SpanBehavior.END_ON_EXIT,  # end what was opened by `__enter__()`
     )
-    def __exit__(  # TODO: better as an event?
+    def __exit__(
         self,
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
@@ -385,17 +384,7 @@ class MessageGeneratorContext:
                 logging.debug("[MessageGeneratorContext.__exit__()] exited w/o error.")
             return True  # suppress any Exception
 
-    @wtt.spanned(  # TODO: better as an event?
-        these=[
-            "self.queue._backend_name",
-            "self.queue._address",
-            "self.queue._name",
-            "self.queue._prefetch",
-            "self.queue.timeout",
-        ],
-        kind=wtt.SpanKind.CONSUMER,
-        carrier="self._span_parent_carrier",
-    )
+    @wtt.evented(span="self._span")
     def __iter__(self) -> "MessageGeneratorContext":
         """Return instance.
 
@@ -406,17 +395,7 @@ class MessageGeneratorContext:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
-    @wtt.spanned(  # TODO: better as an event?
-        these=[
-            "self.queue._backend_name",
-            "self.queue._address",
-            "self.queue._name",
-            "self.queue._prefetch",
-            "self.queue.timeout",
-        ],
-        kind=wtt.SpanKind.CONSUMER,
-        carrier="self._span_parent_carrier",
-    )
+    @wtt.evented(span="self._span", these=["self.i"])
     def __next__(self) -> Any:
         """Return next Message in queue."""
         logging.debug("[MessageGeneratorContext.__next__()] next iteration...")
@@ -439,4 +418,5 @@ class MessageGeneratorContext:
                 "Yielded value is `None`. This should not have happened."
             )
 
+        self.i += 1
         return self.msg.deserialize_data()
