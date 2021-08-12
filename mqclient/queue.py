@@ -6,6 +6,8 @@ import types
 import uuid
 from typing import Any, Generator, Optional, Type
 
+import wipac_telemetry.tracing_tools as wtt
+
 from .backend_interface import AckException, Backend, Message, NackException, Pub, Sub
 
 
@@ -33,6 +35,7 @@ class Queue:
         except_errors: bool = True,
     ) -> None:
         self._backend = backend
+        self._backend_name = self._backend.__class__.__name__
         self._address = address
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
@@ -87,10 +90,29 @@ class Queue:
         """Wrap `self._backend.create_sub_queue()` with instance's config."""
         return self._backend.create_sub_queue(self._address, self._name, self._prefetch)
 
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ]
+    )
     def close(self) -> None:
         """Close all persisted connections."""
         self._close_pub_queue()
 
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ],
+        kind=wtt.SpanKind.PRODUCER,
+    )
     def send(self, data: Any) -> None:
         """Send a message to the queue.
 
@@ -99,7 +121,18 @@ class Queue:
         """
         self.raw_pub_queue.send_message(Message.serialize_data(data))
 
-    def ack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+            "msg.msg_id",
+        ],
+        kind=wtt.SpanKind.CONSUMER,
+    )  # pylint:disable=no-self-use
+    def ack(self, sub: Sub, msg: Message) -> None:
         """Acknowledge the message."""
         if msg.ack_status == Message.AckStatus.NONE:
             try:
@@ -115,7 +148,18 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
-    def nack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+            "msg.msg_id",
+        ],
+        kind=wtt.SpanKind.CONSUMER,
+    )  # pylint:disable=no-self-use
+    def nack(self, sub: Sub, msg: Message) -> None:
         """Reject/nack the message."""
         if msg.ack_status == Message.AckStatus.NONE:
             try:
@@ -131,6 +175,16 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ],
+        kind=wtt.SpanKind.CONSUMER,
+    )
     def recv(self) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.
 
@@ -155,6 +209,16 @@ class Queue:
         logging.debug("Creating new MessageGeneratorContext instance.")
         return MessageGeneratorContext(self._create_sub_queue(), self)
 
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ],
+        kind=wtt.SpanKind.CONSUMER,
+    )
     @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:
         """Receive one message from the queue.
@@ -194,10 +258,11 @@ class Queue:
         """Return string of basic properties/attributes."""
         return (
             f"Queue("
-            f"{self._backend.__class__.__name__}, "
+            f"{self._backend_name}, "
             f"address={self._address}, "
             f"name={self._name}, "
             f"prefetch={self._prefetch}, "
+            f"timeout={self.timeout}, "
             f"pub={bool(self._pub_queue)}"
             f")"
         )
