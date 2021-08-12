@@ -110,6 +110,7 @@ class Queue:
             "self._name",
             "self._prefetch",
             "self.timeout",
+            # TODO - add carrier! what about adding `msg.headers`?
         ],
         kind=wtt.SpanKind.PRODUCER,
     )
@@ -287,6 +288,16 @@ class MessageGeneratorContext:
         self.entered = False
         self.msg: Optional[Message] = None
 
+    @wtt.spanned(  # TODO: better as an event?
+        these=[
+            "self.queue._backend_name",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+        kind=wtt.SpanKind.CONSUMER,
+    )
     def __enter__(self) -> "MessageGeneratorContext":
         """Return instance.
 
@@ -302,7 +313,17 @@ class MessageGeneratorContext:
         self.entered = True
         return self
 
-    def __exit__(
+    @wtt.spanned(
+        these=[
+            "self.queue._backend_name",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+        kind=wtt.SpanKind.CONSUMER,
+    )
+    def __exit__(  # TODO: better as an event?
         self,
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
@@ -357,6 +378,16 @@ class MessageGeneratorContext:
                 logging.debug("[MessageGeneratorContext.__exit__()] exited w/o error.")
             return True  # suppress any Exception
 
+    @wtt.spanned(  # TODO: better as an event?
+        these=[
+            "self.queue._backend_name",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+        kind=wtt.SpanKind.CONSUMER,
+    )
     def __iter__(self) -> "MessageGeneratorContext":
         """Return instance.
 
@@ -367,6 +398,16 @@ class MessageGeneratorContext:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
+    @wtt.spanned(  # TODO: better as an event?
+        these=[
+            "self.queue._backend_name",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+        kind=wtt.SpanKind.CONSUMER,
+    )
     def __next__(self) -> Any:
         """Return next Message in queue."""
         logging.debug("[MessageGeneratorContext.__next__()] next iteration...")
