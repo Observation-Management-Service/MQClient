@@ -110,7 +110,6 @@ class Queue:
             "self._name",
             "self._prefetch",
             "self.timeout",
-            # TODO - add carrier! what about adding `msg.headers`?
         ],
         kind=wtt.SpanKind.PRODUCER,
     )
@@ -120,6 +119,7 @@ class Queue:
         Arguments:
             data (Any): object of data to send (must be picklable)
         """
+        # TODO - add carrier! what about adding a `msg.headers` attr?
         self.raw_pub_queue.send_message(Message.serialize_data(data))
 
     @wtt.spanned(
@@ -130,8 +130,7 @@ class Queue:
             "self._prefetch",
             "self.timeout",
             "msg.msg_id",
-        ],
-        kind=wtt.SpanKind.CONSUMER,
+        ]
     )  # pylint:disable=no-self-use
     def ack(self, sub: Sub, msg: Message) -> None:
         """Acknowledge the message."""
@@ -157,8 +156,7 @@ class Queue:
             "self._prefetch",
             "self.timeout",
             "msg.msg_id",
-        ],
-        kind=wtt.SpanKind.CONSUMER,
+        ]
     )  # pylint:disable=no-self-use
     def nack(self, sub: Sub, msg: Message) -> None:
         """Reject/nack the message."""
@@ -183,8 +181,7 @@ class Queue:
             "self._name",
             "self._prefetch",
             "self.timeout",
-        ],
-        kind=wtt.SpanKind.CONSUMER,
+        ]
     )
     def recv(self) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.
@@ -221,6 +218,8 @@ class Queue:
             "self.timeout",
         ],
         kind=wtt.SpanKind.CONSUMER,
+        # carrier="properties.headers",  # TODO: figure how to get carrier
+        carrier_relation=wtt.CarrierRelation.LINK,
     )
     @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:
@@ -304,7 +303,6 @@ class MessageGeneratorContext:
             "self.queue._prefetch",
             "self.queue.timeout",
         ],
-        kind=wtt.SpanKind.CONSUMER,
         carrier="self._span_parent_carrier",
         behavior=wtt.SpanBehavior.ONLY_END_ON_EXCEPTION,
     )
@@ -395,7 +393,13 @@ class MessageGeneratorContext:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
-    @wtt.evented(span="self._span", these=["self.i"])
+    @wtt.spanned(
+        # TODO - add link/parent as `self._span`
+        these=["self.i"],
+        kind=wtt.SpanKind.CONSUMER,
+        # carrier="properties.headers",  # TODO: figure how to get carrier
+        carrier_relation=wtt.CarrierRelation.LINK,
+    )
     def __next__(self) -> Any:
         """Return next Message in queue."""
         logging.debug("[MessageGeneratorContext.__next__()] next iteration...")
