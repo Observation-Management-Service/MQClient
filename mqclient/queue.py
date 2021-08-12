@@ -4,7 +4,7 @@ import contextlib
 import logging
 import types
 import uuid
-from typing import Any, Generator, Optional, Type
+from typing import Any, Dict, Generator, Optional, Type
 
 import wipac_telemetry.tracing_tools as wtt
 
