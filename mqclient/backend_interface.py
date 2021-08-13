@@ -3,7 +3,7 @@
 
 import pickle
 from enum import Enum, auto
-from typing import Any, Generator, Optional, Union
+from typing import Any, Dict, Generator, Optional, Union
 
 MessageID = Union[int, str, bytes]
 
@@ -41,37 +41,47 @@ class Message:
         ACKED = auto()  # message has been acked
         NACKED = auto()  # message has been nacked
 
-    def __init__(self, msg_id: MessageID, data: bytes):
+    def __init__(self, msg_id: MessageID, payload: bytes):
         if not isinstance(msg_id, (int, str, bytes)):
             raise TypeError(
                 f"Message.msg_id must be type int|str|bytes (not '{type(msg_id)}')."
             )
-        if not isinstance(data, bytes):
-            raise TypeError(f"Message.data must be type 'bytes' (not '{type(data)}').")
+        if not isinstance(payload, bytes):
+            raise TypeError(
+                f"Message.data must be type 'bytes' (not '{type(payload)}')."
+            )
         self.msg_id = msg_id
-        self.data = data
+        self.payload = payload
         self.ack_status: Message.AckStatus = Message.AckStatus.NONE
 
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
-        return f"Message(msg_id={self.msg_id!r}, data={self.data!r})"
+        return f"Message(msg_id={self.msg_id!r}, payload={self.payload!r})"
 
     def __eq__(self, other: object) -> bool:
         """Return True if self's and other's `data` are equal.
 
         On redelivery, `msg_id` may differ from its original, so
-        `msg_id` is not a reliable source for testing equality.
+        `msg_id` is not a reliable source for testing equality. And
+        neither is the `headers` field.
         """
-        return bool(other) and isinstance(other, Message) and (self.data == other.data)
+        return (
+            bool(other)
+            and isinstance(other, Message)
+            and self.deserialize_data() == other.deserialize_data()
+        )
 
     def deserialize_data(self) -> Any:
-        """Read and return an object from `data` (bytes)."""
-        return pickle.loads(self.data)
+        """Read and return an object from the `data` field."""
+        return pickle.loads(self.payload)["data"]
 
-    @staticmethod
-    def serialize_data(data: Any) -> bytes:
-        """Return serialized representation of `data` as a bytes object."""
-        return pickle.dumps(data, protocol=4)
+    @staticmethod  # TODO: rename to just `serialize()`
+    def serialize_data(data: Any, headers: Optional[Dict[str, Any]] = None) -> bytes:
+        """Return serialized representation of message payload as a bytes object.
+
+        Optionally include `headers` dict for internal information.
+        """
+        return pickle.dumps({"headers": headers, "data": data}, protocol=4)
 
 
 # -----------------------------

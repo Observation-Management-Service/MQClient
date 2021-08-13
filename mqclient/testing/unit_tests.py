@@ -106,7 +106,7 @@ class BackendUnitTest:
                 self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
             assert msg is not None
             assert msg.msg_id == fake_ids[i]
-            assert msg.data == fake_data[i]
+            assert msg.payload == fake_data[i]
 
         # last_id = (num_msgs - 1) * 10
         self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
@@ -130,7 +130,7 @@ class BackendUnitTest:
 
         assert m is not None
         assert m.msg_id == 12
-        assert m.data == b'foo, bar'
+        assert m.payload == b'foo, bar'
         self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
         self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
@@ -148,7 +148,7 @@ class BackendUnitTest:
             m = x
         assert m is not None
         assert m.msg_id == 12
-        assert m.data == b'foo, bar'
+        assert m.payload == b'foo, bar'
         self._get_mock_ack(mock_con).assert_not_called()  # would be called by Queue
         self._get_mock_close(mock_con).assert_not_called()  # would be called by Queue
 
@@ -182,7 +182,7 @@ class BackendUnitTest:
 
             assert msg is not None
             assert msg.msg_id == i
-            assert msg.data == fake_data[i]
+            assert msg.payload == fake_data[i]
 
             i += 1
 
@@ -210,7 +210,7 @@ class BackendUnitTest:
 
             assert msg is not None
             assert msg.msg_id == i
-            assert msg.data == fake_data[i]
+            assert msg.payload == fake_data[i]
 
             if i == 2:
                 with pytest.raises(Exception):
@@ -245,7 +245,7 @@ class BackendUnitTest:
 
             assert msg is not None
             assert msg.msg_id == i * 10
-            assert msg.data == fake_data[i]
+            assert msg.payload == fake_data[i]
 
             if i % 2 == 0:
                 gen.throw(Exception)
