@@ -174,15 +174,6 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
-    @wtt.spanned(
-        these=[
-            "self._backend_name",
-            "self._address",
-            "self._name",
-            "self._prefetch",
-            "self.timeout",
-        ]
-    )
     def recv(self) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.
 
