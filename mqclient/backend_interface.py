@@ -66,21 +66,17 @@ class Message:
         neither is the `headers` field.
         """
         return (
-            bool(other) and isinstance(other, Message) and self.data() == other.data()
+            bool(other)
+            and isinstance(other, Message)
+            and self.deserialize_data() == other.deserialize_data()
         )
 
-    @property
-    def data(self) -> Any:
+    def deserialize_data(self) -> Any:
         """Read and return an object from the `data` field."""
         return pickle.loads(self.payload)["data"]
 
-    @property
-    def headers(self) -> Any:
-        """Read and return dict from the `headers` field."""
-        return pickle.loads(self.payload)["headers"]
-
-    @staticmethod
-    def serialize(data: Any, headers: Optional[Dict[str, Any]] = None) -> bytes:
+    @staticmethod  # TODO: rename to just `serialize()`
+    def serialize_data(data: Any, headers: Optional[Dict[str, Any]] = None) -> bytes:
         """Return serialized representation of message payload as a bytes object.
 
         Optionally include `headers` dict for internal information.
