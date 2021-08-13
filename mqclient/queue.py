@@ -233,17 +233,12 @@ class Queue:
             carrier_relation=wtt.CarrierRelation.LINK,
         )
         def get_message_callback(msg: Message) -> Message:
+            if not msg:
+                raise Exception("No message available")
             return msg
 
         sub = self._create_sub_queue()
-        msg = sub.get_message(self.timeout * 1000)
-        get_message_callback(msg)
-
-        if not msg:
-            raise Exception("No message available")
-
-        if msg.headers:
-            wtt.get_current_span().add_link(wtt.extract_links_carrier(msg.headers))
+        msg = get_message_callback(sub.get_message(self.timeout * 1000))
 
         data = msg.data
         try:
