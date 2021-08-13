@@ -207,10 +207,7 @@ class Queue:
             "self._name",
             "self._prefetch",
             "self.timeout",
-        ],
-        kind=wtt.SpanKind.CONSUMER,
-        # carrier="properties.headers",  # TODO: figure how to get carrier
-        carrier_relation=wtt.CarrierRelation.LINK,
+        ]
     )
     @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:
@@ -229,8 +226,18 @@ class Queue:
         Yields:
             Any -- object of data received, or None if queue is empty
         """
+
+        @wtt.spanned(
+            kind=wtt.SpanKind.CONSUMER,
+            carrier="msg.headers",
+            carrier_relation=wtt.CarrierRelation.LINK,
+        )
+        def get_message_callback(msg: Message) -> Message:
+            return msg
+
         sub = self._create_sub_queue()
         msg = sub.get_message(self.timeout * 1000)
+        get_message_callback(msg)
 
         if not msg:
             raise Exception("No message available")
