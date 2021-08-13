@@ -174,6 +174,15 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ]
+    )
     def recv(self) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.
 
@@ -208,7 +217,7 @@ class Queue:
             "self._prefetch",
             "self.timeout",
         ]
-    )
+    )  # FIXME: child spans are not inheriting "parent_id"
     @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:
         """Receive one message from the queue.
@@ -284,22 +293,10 @@ class MessageGeneratorContext:
         )
         self.queue = queue
         self._span_parent_carrier = _span_parent_carrier
-        self._span: Optional[wtt.Span] = None
 
         self.entered = False
         self.msg: Optional[Message] = None
 
-    @wtt.spanned(
-        these=[
-            "self.queue._backend_name",
-            "self.queue._address",
-            "self.queue._name",
-            "self.queue._prefetch",
-            "self.queue.timeout",
-        ],
-        carrier="self._span_parent_carrier",
-        behavior=wtt.SpanBehavior.ONLY_END_ON_EXCEPTION,
-    )
     def __enter__(self) -> "MessageGeneratorContext":
         """Return instance.
 
@@ -313,14 +310,8 @@ class MessageGeneratorContext:
             )
 
         self.entered = True
-        self._span = wtt.get_current_span()
-
         return self
 
-    @wtt.respanned(
-        "self._span",
-        behavior=wtt.SpanBehavior.END_ON_EXIT,  # end what was opened by `__enter__()`
-    )
     def __exit__(
         self,
         exc_type: Optional[Type[BaseException]],
@@ -376,7 +367,6 @@ class MessageGeneratorContext:
                 logging.debug("[MessageGeneratorContext.__exit__()] exited w/o error.")
             return True  # suppress any Exception
 
-    @wtt.evented(span="self._span")
     def __iter__(self) -> "MessageGeneratorContext":
         """Return instance.
 
@@ -388,10 +378,14 @@ class MessageGeneratorContext:
         return self
 
     @wtt.spanned(
-        # TODO - add link/parent as `self._span`
-        kind=wtt.SpanKind.CONSUMER,
-        # carrier="properties.headers",  # TODO: figure how to get carrier
-        carrier_relation=wtt.CarrierRelation.LINK,
+        these=[
+            "self.queue._backend_name",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+        carrier="self._span_parent_carrier",
     )
     def __next__(self) -> Any:
         """Return next Message in queue."""
@@ -403,8 +397,16 @@ class MessageGeneratorContext:
         if self.msg:
             self.queue.ack(self.sub, self.msg)
 
+        @wtt.spanned(
+            kind=wtt.SpanKind.CONSUMER,
+            carrier="msg.headers",
+            carrier_relation=wtt.CarrierRelation.LINK,
+        )
+        def get_message_callback(msg: Message) -> Message:
+            return msg
+
         try:
-            self.msg = next(self.message_generator)
+            self.msg = get_message_callback(next(self.message_generator))
         except StopIteration:
             logging.debug(
                 "[MessageGeneratorContext.__next__()] end of loop (StopIteration)"
