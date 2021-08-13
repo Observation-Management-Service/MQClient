@@ -235,6 +235,9 @@ class Queue:
         if not msg:
             raise Exception("No message available")
 
+        if msg.headers:
+            wtt.get_current_span().add_link(wtt.extract_links_carrier(msg.headers))
+
         data = msg.data
         try:
             yield data
