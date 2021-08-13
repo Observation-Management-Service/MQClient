@@ -120,8 +120,8 @@ class Queue:
             data (Any): object of data to send (must be picklable)
         """
         # TODO - add carrier! what about adding a `msg.headers` attr?
-        # msg = Message.serialize_data(data, headers=wtt.inject_links_carrier())
-        msg = Message.serialize_data(data)
+        # msg = Message.serialize(data, headers=wtt.inject_links_carrier())
+        msg = Message.serialize(data)
         self.raw_pub_queue.send_message(msg)
 
     @wtt.spanned(
@@ -246,7 +246,7 @@ class Queue:
         if not msg:
             raise Exception("No message available")
 
-        data = msg.deserialize_data()
+        data = msg.data
         try:
             yield data
         except Exception:  # pylint:disable=broad-except
@@ -421,4 +421,4 @@ class MessageGeneratorContext:
                 "Yielded value is `None`. This should not have happened."
             )
 
-        return self.msg.deserialize_data()
+        return self.msg.data
