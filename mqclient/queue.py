@@ -117,11 +117,9 @@ class Queue:
         """Send a message to the queue.
 
         Arguments:
-            data (Any): object of data to send (must be picklable)
+            data (Any): object of data to send (must be serializable)
         """
-        # TODO - add carrier! what about adding a `msg.headers` attr?
-        # msg = Message.serialize(data, headers=wtt.inject_links_carrier())
-        msg = Message.serialize(data)
+        msg = Message.serialize(data, headers=wtt.inject_links_carrier())
         self.raw_pub_queue.send_message(msg)
 
     @wtt.spanned(
