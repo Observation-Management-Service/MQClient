@@ -198,6 +198,7 @@ class Queue:
         logging.debug("Creating new MessageGeneratorContext instance.")
         return MessageGeneratorContext(self._create_sub_queue(), self)
 
+    @contextlib.contextmanager
     @wtt.spanned(
         these=[
             "self._backend_name",
@@ -207,7 +208,6 @@ class Queue:
             "self.timeout",
         ]
     )  # FIXME: child spans are not inheriting "parent_id"
-    @contextlib.contextmanager
     def recv_one(self) -> Generator[Any, None, None]:
         """Receive one message from the queue.
 
