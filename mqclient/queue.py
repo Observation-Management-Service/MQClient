@@ -174,15 +174,6 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
-    @wtt.spanned(
-        these=[
-            "self._backend_name",
-            "self._address",
-            "self._name",
-            "self._prefetch",
-            "self.timeout",
-        ]
-    )
     def recv(self) -> "MessageGeneratorContext":
         """Receive a stream of messages from the queue.
 
@@ -205,9 +196,7 @@ class Queue:
             MessageGeneratorContext -- context manager and generator object
         """
         logging.debug("Creating new MessageGeneratorContext instance.")
-        return MessageGeneratorContext(
-            self._create_sub_queue(), self, wtt.inject_span_carrier()
-        )
+        return MessageGeneratorContext(self._create_sub_queue(), self)
 
     @wtt.spanned(
         these=[
@@ -283,20 +272,28 @@ class MessageGeneratorContext:
         "context has not been entered. Use 'with as' syntax."
     )
 
-    def __init__(
-        self, sub: Sub, queue: Queue, _span_parent_carrier: Dict[str, Any]
-    ) -> None:
+    def __init__(self, sub: Sub, queue: Queue) -> None:
         logging.debug("[MessageGeneratorContext.__init__()]")
         self.sub = sub
         self.message_generator = sub.message_generator(
             timeout=queue.timeout, propagate_error=(not queue.except_errors)
         )
         self.queue = queue
-        self._span_parent_carrier = _span_parent_carrier
+        self._span: Optional[wtt.Span] = None
 
         self.entered = False
         self.msg: Optional[Message] = None
 
+    @wtt.spanned(
+        these=[
+            "self.queue._backend_name",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+        behavior=wtt.SpanBehavior.ONLY_END_ON_EXCEPTION,
+    )
     def __enter__(self) -> "MessageGeneratorContext":
         """Return instance.
 
@@ -310,8 +307,14 @@ class MessageGeneratorContext:
             )
 
         self.entered = True
+        self._span = wtt.get_current_span()
+
         return self
 
+    @wtt.respanned(
+        "self._span",
+        behavior=wtt.SpanBehavior.END_ON_EXIT,  # end what was opened by `__enter__()`
+    )
     def __exit__(
         self,
         exc_type: Optional[Type[BaseException]],
@@ -385,7 +388,7 @@ class MessageGeneratorContext:
             "self.queue._prefetch",
             "self.queue.timeout",
         ],
-        carrier="self._span_parent_carrier",
+        carrier="self._span",
     )
     def __next__(self) -> Any:
         """Return next Message in queue."""
