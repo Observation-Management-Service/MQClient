@@ -285,7 +285,7 @@ class BackendUnitTest:
         if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
-        fake_data = [Message.serialize_data('baz')]
+        fake_data = [Message.serialize('baz')]
         self._enqueue_mock_messages(mock_con, fake_data, [0])
 
         with q.recv() as gen:
@@ -309,7 +309,7 @@ class BackendUnitTest:
         if is_instance_by_name(self.backend, "rabbitmq.Backend"):  # HACK - manually set attr
             mock_con.return_value.is_closed = False
 
-        fake_data = [Message.serialize_data('baz-0'), Message.serialize_data('baz-1')]
+        fake_data = [Message.serialize('baz-0'), Message.serialize('baz-1')]
         fake_ids = [0, 1]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids, append_none=False)
 
@@ -337,7 +337,7 @@ class BackendUnitTest:
 
         num_msgs = 12
 
-        fake_data = [Message.serialize_data(f'baz-{i}') for i in range(num_msgs)]
+        fake_data = [Message.serialize(f'baz-{i}') for i in range(num_msgs)]
         fake_ids = [i * 10 for i in range(num_msgs)]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
@@ -380,7 +380,7 @@ class BackendUnitTest:
 
         num_msgs = 12
 
-        fake_data = [Message.serialize_data(f'baz-{i}') for i in range(num_msgs)]
+        fake_data = [Message.serialize(f'baz-{i}') for i in range(num_msgs)]
         fake_ids = [i * 10 for i in range(num_msgs)]
         self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
