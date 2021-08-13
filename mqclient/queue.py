@@ -279,7 +279,9 @@ class MessageGeneratorContext:
             timeout=queue.timeout, propagate_error=(not queue.except_errors)
         )
         self.queue = queue
+
         self._span: Optional[wtt.Span] = None
+        self._span_carrier: Optional[Dict[str, Any]] = None
 
         self.entered = False
         self.msg: Optional[Message] = None
@@ -305,9 +307,10 @@ class MessageGeneratorContext:
             raise RuntimeError(
                 "A 'MessageGeneratorContext' instance cannot be re-entered."
             )
-
         self.entered = True
+
         self._span = wtt.get_current_span()
+        self._span_carrier = wtt.inject_span_carrier()
 
         return self
 
@@ -388,7 +391,7 @@ class MessageGeneratorContext:
             "self.queue._prefetch",
             "self.queue.timeout",
         ],
-        carrier="self._span",
+        carrier="self._span_carrier",
     )
     def __next__(self) -> Any:
         """Return next Message in queue."""
