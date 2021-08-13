@@ -290,8 +290,6 @@ class MessageGeneratorContext:
         self._span_parent_carrier = _span_parent_carrier
         self._span: Optional[wtt.Span] = None
 
-        self.i = 0
-
         self.entered = False
         self.msg: Optional[Message] = None
 
@@ -395,7 +393,6 @@ class MessageGeneratorContext:
 
     @wtt.spanned(
         # TODO - add link/parent as `self._span`
-        these=["self.i"],
         kind=wtt.SpanKind.CONSUMER,
         # carrier="properties.headers",  # TODO: figure how to get carrier
         carrier_relation=wtt.CarrierRelation.LINK,
@@ -422,5 +419,4 @@ class MessageGeneratorContext:
                 "Yielded value is `None`. This should not have happened."
             )
 
-        self.i += 1
         return self.msg.deserialize_data()
