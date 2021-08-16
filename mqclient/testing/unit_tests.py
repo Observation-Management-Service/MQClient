@@ -292,10 +292,9 @@ class BackendUnitTest:
             for msg in gen:
                 logging.debug(msg)
                 assert msg
-                assert msg == pickle.loads(fake_data[0])
+                assert msg.data == 'baz'
 
         self._get_mock_close(mock_con).assert_called()
-        self._get_mock_ack(mock_con).assert_called()
         self._get_mock_ack(mock_con).assert_called_with(0)
 
     def test_queue_recv_10_comsumer_exception(self, mock_con: Any, queue_name: str) -> None:
