@@ -5,7 +5,7 @@
 
 from functools import partial
 from typing import Any, Generator, List
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, sentinel
 
 # local imports
 from mqclient.backend_interface import Backend, Message
@@ -40,7 +40,9 @@ def test_send() -> None:
     data = {'a': 1234}
     q.send(data)
 
-    q.raw_pub_queue.send_message.assert_called_with(Message.serialize(data))  # type: ignore
+    # send() adds a unique header, so we need to look at only the data
+    msg = Message(id(sentinel.ID), q.raw_pub_queue.send_message.call_args.args[0])  # type: ignore[attr-defined]
+    assert msg.data == data
 
 
 def test_recv() -> None:
