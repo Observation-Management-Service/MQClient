@@ -4,7 +4,9 @@ import contextlib
 import logging
 import types
 import uuid
-from typing import Any, Generator, Optional, Type
+from typing import Any, Dict, Generator, Optional, Type
+
+import wipac_telemetry.tracing_tools as wtt
 
 from .backend_interface import AckException, Backend, Message, NackException, Pub, Sub
 
@@ -33,6 +35,7 @@ class Queue:
         except_errors: bool = True,
     ) -> None:
         self._backend = backend
+        self._backend_name = str(self._backend.__class__)
         self._address = address
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
@@ -87,19 +90,49 @@ class Queue:
         """Wrap `self._backend.create_sub_queue()` with instance's config."""
         return self._backend.create_sub_queue(self._address, self._name, self._prefetch)
 
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ]
+    )
     def close(self) -> None:
         """Close all persisted connections."""
         self._close_pub_queue()
 
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ],
+        kind=wtt.SpanKind.PRODUCER,
+    )
     def send(self, data: Any) -> None:
         """Send a message to the queue.
 
         Arguments:
-            data (Any): object of data to send (must be picklable)
+            data (Any): object of data to send (must be serializable)
         """
-        self.raw_pub_queue.send_message(Message.serialize_data(data))
+        msg = Message.serialize(data, headers=wtt.inject_links_carrier())
+        self.raw_pub_queue.send_message(msg)
 
-    def ack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+            "msg.msg_id",
+        ]
+    )  # pylint:disable=no-self-use
+    def ack(self, sub: Sub, msg: Message) -> None:
         """Acknowledge the message."""
         if msg.ack_status == Message.AckStatus.NONE:
             try:
@@ -115,7 +148,17 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
-    def nack(self, sub: Sub, msg: Message) -> None:  # pylint:disable=no-self-use
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+            "msg.msg_id",
+        ]
+    )  # pylint:disable=no-self-use
+    def nack(self, sub: Sub, msg: Message) -> None:
         """Reject/nack the message."""
         if msg.ack_status == Message.AckStatus.NONE:
             try:
@@ -155,7 +198,16 @@ class Queue:
         logging.debug("Creating new MessageGeneratorContext instance.")
         return MessageGeneratorContext(self._create_sub_queue(), self)
 
-    @contextlib.contextmanager
+    @contextlib.contextmanager  # needs to wrap @wtt stuff to span children correctly
+    @wtt.spanned(
+        these=[
+            "self._backend_name",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ]
+    )
     def recv_one(self) -> Generator[Any, None, None]:
         """Receive one message from the queue.
 
@@ -172,13 +224,21 @@ class Queue:
         Yields:
             Any -- object of data received, or None if queue is empty
         """
+
+        @wtt.spanned(
+            kind=wtt.SpanKind.CONSUMER,
+            carrier="msg.headers",
+            carrier_relation=wtt.CarrierRelation.LINK,
+        )
+        def get_message_callback(msg: Message) -> Message:
+            if not msg:
+                raise Exception("No message available")
+            return msg
+
         sub = self._create_sub_queue()
-        msg = sub.get_message(self.timeout * 1000)
+        msg = get_message_callback(sub.get_message(self.timeout * 1000))
 
-        if not msg:
-            raise Exception("No message available")
-
-        data = msg.deserialize_data()
+        data = msg.data
         try:
             yield data
         except Exception:  # pylint:disable=broad-except
@@ -194,10 +254,11 @@ class Queue:
         """Return string of basic properties/attributes."""
         return (
             f"Queue("
-            f"{self._backend.__class__.__name__}, "
+            f"{self._backend_name}, "
             f"address={self._address}, "
             f"name={self._name}, "
             f"prefetch={self._prefetch}, "
+            f"timeout={self.timeout}, "
             f"pub={bool(self._pub_queue)}"
             f")"
         )
@@ -219,9 +280,22 @@ class MessageGeneratorContext:
         )
         self.queue = queue
 
+        self._span: Optional[wtt.Span] = None
+        self._span_carrier: Optional[Dict[str, Any]] = None
+
         self.entered = False
         self.msg: Optional[Message] = None
 
+    @wtt.spanned(
+        these=[
+            "self.queue._backend_name",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+        behavior=wtt.SpanBehavior.ONLY_END_ON_EXCEPTION,
+    )
     def __enter__(self) -> "MessageGeneratorContext":
         """Return instance.
 
@@ -233,10 +307,17 @@ class MessageGeneratorContext:
             raise RuntimeError(
                 "A 'MessageGeneratorContext' instance cannot be re-entered."
             )
-
         self.entered = True
+
+        self._span = wtt.get_current_span()
+        self._span_carrier = wtt.inject_span_carrier()
+
         return self
 
+    @wtt.respanned(
+        "self._span",
+        behavior=wtt.SpanBehavior.END_ON_EXIT,  # end what was opened by `__enter__()`
+    )
     def __exit__(
         self,
         exc_type: Optional[Type[BaseException]],
@@ -302,6 +383,16 @@ class MessageGeneratorContext:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
+    @wtt.spanned(
+        these=[
+            "self.queue._backend_name",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+        carrier="self._span_carrier",
+    )
     def __next__(self) -> Any:
         """Return next Message in queue."""
         logging.debug("[MessageGeneratorContext.__next__()] next iteration...")
@@ -312,8 +403,16 @@ class MessageGeneratorContext:
         if self.msg:
             self.queue.ack(self.sub, self.msg)
 
+        @wtt.spanned(
+            kind=wtt.SpanKind.CONSUMER,
+            carrier="msg.headers",
+            carrier_relation=wtt.CarrierRelation.LINK,
+        )
+        def get_message_callback(msg: Message) -> Message:
+            return msg
+
         try:
-            self.msg = next(self.message_generator)
+            self.msg = get_message_callback(next(self.message_generator))
         except StopIteration:
             logging.debug(
                 "[MessageGeneratorContext.__next__()] end of loop (StopIteration)"
@@ -324,4 +423,4 @@ class MessageGeneratorContext:
                 "Yielded value is `None`. This should not have happened."
             )
 
-        return self.msg.deserialize_data()
+        return self.msg.data

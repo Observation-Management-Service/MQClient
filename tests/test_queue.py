@@ -5,7 +5,7 @@
 
 from functools import partial
 from typing import Any, Generator, List
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, sentinel
 
 # local imports
 from mqclient.backend_interface import Backend, Message
@@ -40,7 +40,9 @@ def test_send() -> None:
     data = {'a': 1234}
     q.send(data)
 
-    q.raw_pub_queue.send_message.assert_called_with(Message.serialize_data(data))  # type: ignore
+    # send() adds a unique header, so we need to look at only the data
+    msg = Message(id(sentinel.ID), q.raw_pub_queue.send_message.call_args.args[0])  # type: ignore[attr-defined]
+    assert msg.data == data
 
 
 def test_recv() -> None:
@@ -48,7 +50,7 @@ def test_recv() -> None:
 
     def gen(data: List[Any], *args: Any, **kwargs: Any) -> Generator[Message, None, None]:
         for i, d in enumerate(data):
-            yield Message(i, Message.serialize_data(d))
+            yield Message(i, Message.serialize(d))
 
     backend = MagicMock()
 
@@ -70,7 +72,7 @@ def test_recv_one() -> None:
     q = Queue(backend)
 
     data = {"b": 100}
-    msg = Message(0, Message.serialize_data(data))
+    msg = Message(0, Message.serialize(data))
     backend.create_sub_queue.return_value.get_message.return_value = msg
 
     with q.recv_one() as d:
