@@ -292,7 +292,7 @@ class BackendUnitTest:
             for msg in gen:
                 logging.debug(msg)
                 assert msg
-                assert msg.data == 'baz'
+                assert msg == 'baz'
 
         self._get_mock_close(mock_con).assert_called()
         self._get_mock_ack(mock_con).assert_called_with(0)
