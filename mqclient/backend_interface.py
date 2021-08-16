@@ -83,6 +83,9 @@ class Message:
 
         Optionally include `headers` dict for internal information.
         """
+        if not headers:
+            headers = {}
+
         return pickle.dumps({"headers": headers, "data": data}, protocol=4)
 
 
