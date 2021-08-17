@@ -1,4 +1,3 @@
-git+https://github.com/WIPACrepo/wipac-telemetry-prototype@v0.1.9#egg=wipac_telemetry
 mypy
 pytest
 pytest-asyncio

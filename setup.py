@@ -16,9 +16,14 @@ shop = SetupShop(
     "mqclient",
     os.path.abspath(os.path.dirname(__file__)),
     ((3, 6), (3, 9)),
-    "Message Queue Client Abstraction",
+    "Message Queue Client Base Abstraction",
 )
 
+# FIXME - remove this hacky code
+kwargs = shop.get_kwargs()
+kwargs["install_requires"].append(
+    "wipac_telemetry @ git+https://github.com/WIPACrepo//wipac-telemetry-prototype@allow-bytes-as-attrs"
+)
 setup(
     url="https://github.com/WIPACrepo/MQClient",
     package_data={shop.name: ["py.typed", "requirements.txt"]},
