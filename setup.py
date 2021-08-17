@@ -16,7 +16,7 @@ shop = SetupShop(
     "mqclient",
     os.path.abspath(os.path.dirname(__file__)),
     ((3, 6), (3, 9)),
-    "Message Queue Client Abstraction",
+    "the base abstraction for the Message Queue Client",
 )
 
 setup(
