@@ -129,7 +129,7 @@ class Queue:
             "self._name",
             "self._prefetch",
             "self.timeout",
-            "msg.msg_id",
+            # "msg.msg_id",  # TODO: put back
         ]
     )  # pylint:disable=no-self-use
     def ack(self, sub: Sub, msg: Message) -> None:
@@ -155,7 +155,7 @@ class Queue:
             "self._name",
             "self._prefetch",
             "self.timeout",
-            "msg.msg_id",
+            # "msg.msg_id",  # TODO: put back
         ]
     )  # pylint:disable=no-self-use
     def nack(self, sub: Sub, msg: Message) -> None:
