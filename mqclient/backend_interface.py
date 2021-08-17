@@ -5,7 +5,7 @@ import pickle
 from enum import Enum, auto
 from typing import Any, Dict, Generator, Optional, Union
 
-MessageID = Union[int, str]
+MessageID = Union[int, str, bytes]
 
 TIMEOUT_MILLIS_DEFAULT = 1000  # milliseconds
 RETRY_DELAY = 1  # seconds
@@ -42,9 +42,9 @@ class Message:
         NACKED = auto()  # message has been nacked
 
     def __init__(self, msg_id: MessageID, payload: bytes):
-        if not isinstance(msg_id, (int, str)):
+        if not isinstance(msg_id, (int, str, bytes)):
             raise TypeError(
-                f"Message.msg_id must be type int|str (not '{type(msg_id)}')."
+                f"Message.msg_id must be type int|str|bytes (not '{type(msg_id)}')."
             )
         if not isinstance(payload, bytes):
             raise TypeError(
