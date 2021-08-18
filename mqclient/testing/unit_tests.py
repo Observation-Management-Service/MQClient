@@ -4,7 +4,6 @@
 # pylint:disable=invalid-name,protected-access
 
 import logging
-import pickle
 from typing import Any, List
 
 import pytest
@@ -292,7 +291,7 @@ class BackendUnitTest:
             for msg in gen:
                 logging.debug(msg)
                 assert msg
-                assert msg == pickle.loads(fake_data[0])
+                assert msg == 'baz'
 
         self._get_mock_close(mock_con).assert_called()
         self._get_mock_ack(mock_con).assert_called_with(0)
