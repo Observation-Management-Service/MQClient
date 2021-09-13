@@ -23,6 +23,7 @@ class Queue:
         except_errors: whether to suppress interior context errors for
                         the consumer (when `True`, the context manager
                         will act like a `try-except` block)
+        auth_token: the (jwt) authentication token
     """
 
     def __init__(
@@ -33,6 +34,7 @@ class Queue:
         prefetch: int = 1,
         timeout: int = 60,
         except_errors: bool = True,
+        auth_token: str = "",
     ) -> None:
         self._backend = backend
         self._backend_name = str(self._backend.__class__)
@@ -40,6 +42,7 @@ class Queue:
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
         self._pub_queue: Optional[Pub] = None
+        self._auth_token = auth_token
 
         # publics
         self._timeout = 0
@@ -69,7 +72,9 @@ class Queue:
     def raw_pub_queue(self) -> Pub:
         """Get publisher queue."""
         if not self._pub_queue:
-            self._pub_queue = self._backend.create_pub_queue(self._address, self._name)
+            self._pub_queue = self._backend.create_pub_queue(
+                self._address, self._name, auth_token=self._auth_token
+            )
 
         if not self._pub_queue:
             raise Exception("Pub queue failed to be created.")
@@ -88,7 +93,9 @@ class Queue:
 
     def _create_sub_queue(self) -> Sub:
         """Wrap `self._backend.create_sub_queue()` with instance's config."""
-        return self._backend.create_sub_queue(self._address, self._name, self._prefetch)
+        return self._backend.create_sub_queue(
+            self._address, self._name, self._prefetch, auth_token=self._auth_token
+        )
 
     @wtt.spanned(
         these=[

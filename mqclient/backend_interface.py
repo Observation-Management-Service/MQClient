@@ -156,11 +156,13 @@ class Backend:
     """Backend Pub-Sub Factory."""
 
     @staticmethod
-    def create_pub_queue(address: str, name: str) -> Pub:
+    def create_pub_queue(address: str, name: str, auth_token: str = "") -> Pub:
         """Create a publishing queue."""
         raise NotImplementedError()
 
     @staticmethod
-    def create_sub_queue(address: str, name: str, prefetch: int = 1) -> Sub:
+    def create_sub_queue(
+        address: str, name: str, prefetch: int = 1, auth_token: str = ""
+    ) -> Sub:
         """Create a subscription queue."""
         raise NotImplementedError()
