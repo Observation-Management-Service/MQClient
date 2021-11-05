@@ -7,4 +7,4 @@ A general wrapper around different message queues,
 providing an abstraction layer for higher level programs.
 
 ### Running with WIPAC Telemetry
-See https://github.com/WIPACrepo/wipac-telemetry-prototype#running-with-local-collector-service-ui-jaegar
+See https://github.com/WIPACrepo/wipac-telemetry-prototype documentation
