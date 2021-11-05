@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.0 (2021-11-05)
+### Feature
+* WIPAC Telemetry Compatible ([#23](https://github.com/WIPACrepo/MQClient/issues/23)) ([`ae5a928`](https://github.com/WIPACrepo/MQClient/commit/ae5a9286a8108cb767a458409f035c2927ad1fb0))
+
 ## v0.0.12 (2021-09-13)
 
 
