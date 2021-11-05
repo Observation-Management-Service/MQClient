@@ -19,6 +19,10 @@ shop = SetupShop(
     "the base abstraction for the Message Queue Client",
 )
 
+subprocess.run(
+    "pip install git+https://github.com/WIPACrepo/wipac-telemetry-prototype@debug".split(),
+    check=True,
+)
 setup(
     url="https://github.com/WIPACrepo/MQClient",
     package_data={shop.name: ["py.typed", "requirements.txt"]},
