@@ -1,7 +1,1 @@
-git+https://github.com/WIPACrepo/wipac-telemetry-prototype@v0.1.11#egg=wipac_telemetry
-mypy
-pytest
-pytest-asyncio
-pytest-flake8
-pytest-mock
-pytest-mypy
+git+https://github.com/WIPACrepo/wipac-telemetry-prototype@v0.1.22#egg=wipac_telemetry
