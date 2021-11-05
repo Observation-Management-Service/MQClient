@@ -1,0 +1,1 @@
+git+https://github.com/WIPACrepo/wipac-telemetry-prototype@v0.1.22#egg=wipac_telemetry
