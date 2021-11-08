@@ -37,7 +37,6 @@ class Queue:
         auth_token: str = "",
     ) -> None:
         self._backend = backend
-        self._backend_name = str(self._backend.__class__)
         self._address = address
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
@@ -99,7 +98,7 @@ class Queue:
 
     @wtt.spanned(
         these=[
-            "self._backend_name",
+            "self._backend",
             "self._address",
             "self._name",
             "self._prefetch",
@@ -112,7 +111,7 @@ class Queue:
 
     @wtt.spanned(
         these=[
-            "self._backend_name",
+            "self._backend",
             "self._address",
             "self._name",
             "self._prefetch",
@@ -131,7 +130,7 @@ class Queue:
 
     @wtt.spanned(
         these=[
-            "self._backend_name",
+            "self._backend",
             "self._address",
             "self._name",
             "self._prefetch",
@@ -157,7 +156,7 @@ class Queue:
 
     @wtt.spanned(
         these=[
-            "self._backend_name",
+            "self._backend",
             "self._address",
             "self._name",
             "self._prefetch",
@@ -208,7 +207,7 @@ class Queue:
     @contextlib.contextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
         these=[
-            "self._backend_name",
+            "self._backend",
             "self._address",
             "self._name",
             "self._prefetch",
@@ -261,7 +260,7 @@ class Queue:
         """Return string of basic properties/attributes."""
         return (
             f"Queue("
-            f"{self._backend_name}, "
+            f"{self._backend.__module__}, "
             f"address={self._address}, "
             f"name={self._name}, "
             f"prefetch={self._prefetch}, "
@@ -295,7 +294,7 @@ class MessageGeneratorContext:
 
     @wtt.spanned(
         these=[
-            "self.queue._backend_name",
+            "self.queue._backend",
             "self.queue._address",
             "self.queue._name",
             "self.queue._prefetch",
@@ -392,7 +391,7 @@ class MessageGeneratorContext:
 
     @wtt.spanned(
         these=[
-            "self.queue._backend_name",
+            "self.queue._backend",
             "self.queue._address",
             "self.queue._name",
             "self.queue._prefetch",
