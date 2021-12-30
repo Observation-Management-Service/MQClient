@@ -9,7 +9,7 @@ import pytest
 from ..queue import Queue
 
 
-def is_instance_by_name(obj: Any, name: str) -> bool:
+def is_inst_name(obj: Any, name: str) -> bool:
     """Return the object's name, fully qualified with its module's name. """
     obj_name = f"{obj.__class__.__module__}.{obj.__class__.__name__}"
 

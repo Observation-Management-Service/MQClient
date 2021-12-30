@@ -45,7 +45,7 @@ def test_send() -> None:
     assert msg.data == data
 
 
-def test_recv() -> None:
+async def test_recv() -> None:
     """Test recv."""
 
     def gen(data: List[Any], *args: Any, **kwargs: Any) -> Generator[Message, None, None]:
@@ -60,7 +60,7 @@ def test_recv() -> None:
     # q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
     backend.create_sub_queue.return_value.message_generator.side_effect = partial(gen, data)
 
-    with q.recv() as recv_gen:
+    async with await q.recv() as recv_gen:
         recv_data = list(recv_gen)
         assert data == recv_data
 
