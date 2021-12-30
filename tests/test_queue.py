@@ -5,7 +5,9 @@
 
 from functools import partial
 from typing import Any, Generator, List
-from unittest.mock import MagicMock, sentinel
+from unittest.mock import AsyncMock, MagicMock, sentinel
+
+import pytest
 
 # local imports
 from mqclient.backend_interface import Backend, Message
@@ -24,27 +26,31 @@ def test_init() -> None:
     assert q._prefetch == 999
 
 
-def test_pub() -> None:
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_pub() -> None:
     """Test pub."""
-    backend = MagicMock()
+    backend = AsyncMock()
     q = Queue(backend)
-    assert q.raw_pub_queue == backend.create_pub_queue.return_value
+    assert (await q.raw_pub_queue) == backend.create_pub_queue.return_value
 
 
-def test_send() -> None:
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_send() -> None:
     """Test send."""
-    backend = MagicMock()
+    backend = AsyncMock()
 
     q = Queue(backend)
 
     data = {'a': 1234}
     q.send(data)
+    (await q.raw_pub_queue).send_message.assert_awaited()
 
     # send() adds a unique header, so we need to look at only the data
-    msg = Message(id(sentinel.ID), q.raw_pub_queue.send_message.call_args.args[0])  # type: ignore[attr-defined]
+    msg = Message(id(sentinel.ID), (await q.raw_pub_queue).send_message.call_args.args[0])  # type: ignore[attr-defined]
     assert msg.data == data
 
 
+@pytest.mark.asyncio  # type: ignore[misc]
 async def test_recv() -> None:
     """Test recv."""
 
@@ -52,7 +58,7 @@ async def test_recv() -> None:
         for i, d in enumerate(data):
             yield Message(i, Message.serialize(d))
 
-    backend = MagicMock()
+    backend = AsyncMock()
 
     q = Queue(backend)
 
@@ -65,9 +71,10 @@ async def test_recv() -> None:
         assert data == recv_data
 
 
-def test_recv_one() -> None:
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_recv_one() -> None:
     """Test recv_one."""
-    backend = MagicMock()
+    backend = AsyncMock()
 
     q = Queue(backend)
 
