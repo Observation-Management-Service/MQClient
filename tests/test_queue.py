@@ -5,7 +5,7 @@
 
 from functools import partial
 from typing import Any, Generator, List
-from unittest.mock import AsyncMock, MagicMock, sentinel
+from unittest.mock import AsyncMock, MagicMock, patch, sentinel
 
 import pytest
 
@@ -16,9 +16,9 @@ from mqclient.queue import Queue
 
 def test_init() -> None:
     """Test constructor."""
-    backend = Backend()
-    q = Queue(backend)
-    assert q._backend == backend
+    mock_backend = Backend()
+    q = Queue(mock_backend)
+    assert q._backend == mock_backend
 
     q = Queue(Backend(), name='nnn', address='aaa', prefetch=999)
     assert q._name == 'nnn'
@@ -29,21 +29,21 @@ def test_init() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_pub() -> None:
     """Test pub."""
-    backend = AsyncMock()
-    q = Queue(backend)
-    assert (await q.raw_pub_queue) == backend.create_pub_queue.return_value
+    mock_backend = AsyncMock()
+    q = Queue(mock_backend)
+    assert (await q.raw_pub_queue) == mock_backend.create_pub_queue.return_value
 
 
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_send() -> None:
     """Test send."""
-    backend = AsyncMock()
+    mock_backend = AsyncMock()
 
-    q = Queue(backend)
+    q = Queue(mock_backend)
 
     data = {'a': 1234}
-    q.send(data)
-    (await q.raw_pub_queue).send_message.assert_awaited()
+    await q.send(data)
+    mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
 
     # send() adds a unique header, so we need to look at only the data
     msg = Message(id(sentinel.ID), (await q.raw_pub_queue).send_message.call_args.args[0])  # type: ignore[attr-defined]
@@ -58,13 +58,13 @@ async def test_recv() -> None:
         for i, d in enumerate(data):
             yield Message(i, Message.serialize(d))
 
-    backend = AsyncMock()
+    mock_backend = AsyncMock()
 
-    q = Queue(backend)
+    q = Queue(mock_backend)
 
     data = ['a', {'b': 100}, ['foo', 'bar']]
     # q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
-    backend.create_sub_queue.return_value.message_generator.side_effect = partial(gen, data)
+    mock_backend.create_sub_queue.return_value.message_generator.side_effect = partial(gen, data)
 
     async with await q.recv() as recv_gen:
         recv_data = list(recv_gen)
@@ -74,16 +74,16 @@ async def test_recv() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_recv_one() -> None:
     """Test recv_one."""
-    backend = AsyncMock()
+    mock_backend = AsyncMock()
 
-    q = Queue(backend)
+    q = Queue(mock_backend)
 
     data = {"b": 100}
     msg = Message(0, Message.serialize(data))
-    backend.create_sub_queue.return_value.get_message.return_value = msg
+    mock_backend.create_sub_queue.return_value.get_message.return_value = msg
 
     with q.recv_one() as d:
         recv_data = d
 
     assert data == recv_data
-    backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
+    mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
