@@ -300,12 +300,6 @@ class MessageAsyncGeneratorContext:
             )
         return self._msg_gen
 
-    def __await__(self) -> "MessageAsyncGeneratorContext":
-        logging.debug(
-            "[MessageAsyncGeneratorContext.__await__()] entered `async with-as` block"
-        )
-        return self
-
     @wtt.spanned(
         these=[
             "self.queue._backend",
@@ -316,7 +310,7 @@ class MessageAsyncGeneratorContext:
         ],
         behavior=wtt.SpanBehavior.ONLY_END_ON_EXCEPTION,
     )
-    def __aenter__(self) -> "MessageAsyncGeneratorContext":
+    async def __aenter__(self) -> "MessageAsyncGeneratorContext":
         """Return instance.
 
         Triggered by 'with ... as'.
