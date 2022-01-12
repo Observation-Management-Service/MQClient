@@ -69,7 +69,7 @@ async def test_recv() -> None:
     # q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
     mock_backend.create_sub_queue.return_value.message_generator = gen
 
-    async with await q.recv() as recv_gen:
+    async with q.recv() as recv_gen:
         recv_data = [d async for d in recv_gen]
         assert data == recv_data
 

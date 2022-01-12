@@ -180,7 +180,7 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
-    async def recv(self) -> "MessageAsyncGeneratorContext":
+    def recv(self) -> "MessageAsyncGeneratorContext":
         """Receive a stream of messages from the queue.
 
         This returns a context-manager/generator. Its iterator stops when no
@@ -191,7 +191,7 @@ class Queue:
         is not.
 
         Example:
-            async with await queue.recv() as stream:
+            async with queue.recv() as stream:
                 async for data in stream:
                     ...
 
@@ -202,7 +202,7 @@ class Queue:
             MessageAsyncGeneratorContext -- context manager and generator object
         """
         logging.debug("Creating new MessageAsyncGeneratorContext instance.")
-        return MessageAsyncGeneratorContext(await self._create_sub_queue(), self)
+        return MessageAsyncGeneratorContext(self)
 
     @contextlib.contextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
@@ -278,20 +278,16 @@ class MessageAsyncGeneratorContext:
         "context has not been entered. Use 'async with ... as ...' syntax."
     )
 
-    def __init__(self, sub: Sub, queue: Queue) -> None:
+    def __init__(self, queue: Queue) -> None:
         logging.debug("[MessageAsyncGeneratorContext.__init__()]")
-        self.sub = sub
         self.queue = queue
 
-        self.gen: AsyncGenerator[Optional[Message], None] = self.sub.message_generator(
-            timeout=self.queue.timeout,
-            propagate_error=(not self.queue.except_errors),
-        )  # type: ignore[assignment] # python does magic to make coroutine into an async generator
+        self.sub: Optional[Sub] = None
+        self.gen: Optional[AsyncGenerator[Optional[Message], None]] = None
 
         self._span: Optional[wtt.Span] = None
         self._span_carrier: Optional[Dict[str, Any]] = None
 
-        self.entered = False
         self.msg: Optional[Message] = None
 
     @wtt.spanned(
@@ -313,11 +309,16 @@ class MessageAsyncGeneratorContext:
             "[MessageAsyncGeneratorContext.__aenter__()] entered `with-as` block"
         )
 
-        if self.entered:
+        if self.sub and self.gen:
             raise RuntimeError(
                 "A 'MessageAsyncGeneratorContext' instance cannot be re-entered."
             )
-        self.entered = True
+
+        self.sub = await self.queue._create_sub_queue()
+        self.gen = self.sub.message_generator(
+            timeout=self.queue.timeout,
+            propagate_error=(not self.queue.except_errors),
+        )  # type: ignore[assignment] # python does magic to make coroutine into an async generator
 
         self._span = wtt.get_current_span()
         self._span_carrier = wtt.inject_span_carrier()
@@ -346,7 +347,7 @@ class MessageAsyncGeneratorContext:
         logging.debug(
             f"[MessageAsyncGeneratorContext.__aexit__()] exiting `with-as` block (exc:{exc_type})"
         )
-        if not self.entered:
+        if not (self.sub and self.gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         reraise_exception = False
@@ -393,7 +394,7 @@ class MessageAsyncGeneratorContext:
         logging.debug(
             "[MessageAsyncGeneratorContext.__aiter__()] entered loop/`aiter()`"
         )
-        if not self.entered:
+        if not (self.sub and self.gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
@@ -410,7 +411,7 @@ class MessageAsyncGeneratorContext:
     async def __anext__(self) -> Any:
         """Return next Message in queue."""
         logging.debug("[MessageAsyncGeneratorContext.__anext__()] next iteration...")
-        if not self.entered:
+        if not (self.sub and self.gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         # ack the previous message before getting a new one
