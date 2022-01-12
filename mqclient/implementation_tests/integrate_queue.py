@@ -33,7 +33,7 @@ class PubSubQueue:
         pub_sub.send(DATA_LIST[0])
         _log_send(DATA_LIST[0])
 
-        with pub_sub.recv_one() as d:
+        async with pub_sub.recv_one() as d:
             all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
@@ -42,7 +42,7 @@ class PubSubQueue:
             _log_send(d)
 
         pub_sub.timeout = 1
-        async with await pub_sub.recv() as gen:
+        async with pub_sub.recv() as gen:
             for i, d in enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
@@ -59,7 +59,7 @@ class PubSubQueue:
         _log_send(DATA_LIST[0])
 
         sub = Queue(self.backend, name=queue_name)
-        with sub.recv_one() as d:
+        async with sub.recv_one() as d:
             all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
@@ -68,7 +68,7 @@ class PubSubQueue:
             _log_send(d)
 
         sub.timeout = 1
-        async with await sub.recv() as gen:
+        async with sub.recv() as gen:
             for i, d in enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
@@ -86,12 +86,12 @@ class PubSubQueue:
 
         sub_fail = Queue(self.backend, name=f"{queue_name}-fail")
         with pytest.raises(Exception) as excinfo:
-            with sub_fail.recv_one() as d:
+            async with sub_fail.recv_one() as d:
                 all_recvd.append(_log_recv(d))
             assert "No message available" in str(excinfo.value)
 
         sub = Queue(self.backend, name=queue_name)
-        with sub.recv_one() as d:
+        async with sub.recv_one() as d:
             all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
@@ -109,7 +109,7 @@ class PubSubQueue:
             _log_send(data)
 
             sub = Queue(self.backend, name=queue_name)
-            with sub.recv_one() as d:
+            async with sub.recv_one() as d:
                 all_recvd.append(_log_recv(d))
                 assert d == data
             # sub.close() -- no longer needed
@@ -128,7 +128,7 @@ class PubSubQueue:
         async def recv_thread(_: int) -> List[Any]:
             sub = Queue(self.backend, name=queue_name)
             sub.timeout = 1
-            async with await sub.recv() as gen:
+            async with sub.recv() as gen:
                 recv_data_list = list(gen)
             return _log_recv_multiple(recv_data_list)
 
@@ -173,7 +173,7 @@ class PubSubQueue:
 
         async def recv_thread(_: int) -> Any:
             sub = Queue(self.backend, name=queue_name)
-            with sub.recv_one() as d:
+            async with sub.recv_one() as d:
                 recv_data = d
             # sub.close() -- no longer needed
             return _log_recv(recv_data)
@@ -198,7 +198,7 @@ class PubSubQueue:
 
         async def recv_thread(_: int) -> Any:
             sub = Queue(self.backend, name=queue_name)
-            with sub.recv_one() as d:
+            async with sub.recv_one() as d:
                 recv_data = d
             # sub.close() -- no longer needed
             return _log_recv(recv_data)
@@ -226,7 +226,7 @@ class PubSubQueue:
 
             sub.timeout = 1
             sub.except_errors = False
-            async with await sub.recv() as gen:
+            async with sub.recv() as gen:
                 received_data = list(gen)
             all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -246,7 +246,7 @@ class PubSubQueue:
 
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
-        async with await sub.recv() as gen:
+        async with sub.recv() as gen:
             received_data = list(gen)
         all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -266,7 +266,7 @@ class PubSubQueue:
 
             sub = Queue(self.backend, name=queue_name)
             sub.timeout = 1
-            async with await sub.recv() as gen:
+            async with sub.recv() as gen:
                 received_data = list(gen)
             all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -289,7 +289,7 @@ class PubSubQueue:
 
         for _ in range(len(DATA_LIST)):
             sub = Queue(self.backend, name=queue_name)
-            with sub.recv_one() as d:
+            async with sub.recv_one() as d:
                 all_recvd.append(_log_recv(d))
             # sub.close() -- no longer needed
 
@@ -310,7 +310,7 @@ class PubSubQueue:
         for i in range(len(DATA_LIST)):
             if i % 2 == 0:  # each sub receives 2 messages back-to-back
                 sub = Queue(self.backend, name=queue_name)
-            with sub.recv_one() as d:
+            async with sub.recv_one() as d:
                 all_recvd.append(_log_recv(d))
             # sub.close() -- no longer needed
 
@@ -331,7 +331,7 @@ class PubSubQueue:
 
         for _ in range(len(DATA_LIST)):
             sub = Queue(self.backend, name=queue_name)
-            with sub.recv_one() as d:
+            async with sub.recv_one() as d:
                 all_recvd.append(_log_recv(d))
             # sub.close() -- no longer needed
 
@@ -353,7 +353,7 @@ class PubSubQueue:
                 _log_send(data)
 
                 sub = Queue(self.backend, name=queue_name, prefetch=i)
-                with sub.recv_one() as d:
+                async with sub.recv_one() as d:
                     all_recvd.append(_log_recv(d))
                     assert d == data
                 # sub.close() -- no longer needed
@@ -374,15 +374,15 @@ class PubSubQueue:
 
         # this should not eat up the whole queue
         sub = Queue(self.backend, name=queue_name, prefetch=20)
-        with sub.recv_one() as d:
+        async with sub.recv_one() as d:
             all_recvd.append(_log_recv(d))
-        with sub.recv_one() as d:
+        async with sub.recv_one() as d:
             all_recvd.append(_log_recv(d))
         # sub.close() -- no longer needed
 
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)
         sub2.timeout = 1
-        async with await sub2.recv() as gen:
+        async with sub2.recv() as gen:
             for _, d in enumerate(gen):
                 all_recvd.append(_log_recv(d))
 
@@ -402,7 +402,7 @@ class PubSubQueue:
 
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
-        async with await sub.recv() as gen:
+        async with sub.recv() as gen:
             for i, d in enumerate(gen):
                 print(f"{i}: `{d}`")
                 if i == 2:
@@ -415,7 +415,7 @@ class PubSubQueue:
         # continue where we left off
         reused = False
         sub.timeout = 1
-        async with await sub.recv() as gen:
+        async with sub.recv() as gen:
             for i, d in enumerate(gen):
                 print(f"{i}: `{d}`")
                 reused = True
@@ -442,7 +442,7 @@ class PubSubQueue:
         try:
             sub.timeout = 1
             sub.except_errors = False
-            async with await sub.recv() as gen:
+            async with sub.recv() as gen:
                 for i, d in enumerate(gen):
                     if i == 2:
                         raise TestException()
@@ -458,7 +458,7 @@ class PubSubQueue:
         reused = False
         sub.timeout = 1
         sub.except_errors = False
-        async with await sub.recv() as gen:
+        async with sub.recv() as gen:
             for i, d in enumerate(gen):
                 reused = True
                 all_recvd.append(_log_recv(d))
@@ -476,7 +476,7 @@ class PubSubQueue:
 
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
-        recv_gen = await sub.recv()
+        recv_gen = sub.recv()
         async with recv_gen as gen:
             for i, d in enumerate(gen):
                 print(f"{i}: `{d}`")
@@ -499,7 +499,7 @@ class PubSubQueue:
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
         all_recvd = []
-        async with await sub.recv() as gen:
+        async with sub.recv() as gen:
             for i, d in enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
@@ -509,7 +509,7 @@ class PubSubQueue:
         logging.warning("Round 2!")
 
         # continue where we left off
-        async with await sub.recv() as gen:
+        async with sub.recv() as gen:
             for i, d in enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))

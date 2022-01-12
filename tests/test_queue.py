@@ -2,8 +2,7 @@
 
 # pylint:disable=invalid-name,protected-access
 
-from functools import partial
-from typing import Any, AsyncGenerator, List
+from typing import Any, AsyncGenerator
 from unittest.mock import AsyncMock, sentinel
 
 import pytest

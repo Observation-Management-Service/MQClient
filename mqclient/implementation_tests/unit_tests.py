@@ -314,7 +314,7 @@ class BackendUnitTest:
         fake_data = [Message.serialize("baz")]
         self._enqueue_mock_messages(mock_con, fake_data, [0])
 
-        async with await q.recv() as gen:
+        async with q.recv() as gen:
             for msg in gen:
                 logging.debug(msg)
                 assert msg
@@ -344,7 +344,7 @@ class BackendUnitTest:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        async with await q.recv() as gen:  # suppress_errors=True
+        async with q.recv() as gen:  # suppress_errors=True
             async for i, msg in asl.enumerate(gen):
                 assert i == 0
                 logging.debug(msg)
@@ -374,7 +374,7 @@ class BackendUnitTest:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        async with await q.recv() as gen:  # suppress_errors=True
+        async with q.recv() as gen:  # suppress_errors=True
             for msg in gen:
                 logging.debug(msg)
                 raise TestException
@@ -385,7 +385,7 @@ class BackendUnitTest:
         logging.info("Round 2")
 
         # continue where we left off
-        async with await q.recv() as gen:  # suppress_errors=True
+        async with q.recv() as gen:  # suppress_errors=True
             # self._get_mock_ack(mock_con).assert_not_called()
             async for i, msg in asl.enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")
@@ -421,7 +421,7 @@ class BackendUnitTest:
 
         with pytest.raises(TestException):
             q.except_errors = False
-            async with await q.recv() as gen:
+            async with q.recv() as gen:
                 for msg in gen:
                     logging.debug(msg)
                     raise TestException
@@ -441,7 +441,7 @@ class BackendUnitTest:
 
         # continue where we left off
         q.except_errors = False
-        async with await q.recv() as gen:
+        async with q.recv() as gen:
             self._get_ack_mock_fn(mock_con).assert_not_called()
             async for i, msg in asl.enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")
