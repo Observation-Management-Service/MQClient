@@ -275,7 +275,7 @@ class MessageAsyncGeneratorContext:
 
     RUNTIME_ERROR_CONTEXT_STRING = (
         "'MessageAsyncGeneratorContext' object's runtime "
-        "context has not been entered. Use 'with as' syntax."
+        "context has not been entered. Use 'async with ... as ...' syntax."
     )
 
     def __init__(self, sub: Sub, queue: Queue) -> None:
@@ -299,6 +299,12 @@ class MessageAsyncGeneratorContext:
                 propagate_error=(not self.queue.except_errors),
             )
         return self._msg_gen
+
+    def __await__(self) -> "MessageAsyncGeneratorContext":
+        logging.debug(
+            "[MessageAsyncGeneratorContext.__await__()] entered `async with-as` block"
+        )
+        return self
 
     @wtt.spanned(
         these=[
@@ -396,6 +402,12 @@ class MessageAsyncGeneratorContext:
 
         Triggered with 'for'/'iter()'.
         """
+
+        # TODO - https://stackoverflow.com/a/56079900
+        # return non-async iterator which wraps calls dealing with event loop
+        # may be easier to break off async-iterator portion of this class into separate class
+        # but need to check other usages (breaking changes are OK, need usability)
+
         logging.debug(
             "[MessageAsyncGeneratorContext.__aiter__()] entered loop/`iter()`"
         )
