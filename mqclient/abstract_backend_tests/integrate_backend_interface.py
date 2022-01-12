@@ -58,7 +58,7 @@ class PubSubBackendInterface:
             assert recv_msg
             assert DATA_LIST[i] == recv_msg.data
 
-            sub.ack_message(recv_msg)
+            await sub.ack_message(recv_msg)
 
     async def test_10(self, queue_name: str) -> None:
         """Test nacking, front-loaded sending.
@@ -71,7 +71,7 @@ class PubSubBackendInterface:
         # send
         for msg in DATA_LIST:
             raw_data = Message.serialize(msg)
-            pub.send_message(raw_data)
+            await pub.send_message(raw_data)
             _log_send(msg)
 
         # receive -- nack each message, once, and anticipate its redelivery
@@ -100,11 +100,11 @@ class PubSubBackendInterface:
                 logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
-                sub.ack_message(recv_msg)
+                await sub.ack_message(recv_msg)
             # otherwise, nack message
             else:
                 nacked_msgs.append(recv_msg)
-                sub.reject_message(recv_msg)
+                await sub.reject_message(recv_msg)
                 logging.info("NACK!")
 
     async def test_11(self, queue_name: str) -> None:
@@ -132,7 +132,7 @@ class PubSubBackendInterface:
             if data_to_send:
                 msg = data_to_send[0]
                 raw_data = Message.serialize(msg)
-                pub.send_message(raw_data)
+                await pub.send_message(raw_data)
                 _log_send(msg)
                 data_to_send.remove(msg)
 
@@ -150,11 +150,11 @@ class PubSubBackendInterface:
                 logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
-                sub.ack_message(recv_msg)
+                await sub.ack_message(recv_msg)
             # otherwise, nack message
             else:
                 nacked_msgs.append(recv_msg)
-                sub.reject_message(recv_msg)
+                await sub.reject_message(recv_msg)
                 logging.info("NACK!")
 
     async def test_20(self, queue_name: str) -> None:
@@ -165,7 +165,7 @@ class PubSubBackendInterface:
         # send
         for msg in DATA_LIST:
             raw_data = Message.serialize(msg)
-            pub.send_message(raw_data)
+            await pub.send_message(raw_data)
             _log_send(msg)
 
         # receive
@@ -178,6 +178,6 @@ class PubSubBackendInterface:
             assert recv_msg
             assert recv_msg.data in DATA_LIST
             last = i
-            sub.ack_message(recv_msg)
+            await sub.ack_message(recv_msg)
 
         assert last == len(DATA_LIST) - 1
