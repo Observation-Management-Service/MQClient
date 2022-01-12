@@ -204,7 +204,7 @@ class Queue:
         logging.debug("Creating new MessageAsyncGeneratorContext instance.")
         return MessageAsyncGeneratorContext(self)
 
-    @contextlib.contextmanager  # needs to wrap @wtt stuff to span children correctly
+    @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
         these=[
             "self._backend",
@@ -217,15 +217,16 @@ class Queue:
     async def recv_one(self) -> AsyncIterator[Message]:
         """Receive one message from the queue.
 
-        This is a context manager. If an exception is raised (inside the
-        context), the message is rejected, the context is exited, and
-        exception can be re-raised if configured by `except_errors`.
+        This is an async context manager. If an exception is raised
+        (inside the context), the message is rejected, the context is
+        exited, and exception can be re-raised if configured by
+        `except_errors`.
 
         NOTE: If using the GCP backend, a message is allocated for
         redelivery if the context is open for longer than 10 minutes.
 
         Decorators:
-            contextlib.contextmanager
+            contextlib.asynccontextmanager
 
         Yields:
             Any -- object of data received, or None if queue is empty

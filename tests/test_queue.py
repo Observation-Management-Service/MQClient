@@ -85,7 +85,7 @@ async def test_recv_one() -> None:
     msg = Message(0, Message.serialize(data))
     mock_backend.create_sub_queue.return_value.get_message.return_value = msg
 
-    with q.recv_one() as d:
+    async with q.recv_one() as d:
         recv_data = d
 
     assert data == recv_data
