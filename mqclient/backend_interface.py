@@ -3,7 +3,7 @@
 
 import pickle
 from enum import Enum, auto
-from typing import Any, Dict, Generator, Optional, Union
+from typing import Any, AsyncGenerator, Dict, Optional, Union
 
 MessageID = Union[int, str, bytes]
 
@@ -100,17 +100,17 @@ class RawQueue:
     def __init__(self) -> None:
         pass
 
-    def connect(self) -> None:
+    async def connect(self) -> None:
         """Set up connection."""
 
-    def close(self) -> None:
+    async def close(self) -> None:
         """Close interface to queue."""
 
 
 class Pub(RawQueue):
     """Publisher queue."""
 
-    def send_message(self, msg: bytes) -> None:
+    async def send_message(self, msg: bytes) -> None:
         """Send a message on a queue."""
         raise NotImplementedError()
 
@@ -123,27 +123,27 @@ class Sub(RawQueue):
         """Convert backend-specific payload to standardized Message type."""
         raise NotImplementedError()
 
-    def get_message(
+    async def get_message(
         self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
     ) -> Optional[Message]:
         """Get a single message from a queue."""
         raise NotImplementedError()
 
-    def ack_message(self, msg: Message) -> None:
+    async def ack_message(self, msg: Message) -> None:
         """Ack a message from the queue."""
         raise NotImplementedError()
 
-    def reject_message(self, msg: Message) -> None:
+    async def reject_message(self, msg: Message) -> None:
         """Reject (nack) a message from the queue."""
         raise NotImplementedError()
 
-    def message_generator(
+    async def message_generator(
         self, timeout: int = 60, propagate_error: bool = True
-    ) -> Generator[Optional[Message], None, None]:
+    ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 
-        Generate messages with variable timeout.
-        Yield `None` on `throw()`.
+        Asynchronously generate messages with variable timeout.
+        Yield `None` on `athrow()`.
 
         Keyword Arguments:
             timeout {int} -- timeout in seconds for inactivity (default: {60})
@@ -156,12 +156,12 @@ class Backend:
     """Backend Pub-Sub Factory."""
 
     @staticmethod
-    def create_pub_queue(address: str, name: str, auth_token: str = "") -> Pub:
+    async def create_pub_queue(address: str, name: str, auth_token: str = "") -> Pub:
         """Create a publishing queue."""
         raise NotImplementedError()
 
     @staticmethod
-    def create_sub_queue(
+    async def create_sub_queue(
         address: str, name: str, prefetch: int = 1, auth_token: str = ""
     ) -> Sub:
         """Create a subscription queue."""

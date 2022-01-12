@@ -4,7 +4,7 @@ import contextlib
 import logging
 import types
 import uuid
-from typing import Any, Dict, Generator, Optional, Type
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
 
 import wipac_telemetry.tracing_tools as wtt
 
@@ -68,10 +68,10 @@ class Queue:
         self._timeout = val
 
     @property
-    def raw_pub_queue(self) -> Pub:
+    async def raw_pub_queue(self) -> Pub:
         """Get publisher queue."""
         if not self._pub_queue:
-            self._pub_queue = self._backend.create_pub_queue(
+            self._pub_queue = await self._backend.create_pub_queue(
                 self._address, self._name, auth_token=self._auth_token
             )
 
@@ -80,19 +80,19 @@ class Queue:
         return self._pub_queue
 
     @raw_pub_queue.deleter
-    def raw_pub_queue(self) -> None:
+    async def raw_pub_queue(self) -> None:
         logging.debug("Deleter Queue.raw_pub_queue")
-        self._close_pub_queue()
+        await self._close_pub_queue()
 
-    def _close_pub_queue(self) -> None:
+    async def _close_pub_queue(self) -> None:
         if self._pub_queue:
             logging.debug("Closing Queue._pub_queue")
-            self._pub_queue.close()
+            await self._pub_queue.close()
             self._pub_queue = None
 
-    def _create_sub_queue(self) -> Sub:
+    async def _create_sub_queue(self) -> Sub:
         """Wrap `self._backend.create_sub_queue()` with instance's config."""
-        return self._backend.create_sub_queue(
+        return await self._backend.create_sub_queue(
             self._address, self._name, self._prefetch, auth_token=self._auth_token
         )
 
@@ -105,9 +105,9 @@ class Queue:
             "self.timeout",
         ]
     )
-    def close(self) -> None:
+    async def close(self) -> None:
         """Close all persisted connections."""
-        self._close_pub_queue()
+        await self._close_pub_queue()
 
     @wtt.spanned(
         these=[
@@ -119,14 +119,14 @@ class Queue:
         ],
         kind=wtt.SpanKind.PRODUCER,
     )
-    def send(self, data: Any) -> None:
+    async def send(self, data: Any) -> None:
         """Send a message to the queue.
 
         Arguments:
             data (Any): object of data to send (must be serializable)
         """
         msg = Message.serialize(data, headers=wtt.inject_links_carrier())
-        self.raw_pub_queue.send_message(msg)
+        await (await self.raw_pub_queue).send_message(msg)
 
     @wtt.spanned(
         these=[
@@ -138,11 +138,11 @@ class Queue:
             "msg.msg_id",
         ]
     )  # pylint:disable=no-self-use
-    def ack(self, sub: Sub, msg: Message) -> None:
+    async def ack(self, sub: Sub, msg: Message) -> None:
         """Acknowledge the message."""
         if msg.ack_status == Message.AckStatus.NONE:
             try:
-                sub.ack_message(msg)
+                await sub.ack_message(msg)
             except Exception as e:
                 raise AckException("Acking failed on backend") from e
         elif msg.ack_status == Message.AckStatus.NACKED:
@@ -164,11 +164,11 @@ class Queue:
             "msg.msg_id",
         ]
     )  # pylint:disable=no-self-use
-    def nack(self, sub: Sub, msg: Message) -> None:
+    async def nack(self, sub: Sub, msg: Message) -> None:
         """Reject/nack the message."""
         if msg.ack_status == Message.AckStatus.NONE:
             try:
-                sub.reject_message(msg)
+                await sub.reject_message(msg)
             except Exception as e:
                 raise NackException("Nacking failed on backend") from e
         elif msg.ack_status == Message.AckStatus.NACKED:
@@ -180,7 +180,7 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
 
-    def recv(self) -> "MessageGeneratorContext":
+    def recv(self) -> "MessageAsyncGeneratorContext":
         """Receive a stream of messages from the queue.
 
         This returns a context-manager/generator. Its iterator stops when no
@@ -191,20 +191,20 @@ class Queue:
         is not.
 
         Example:
-            with queue.recv() as stream:
-                for data in stream:
+            async with queue.recv() as stream:
+                async for data in stream:
                     ...
 
         NOTE: If using the GCP backend, a message is allocated for
         redelivery if the consumer's iteration takes longer than 10 minutes.
 
         Returns:
-            MessageGeneratorContext -- context manager and generator object
+            MessageAsyncGeneratorContext -- context manager and generator object
         """
-        logging.debug("Creating new MessageGeneratorContext instance.")
-        return MessageGeneratorContext(self._create_sub_queue(), self)
+        logging.debug("Creating new MessageAsyncGeneratorContext instance.")
+        return MessageAsyncGeneratorContext(self)
 
-    @contextlib.contextmanager  # needs to wrap @wtt stuff to span children correctly
+    @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
         these=[
             "self._backend",
@@ -214,18 +214,19 @@ class Queue:
             "self.timeout",
         ]
     )
-    def recv_one(self) -> Generator[Any, None, None]:
+    async def recv_one(self) -> AsyncIterator[Message]:
         """Receive one message from the queue.
 
-        This is a context manager. If an exception is raised (inside the
-        context), the message is rejected, the context is exited, and
-        exception can be re-raised if configured by `except_errors`.
+        This is an async context manager. If an exception is raised
+        (inside the context), the message is rejected, the context is
+        exited, and exception can be re-raised if configured by
+        `except_errors`.
 
         NOTE: If using the GCP backend, a message is allocated for
         redelivery if the context is open for longer than 10 minutes.
 
         Decorators:
-            contextlib.contextmanager
+            contextlib.asynccontextmanager
 
         Yields:
             Any -- object of data received, or None if queue is empty
@@ -241,20 +242,20 @@ class Queue:
                 raise Exception("No message available")
             return msg
 
-        sub = self._create_sub_queue()
-        msg = get_message_callback(sub.get_message(self.timeout * 1000))
+        sub = await self._create_sub_queue()
+        msg = get_message_callback(await sub.get_message(self.timeout * 1000))
 
         data = msg.data
         try:
             yield data
         except Exception:  # pylint:disable=broad-except
-            self.nack(sub, msg)
+            await self.nack(sub, msg)
             if not self.except_errors:
                 raise
         else:
-            self.ack(sub, msg)
+            await self.ack(sub, msg)
         finally:
-            sub.close()
+            await sub.close()
 
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
@@ -270,26 +271,24 @@ class Queue:
         )
 
 
-class MessageGeneratorContext:
-    """A context manager wrapping `Sub.message_generator()`."""
+class MessageAsyncGeneratorContext:
+    """An async context manager wrapping `Sub.message_generator()`."""
 
     RUNTIME_ERROR_CONTEXT_STRING = (
-        "'MessageGeneratorContext' object's runtime "
-        "context has not been entered. Use 'with as' syntax."
+        "'MessageAsyncGeneratorContext' object's runtime "
+        "context has not been entered. Use 'async with ... as ...' syntax."
     )
 
-    def __init__(self, sub: Sub, queue: Queue) -> None:
-        logging.debug("[MessageGeneratorContext.__init__()]")
-        self.sub = sub
-        self.message_generator = sub.message_generator(
-            timeout=queue.timeout, propagate_error=(not queue.except_errors)
-        )
+    def __init__(self, queue: Queue) -> None:
+        logging.debug("[MessageAsyncGeneratorContext.__init__()]")
         self.queue = queue
+
+        self.sub: Optional[Sub] = None
+        self.gen: Optional[AsyncGenerator[Optional[Message], None]] = None
 
         self._span: Optional[wtt.Span] = None
         self._span_carrier: Optional[Dict[str, Any]] = None
 
-        self.entered = False
         self.msg: Optional[Message] = None
 
     @wtt.spanned(
@@ -302,18 +301,25 @@ class MessageGeneratorContext:
         ],
         behavior=wtt.SpanBehavior.ONLY_END_ON_EXCEPTION,
     )
-    def __enter__(self) -> "MessageGeneratorContext":
+    async def __aenter__(self) -> "MessageAsyncGeneratorContext":
         """Return instance.
 
         Triggered by 'with ... as'.
         """
-        logging.debug("[MessageGeneratorContext.__enter__()] entered `with-as` block")
+        logging.debug(
+            "[MessageAsyncGeneratorContext.__aenter__()] entered `with-as` block"
+        )
 
-        if self.entered:
+        if self.sub and self.gen:
             raise RuntimeError(
-                "A 'MessageGeneratorContext' instance cannot be re-entered."
+                "A 'MessageAsyncGeneratorContext' instance cannot be re-entered."
             )
-        self.entered = True
+
+        self.sub = await self.queue._create_sub_queue()
+        self.gen = self.sub.message_generator(
+            timeout=self.queue.timeout,
+            propagate_error=(not self.queue.except_errors),
+        )  # type: ignore[assignment] # python does magic to make coroutine into an async generator
 
         self._span = wtt.get_current_span()
         self._span_carrier = wtt.inject_span_carrier()
@@ -322,9 +328,9 @@ class MessageGeneratorContext:
 
     @wtt.respanned(
         "self._span",
-        behavior=wtt.SpanBehavior.END_ON_EXIT,  # end what was opened by `__enter__()`
+        behavior=wtt.SpanBehavior.END_ON_EXIT,  # end what was opened by `__aenter__()`
     )
-    def __exit__(
+    async def __aexit__(
         self,
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
@@ -340,9 +346,9 @@ class MessageGeneratorContext:
             exc_tb {Optional[types.TracebackType]} -- Exception Traceback.
         """
         logging.debug(
-            f"[MessageGeneratorContext.__exit__()] exiting `with-as` block (exc:{exc_type})"
+            f"[MessageAsyncGeneratorContext.__aexit__()] exiting `with-as` block (exc:{exc_type})"
         )
-        if not self.entered:
+        if not (self.sub and self.gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         reraise_exception = False
@@ -350,42 +356,46 @@ class MessageGeneratorContext:
         # Exception Was Raised
         if exc_type and exc_val:
             if self.msg:
-                self.queue.nack(self.sub, self.msg)
+                await self.queue.nack(self.sub, self.msg)
             # see how the generator wants to handle the exception
             try:
-                # `throw` is caught by the message_generator's try-except around `yield`
-                self.message_generator.throw(exc_type, exc_val, exc_tb)
+                # `throw` is caught by the generator's try-except around `yield`
+                self.gen.athrow(exc_type, exc_val, exc_tb)
             except exc_type:  # message_generator re-raised Exception
                 reraise_exception = True
         # Good Exit (No Original Exception)
         else:
             if self.msg:
-                self.queue.ack(self.sub, self.msg)
+                await self.queue.ack(self.sub, self.msg)
 
-        self.sub.close()  # close after cleanup
+        await self.sub.close()  # close after cleanup
 
         if reraise_exception:
             logging.debug(
-                "[MessageGeneratorContext.__exit__()] exited & propagated error."
+                "[MessageAsyncGeneratorContext.__aexit__()] exited & propagated error."
             )
             return False  # propagate the Exception!
         else:
             # either no exception or suppress the exception
             if exc_type and exc_val:
                 logging.debug(
-                    "[MessageGeneratorContext.__exit__()] exited & suppressed error."
+                    "[MessageAsyncGeneratorContext.__aexit__()] exited & suppressed error."
                 )
             else:
-                logging.debug("[MessageGeneratorContext.__exit__()] exited w/o error.")
+                logging.debug(
+                    "[MessageAsyncGeneratorContext.__aexit__()] exited w/o error."
+                )
             return True  # suppress any Exception
 
-    def __iter__(self) -> "MessageGeneratorContext":
+    def __aiter__(self) -> "MessageAsyncGeneratorContext":
         """Return instance.
 
-        Triggered with 'for'/'iter()'.
+        Triggered with 'for'/'aiter()'.
         """
-        logging.debug("[MessageGeneratorContext.__iter__()] entered loop/`iter()`")
-        if not self.entered:
+        logging.debug(
+            "[MessageAsyncGeneratorContext.__aiter__()] entered loop/`aiter()`"
+        )
+        if not (self.sub and self.gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
@@ -399,15 +409,15 @@ class MessageGeneratorContext:
         ],
         carrier="self._span_carrier",
     )
-    def __next__(self) -> Any:
+    async def __anext__(self) -> Any:
         """Return next Message in queue."""
-        logging.debug("[MessageGeneratorContext.__next__()] next iteration...")
-        if not self.entered:
+        logging.debug("[MessageAsyncGeneratorContext.__anext__()] next iteration...")
+        if not (self.sub and self.gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         # ack the previous message before getting a new one
         if self.msg:
-            self.queue.ack(self.sub, self.msg)
+            await self.queue.ack(self.sub, self.msg)
 
         @wtt.spanned(
             kind=wtt.SpanKind.CONSUMER,
@@ -418,10 +428,10 @@ class MessageGeneratorContext:
             return msg
 
         try:
-            self.msg = get_message_callback(next(self.message_generator))
-        except StopIteration:
+            self.msg = get_message_callback(await self.gen.__anext__())
+        except StopAsyncIteration:
             logging.debug(
-                "[MessageGeneratorContext.__next__()] end of loop (StopIteration)"
+                "[MessageAsyncGeneratorContext.__anext__()] end of loop (StopAsyncIteration)"
             )
             raise
         if not self.msg:

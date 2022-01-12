@@ -1,11 +1,11 @@
 """Unit test Queue class."""
 
-# fmt: off
 # pylint:disable=invalid-name,protected-access
 
-from functools import partial
-from typing import Any, Generator, List
-from unittest.mock import MagicMock, sentinel
+from typing import Any, AsyncGenerator
+from unittest.mock import AsyncMock, sentinel
+
+import pytest
 
 # local imports
 from mqclient.backend_interface import Backend, Message
@@ -14,69 +14,78 @@ from mqclient.queue import Queue
 
 def test_init() -> None:
     """Test constructor."""
-    backend = Backend()
-    q = Queue(backend)
-    assert q._backend == backend
+    mock_backend = Backend()
+    q = Queue(mock_backend)
+    assert q._backend == mock_backend
 
-    q = Queue(Backend(), name='nnn', address='aaa', prefetch=999)
-    assert q._name == 'nnn'
-    assert q._address == 'aaa'
+    q = Queue(Backend(), name="nnn", address="aaa", prefetch=999)
+    assert q._name == "nnn"
+    assert q._address == "aaa"
     assert q._prefetch == 999
 
 
-def test_pub() -> None:
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_pub() -> None:
     """Test pub."""
-    backend = MagicMock()
-    q = Queue(backend)
-    assert q.raw_pub_queue == backend.create_pub_queue.return_value
+    mock_backend = AsyncMock()
+    q = Queue(mock_backend)
+    assert (await q.raw_pub_queue) == mock_backend.create_pub_queue.return_value
 
 
-def test_send() -> None:
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_send() -> None:
     """Test send."""
-    backend = MagicMock()
+    mock_backend = AsyncMock()
 
-    q = Queue(backend)
+    q = Queue(mock_backend)
 
-    data = {'a': 1234}
-    q.send(data)
+    data = {"a": 1234}
+    await q.send(data)
+    mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
 
     # send() adds a unique header, so we need to look at only the data
-    msg = Message(id(sentinel.ID), q.raw_pub_queue.send_message.call_args.args[0])  # type: ignore[attr-defined]
+    msg = Message(
+        id(sentinel.ID),
+        mock_backend.create_pub_queue.return_value.send_message.call_args.args[0],
+    )
     assert msg.data == data
 
 
-def test_recv() -> None:
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_recv() -> None:
     """Test recv."""
 
-    def gen(data: List[Any], *args: Any, **kwargs: Any) -> Generator[Message, None, None]:
+    # pylint:disable=unused-argument
+    async def gen(*args: Any, **kwargs: Any) -> AsyncGenerator[Message, None]:
         for i, d in enumerate(data):
             yield Message(i, Message.serialize(d))
 
-    backend = MagicMock()
+    mock_backend = AsyncMock()
 
-    q = Queue(backend)
+    q = Queue(mock_backend)
 
-    data = ['a', {'b': 100}, ['foo', 'bar']]
+    data = ["a", {"b": 100}, ["foo", "bar"]]
     # q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
-    backend.create_sub_queue.return_value.message_generator.side_effect = partial(gen, data)
+    mock_backend.create_sub_queue.return_value.message_generator = gen
 
-    with q.recv() as recv_gen:
-        recv_data = list(recv_gen)
+    async with q.recv() as recv_gen:
+        recv_data = [d async for d in recv_gen]
         assert data == recv_data
 
 
-def test_recv_one() -> None:
+@pytest.mark.asyncio  # type: ignore[misc]
+async def test_recv_one() -> None:
     """Test recv_one."""
-    backend = MagicMock()
+    mock_backend = AsyncMock()
 
-    q = Queue(backend)
+    q = Queue(mock_backend)
 
     data = {"b": 100}
     msg = Message(0, Message.serialize(data))
-    backend.create_sub_queue.return_value.get_message.return_value = msg
+    mock_backend.create_sub_queue.return_value.get_message.return_value = msg
 
-    with q.recv_one() as d:
+    async with q.recv_one() as d:
         recv_data = d
 
     assert data == recv_data
-    backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
+    mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)

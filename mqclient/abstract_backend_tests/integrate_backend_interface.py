@@ -8,6 +8,8 @@ import itertools
 import logging
 from typing import List, Optional
 
+import asyncstdlib as asl
+
 # local imports
 from ..backend_interface import Backend, Message
 from .utils import DATA_LIST, _log_recv, _log_send
@@ -29,15 +31,15 @@ class PubSubBackendInterface:
     backend = None  # type: Backend
     timeout = 1
 
-    def test_00(self, queue_name: str) -> None:
+    async def test_00(self, queue_name: str) -> None:
         """Sanity test."""
-        pub = self.backend.create_pub_queue("localhost", queue_name)
-        sub = self.backend.create_sub_queue("localhost", queue_name)
+        pub = await self.backend.create_pub_queue("localhost", queue_name)
+        sub = await self.backend.create_sub_queue("localhost", queue_name)
 
         # send
         for msg in DATA_LIST:
             raw_data = Message.serialize(msg)
-            pub.send_message(raw_data)
+            await pub.send_message(raw_data)
             _log_send(msg)
 
         # receive
@@ -45,7 +47,7 @@ class PubSubBackendInterface:
             logging.info(i)
             assert i <= len(DATA_LIST)
 
-            recv_msg = sub.get_message()
+            recv_msg = await sub.get_message()
             _log_recv_message(recv_msg)
 
             # check received message
@@ -56,20 +58,20 @@ class PubSubBackendInterface:
             assert recv_msg
             assert DATA_LIST[i] == recv_msg.data
 
-            sub.ack_message(recv_msg)
+            await sub.ack_message(recv_msg)
 
-    def test_10(self, queue_name: str) -> None:
+    async def test_10(self, queue_name: str) -> None:
         """Test nacking, front-loaded sending.
 
         Order is not guaranteed on redelivery.
         """
-        pub = self.backend.create_pub_queue("localhost", queue_name)
-        sub = self.backend.create_sub_queue("localhost", queue_name)
+        pub = await self.backend.create_pub_queue("localhost", queue_name)
+        sub = await self.backend.create_sub_queue("localhost", queue_name)
 
         # send
         for msg in DATA_LIST:
             raw_data = Message.serialize(msg)
-            pub.send_message(raw_data)
+            await pub.send_message(raw_data)
             _log_send(msg)
 
         # receive -- nack each message, once, and anticipate its redelivery
@@ -85,7 +87,7 @@ class PubSubBackendInterface:
                 assert all((d in DATA_LIST) for d in redelivered_data)
                 break
 
-            recv_msg = sub.get_message()
+            recv_msg = await sub.get_message()
             _log_recv_message(recv_msg)
 
             if not recv_msg:
@@ -98,20 +100,20 @@ class PubSubBackendInterface:
                 logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
-                sub.ack_message(recv_msg)
+                await sub.ack_message(recv_msg)
             # otherwise, nack message
             else:
                 nacked_msgs.append(recv_msg)
-                sub.reject_message(recv_msg)
+                await sub.reject_message(recv_msg)
                 logging.info("NACK!")
 
-    def test_11(self, queue_name: str) -> None:
+    async def test_11(self, queue_name: str) -> None:
         """Test nacking, mixed sending and receiving.
 
         Order is not guaranteed on redelivery.
         """
-        pub = self.backend.create_pub_queue("localhost", queue_name)
-        sub = self.backend.create_sub_queue("localhost", queue_name)
+        pub = await self.backend.create_pub_queue("localhost", queue_name)
+        sub = await self.backend.create_sub_queue("localhost", queue_name)
 
         data_to_send = copy.deepcopy(DATA_LIST)
         nacked_msgs = []  # type: List[Message]
@@ -130,12 +132,12 @@ class PubSubBackendInterface:
             if data_to_send:
                 msg = data_to_send[0]
                 raw_data = Message.serialize(msg)
-                pub.send_message(raw_data)
+                await pub.send_message(raw_data)
                 _log_send(msg)
                 data_to_send.remove(msg)
 
             # get a message
-            recv_msg = sub.get_message()
+            recv_msg = await sub.get_message()
             _log_recv_message(recv_msg)
 
             if not recv_msg:
@@ -148,32 +150,34 @@ class PubSubBackendInterface:
                 logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
-                sub.ack_message(recv_msg)
+                await sub.ack_message(recv_msg)
             # otherwise, nack message
             else:
                 nacked_msgs.append(recv_msg)
-                sub.reject_message(recv_msg)
+                await sub.reject_message(recv_msg)
                 logging.info("NACK!")
 
-    def test_20(self, queue_name: str) -> None:
+    async def test_20(self, queue_name: str) -> None:
         """Sanity test message generator."""
-        pub = self.backend.create_pub_queue("localhost", queue_name)
-        sub = self.backend.create_sub_queue("localhost", queue_name)
+        pub = await self.backend.create_pub_queue("localhost", queue_name)
+        sub = await self.backend.create_sub_queue("localhost", queue_name)
 
         # send
         for msg in DATA_LIST:
             raw_data = Message.serialize(msg)
-            pub.send_message(raw_data)
+            await pub.send_message(raw_data)
             _log_send(msg)
 
         # receive
         last = 0
-        for i, recv_msg in enumerate(sub.message_generator(timeout=self.timeout)):
+        async for i, recv_msg in asl.enumerate(
+            await sub.message_generator(timeout=self.timeout)
+        ):
             logging.info(i)
             _log_recv_message(recv_msg)
             assert recv_msg
             assert recv_msg.data in DATA_LIST
             last = i
-            sub.ack_message(recv_msg)
+            await sub.ack_message(recv_msg)
 
         assert last == len(DATA_LIST) - 1
