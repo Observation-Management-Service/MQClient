@@ -142,8 +142,8 @@ class Sub(RawQueue):
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 
-        Generate messages with variable timeout.
-        Yield `None` on `throw()`.
+        Asynchronously generate messages with variable timeout.
+        Yield `None` on `athrow()`.
 
         Keyword Arguments:
             timeout {int} -- timeout in seconds for inactivity (default: {60})
