@@ -1,11 +1,10 @@
 """Unit test Queue class."""
 
-# fmt: off
 # pylint:disable=invalid-name,protected-access
 
 from functools import partial
 from typing import Any, Generator, List
-from unittest.mock import AsyncMock, MagicMock, patch, sentinel
+from unittest.mock import AsyncMock, sentinel
 
 import pytest
 
@@ -20,9 +19,9 @@ def test_init() -> None:
     q = Queue(mock_backend)
     assert q._backend == mock_backend
 
-    q = Queue(Backend(), name='nnn', address='aaa', prefetch=999)
-    assert q._name == 'nnn'
-    assert q._address == 'aaa'
+    q = Queue(Backend(), name="nnn", address="aaa", prefetch=999)
+    assert q._name == "nnn"
+    assert q._address == "aaa"
     assert q._prefetch == 999
 
 
@@ -41,12 +40,15 @@ async def test_send() -> None:
 
     q = Queue(mock_backend)
 
-    data = {'a': 1234}
+    data = {"a": 1234}
     await q.send(data)
     mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
 
     # send() adds a unique header, so we need to look at only the data
-    msg = Message(id(sentinel.ID), (await q.raw_pub_queue).send_message.call_args.args[0])  # type: ignore[attr-defined]
+    msg = Message(
+        id(sentinel.ID),
+        mock_backend.create_pub_queue.return_value.send_message.call_args.args[0],
+    )
     assert msg.data == data
 
 
@@ -54,7 +56,9 @@ async def test_send() -> None:
 async def test_recv() -> None:
     """Test recv."""
 
-    def gen(data: List[Any], *args: Any, **kwargs: Any) -> Generator[Message, None, None]:
+    def gen(
+        data: List[Any], *args: Any, **kwargs: Any
+    ) -> Generator[Message, None, None]:
         for i, d in enumerate(data):
             yield Message(i, Message.serialize(d))
 
@@ -62,9 +66,11 @@ async def test_recv() -> None:
 
     q = Queue(mock_backend)
 
-    data = ['a', {'b': 100}, ['foo', 'bar']]
+    data = ["a", {"b": 100}, ["foo", "bar"]]
     # q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
-    mock_backend.create_sub_queue.return_value.message_generator.side_effect = partial(gen, data)
+    mock_backend.create_sub_queue.return_value.message_generator.side_effect = partial(
+        gen, data
+    )
 
     async with await q.recv() as recv_gen:
         recv_data = list(recv_gen)
