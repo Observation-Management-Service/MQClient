@@ -281,24 +281,18 @@ class MessageAsyncGeneratorContext:
     def __init__(self, sub: Sub, queue: Queue) -> None:
         logging.debug("[MessageAsyncGeneratorContext.__init__()]")
         self.sub = sub
-        self._msg_gen: Optional[AsyncGenerator[Optional[Message], None]] = None
         self.queue = queue
+
+        self.gen: AsyncGenerator[Optional[Message], None] = self.sub.message_generator(
+            timeout=self.queue.timeout,
+            propagate_error=(not self.queue.except_errors),
+        )  # type: ignore[assignment] # python does magic to make coroutine into an async generator
 
         self._span: Optional[wtt.Span] = None
         self._span_carrier: Optional[Dict[str, Any]] = None
 
         self.entered = False
         self.msg: Optional[Message] = None
-
-    @property
-    async def message_generator(self) -> AsyncGenerator[Optional[Message], None]:
-        """Grab the message generator instance."""
-        if not self._msg_gen:
-            self._msg_gen = await self.sub.message_generator(
-                timeout=self.queue.timeout,
-                propagate_error=(not self.queue.except_errors),
-            )
-        return self._msg_gen
 
     @wtt.spanned(
         these=[
@@ -363,8 +357,8 @@ class MessageAsyncGeneratorContext:
                 await self.queue.nack(self.sub, self.msg)
             # see how the generator wants to handle the exception
             try:
-                # `throw` is caught by the message_generator's try-except around `yield`
-                self.message_generator.throw(exc_type, exc_val, exc_tb)
+                # `throw` is caught by the generator's try-except around `yield`
+                self.gen.athrow(exc_type, exc_val, exc_tb)
             except exc_type:  # message_generator re-raised Exception
                 reraise_exception = True
         # Good Exit (No Original Exception)
@@ -396,12 +390,6 @@ class MessageAsyncGeneratorContext:
 
         Triggered with 'for'/'iter()'.
         """
-
-        # TODO - https://stackoverflow.com/a/56079900
-        # return non-async iterator which wraps calls dealing with event loop
-        # may be easier to break off async-iterator portion of this class into separate class
-        # but need to check other usages (breaking changes are OK, need usability)
-
         logging.debug(
             "[MessageAsyncGeneratorContext.__aiter__()] entered loop/`iter()`"
         )
@@ -438,12 +426,10 @@ class MessageAsyncGeneratorContext:
             return msg
 
         try:
-            self.msg = get_message_callback(
-                await (await self.message_generator).__anext__()
-            )
-        except StopIteration:
+            self.msg = get_message_callback(await self.gen.__anext__())
+        except StopAsyncIteration:
             logging.debug(
-                "[MessageAsyncGeneratorContext.__anext__()] end of loop (StopIteration)"
+                "[MessageAsyncGeneratorContext.__anext__()] end of loop (StopAsyncIteration)"
             )
             raise
         if not self.msg:

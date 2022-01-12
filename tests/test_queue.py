@@ -3,7 +3,7 @@
 # pylint:disable=invalid-name,protected-access
 
 from functools import partial
-from typing import Any, Generator, List
+from typing import Any, AsyncGenerator, List
 from unittest.mock import AsyncMock, sentinel
 
 import pytest
@@ -56,9 +56,8 @@ async def test_send() -> None:
 async def test_recv() -> None:
     """Test recv."""
 
-    def gen(
-        data: List[Any], *args: Any, **kwargs: Any
-    ) -> Generator[Message, None, None]:
+    # pylint:disable=unused-argument
+    async def gen(*args: Any, **kwargs: Any) -> AsyncGenerator[Message, None]:
         for i, d in enumerate(data):
             yield Message(i, Message.serialize(d))
 
@@ -68,12 +67,10 @@ async def test_recv() -> None:
 
     data = ["a", {"b": 100}, ["foo", "bar"]]
     # q.raw_sub_queue.message_generator.side_effect = partial(gen, data)  # type: ignore
-    mock_backend.create_sub_queue.return_value.message_generator.side_effect = partial(
-        gen, data
-    )
+    mock_backend.create_sub_queue.return_value.message_generator = gen
 
     async with await q.recv() as recv_gen:
-        recv_data = list(recv_gen)
+        recv_data = [d async for d in recv_gen]
         assert data == recv_data
 
 
