@@ -271,7 +271,7 @@ class Queue:
 
 
 class MessageAsyncGeneratorContext:
-    """A context manager wrapping `Sub.message_generator()`."""
+    """An async context manager wrapping `Sub.message_generator()`."""
 
     RUNTIME_ERROR_CONTEXT_STRING = (
         "'MessageAsyncGeneratorContext' object's runtime "
@@ -388,10 +388,10 @@ class MessageAsyncGeneratorContext:
     def __aiter__(self) -> "MessageAsyncGeneratorContext":
         """Return instance.
 
-        Triggered with 'for'/'iter()'.
+        Triggered with 'for'/'aiter()'.
         """
         logging.debug(
-            "[MessageAsyncGeneratorContext.__aiter__()] entered loop/`iter()`"
+            "[MessageAsyncGeneratorContext.__aiter__()] entered loop/`aiter()`"
         )
         if not self.entered:
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
