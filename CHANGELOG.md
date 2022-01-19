@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.2.1 (2022-01-19)
+
+
 ## v0.2.0 (2022-01-12)
 ### Feature
 * Convert to Async-Await ([#28](https://github.com/WIPACrepo/MQClient/issues/28)) ([`a5d1808`](https://github.com/WIPACrepo/MQClient/commit/a5d1808dd29fbd9c6f5705f19f3aebc82af9cee4))
