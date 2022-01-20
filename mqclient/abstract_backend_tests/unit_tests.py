@@ -22,13 +22,13 @@ class BackendUnitTest:
     con_patch = ""
 
     @pytest.fixture
-    async def mock_con(self, mocker: Any) -> Any:
+    def mock_con(self, mocker: Any) -> Any:
         """Patch mock_con."""
         return mocker.patch(self.con_patch)
 
     @staticmethod
     @pytest.fixture
-    async def queue_name() -> str:
+    def queue_name() -> str:
         """Get random queue name."""
         name = Queue.make_name()
         logging.info(f"NAME :: {name}")
@@ -56,22 +56,27 @@ class BackendUnitTest:
         """Place messages on the mock queue."""
         raise NotImplementedError()
 
+    @pytest.mark.asyncio
     async def test_create_pub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating pub queue."""
         raise NotImplementedError()
 
+    @pytest.mark.asyncio
     async def test_create_sub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating sub queue."""
         raise NotImplementedError()
 
+    @pytest.mark.asyncio
     async def test_send_message(self, mock_con: Any, queue_name: str) -> None:
         """Test sending message."""
         raise NotImplementedError()
 
+    @pytest.mark.asyncio
     async def test_get_message(self, mock_con: Any, queue_name: str) -> None:
         """Test getting message."""
         raise NotImplementedError()
 
+    @pytest.mark.asyncio
     async def test_ack_message(self, mock_con: Any, queue_name: str) -> None:
         """Test acking message."""
         sub = await self.backend.create_sub_queue("localhost", queue_name)
@@ -80,6 +85,7 @@ class BackendUnitTest:
         await sub.ack_message(Message(12, b""))
         self._get_ack_mock_fn(mock_con).assert_called_with(12)
 
+    @pytest.mark.asyncio
     async def test_reject_message(self, mock_con: Any, queue_name: str) -> None:
         """Test rejecting message."""
         sub = await self.backend.create_sub_queue("localhost", queue_name)
@@ -88,6 +94,7 @@ class BackendUnitTest:
         await sub.reject_message(Message(12, b""))
         self._get_nack_mock_fn(mock_con).assert_called_with(12)
 
+    @pytest.mark.asyncio
     async def test_message_generator_00(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
         sub = await self.backend.create_sub_queue("localhost", queue_name)
@@ -98,7 +105,7 @@ class BackendUnitTest:
 
         fake_data = ["baz-{i}".encode("utf-8") for i in range(num_msgs)]
         fake_ids = [i * 10 for i in range(num_msgs)]
-        self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
+        await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
         async for i, msg in asl.enumerate(await sub.message_generator()):
             logging.debug(i)
@@ -115,6 +122,7 @@ class BackendUnitTest:
         # would be called by Queue
         self._get_close_mock_fn(mock_con).assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_message_generator_01(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
         sub = await self.backend.create_sub_queue("localhost", queue_name)
@@ -123,7 +131,9 @@ class BackendUnitTest:
 
         fake_data = [b"foo, bar", b"baz"]
         fake_ids = [12, 20]
-        self._enqueue_mock_messages(mock_con, fake_data, fake_ids, append_none=False)
+        await self._enqueue_mock_messages(
+            mock_con, fake_data, fake_ids, append_none=False
+        )
 
         m = None
         async for i, x in asl.enumerate(await sub.message_generator()):
@@ -138,13 +148,14 @@ class BackendUnitTest:
         # would be called by Queue
         self._get_close_mock_fn(mock_con).assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_message_generator_02(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
         sub = await self.backend.create_sub_queue("localhost", queue_name)
         if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
-        self._enqueue_mock_messages(mock_con, [b"foo, bar"], [12])
+        await self._enqueue_mock_messages(mock_con, [b"foo, bar"], [12])
 
         m = None
         async for i, x in asl.enumerate(await sub.message_generator()):
@@ -157,6 +168,7 @@ class BackendUnitTest:
         # would be called by Queue
         self._get_close_mock_fn(mock_con).assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_message_generator_10_upstream_error(
         self, mock_con: Any, queue_name: str
     ) -> None:
@@ -167,6 +179,7 @@ class BackendUnitTest:
         """
         raise NotImplementedError()
 
+    @pytest.mark.asyncio
     async def test_message_generator_20_no_auto_ack(
         self, mock_con: Any, queue_name: str
     ) -> None:
@@ -180,7 +193,7 @@ class BackendUnitTest:
 
         fake_data = [b"baz-0", b"baz-1", b"baz-2"]
         fake_ids = [0, 1, 2]
-        self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
+        await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
         gen = await sub.message_generator()
         i = 0
@@ -196,6 +209,7 @@ class BackendUnitTest:
 
             i += 1
 
+    @pytest.mark.asyncio
     async def test_message_generator_30_propagate_error(
         self, mock_con: Any, queue_name: str
     ) -> None:
@@ -210,7 +224,9 @@ class BackendUnitTest:
 
         fake_data = [b"baz-0", b"baz-1", b"baz-2"]
         fake_ids = [0, 1, 2]
-        self._enqueue_mock_messages(mock_con, fake_data, fake_ids, append_none=False)
+        await self._enqueue_mock_messages(
+            mock_con, fake_data, fake_ids, append_none=False
+        )
 
         gen = await sub.message_generator()  # propagate_error=True
         i = 0
@@ -235,6 +251,7 @@ class BackendUnitTest:
 
             i += 1
 
+    @pytest.mark.asyncio
     async def test_message_generator_40_suppress_error(
         self, mock_con: Any, queue_name: str
     ) -> None:
@@ -253,7 +270,7 @@ class BackendUnitTest:
 
         fake_data = [f"baz-{i}".encode("utf-8") for i in range(num_msgs)]
         fake_ids = [i * 10 for i in range(num_msgs)]
-        self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
+        await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
         gen = await sub.message_generator(propagate_error=False)
         i = 0
@@ -274,6 +291,7 @@ class BackendUnitTest:
         # would be called by Queue
         self._get_close_mock_fn(mock_con).assert_not_called()
 
+    @pytest.mark.asyncio
     async def test_message_generator_50_consumer_exception_fail(
         self, mock_con: Any, queue_name: str
     ) -> None:
@@ -286,7 +304,7 @@ class BackendUnitTest:
         if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
-        self._enqueue_mock_messages(mock_con, [b"baz"], [0], append_none=False)
+        await self._enqueue_mock_messages(mock_con, [b"baz"], [0], append_none=False)
 
         excepted = False
         try:
@@ -305,6 +323,7 @@ class BackendUnitTest:
         with pytest.raises(AssertionError):
             self._get_nack_mock_fn(mock_con).assert_called_with(0)
 
+    @pytest.mark.asyncio
     async def test_queue_recv_00_consumer(self, mock_con: Any, queue_name: str) -> None:
         """Test Queue.recv()."""
         q = Queue(self.backend, address="localhost", name=queue_name)
@@ -312,7 +331,7 @@ class BackendUnitTest:
             mock_con.return_value.is_closed = False
 
         fake_data = [Message.serialize("baz")]
-        self._enqueue_mock_messages(mock_con, fake_data, [0])
+        await self._enqueue_mock_messages(mock_con, fake_data, [0])
 
         async with q.recv() as gen:
             for msg in gen:
@@ -323,6 +342,7 @@ class BackendUnitTest:
         self._get_close_mock_fn(mock_con).assert_called()
         self._get_ack_mock_fn(mock_con).assert_called_with(0)
 
+    @pytest.mark.asyncio
     async def test_queue_recv_10_comsumer_exception(
         self, mock_con: Any, queue_name: str
     ) -> None:
@@ -339,7 +359,9 @@ class BackendUnitTest:
 
         fake_data = [Message.serialize("baz-0"), Message.serialize("baz-1")]
         fake_ids = [0, 1]
-        self._enqueue_mock_messages(mock_con, fake_data, fake_ids, append_none=False)
+        await self._enqueue_mock_messages(
+            mock_con, fake_data, fake_ids, append_none=False
+        )
 
         class TestException(Exception):  # pylint: disable=C0115
             pass
@@ -353,6 +375,7 @@ class BackendUnitTest:
         self._get_close_mock_fn(mock_con).assert_called()
         self._get_nack_mock_fn(mock_con).assert_called_with(0)
 
+    @pytest.mark.asyncio
     async def test_queue_recv_11_comsumer_exception(
         self, mock_con: Any, queue_name: str
     ) -> None:
@@ -369,7 +392,7 @@ class BackendUnitTest:
 
         fake_data = [Message.serialize(f"baz-{i}") for i in range(num_msgs)]
         fake_ids = [i * 10 for i in range(num_msgs)]
-        self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
+        await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
         class TestException(Exception):  # pylint: disable=C0115
             pass
@@ -398,6 +421,7 @@ class BackendUnitTest:
 
         self._get_close_mock_fn(mock_con).assert_called()
 
+    @pytest.mark.asyncio
     async def test_queue_recv_12_comsumer_exception(
         self, mock_con: Any, queue_name: str
     ) -> None:
@@ -414,7 +438,7 @@ class BackendUnitTest:
 
         fake_data = [Message.serialize(f"baz-{i}") for i in range(num_msgs)]
         fake_ids = [i * 10 for i in range(num_msgs)]
-        self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
+        await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
         class TestException(Exception):  # pylint: disable=C0115
             pass
@@ -437,7 +461,7 @@ class BackendUnitTest:
         # ***Note***: this hack isn't needed in non-mocking tests, see
         # integrate_queue.py integration tests #60+.
         if is_inst_name(q._backend, "rabbitmq.Backend"):
-            self._enqueue_mock_messages(mock_con, fake_data[1:], fake_ids[1:])
+            await self._enqueue_mock_messages(mock_con, fake_data[1:], fake_ids[1:])
 
         # continue where we left off
         q.except_errors = False
