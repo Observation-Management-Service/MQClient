@@ -359,8 +359,8 @@ class MessageAsyncGeneratorContext:
                 await self.queue.nack(self.sub, self.msg)
             # see how the generator wants to handle the exception
             try:
-                # `throw` is caught by the generator's try-except around `yield`
-                self.gen.athrow(exc_type, exc_val, exc_tb)
+                # `athrow` is caught by the generator's try-except around `yield`
+                await self.gen.athrow(exc_type, exc_val, exc_tb)
             except exc_type:  # message_generator re-raised Exception
                 reraise_exception = True
         # Good Exit (No Original Exception)
