@@ -176,7 +176,7 @@ class PubSubBackendInterface:
         # receive
         last = 0
         async for i, recv_msg in asl.enumerate(
-            await sub.message_generator(timeout=self.timeout)
+            sub.message_generator(timeout=self.timeout)
         ):
             logging.info(i)
             _log_recv_message(recv_msg)

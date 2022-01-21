@@ -107,7 +107,7 @@ class BackendUnitTest:
         fake_ids = [i * 10 for i in range(num_msgs)]
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        async for i, msg in asl.enumerate(await sub.message_generator()):
+        async for i, msg in asl.enumerate(sub.message_generator()):
             logging.debug(i)
             if i > 0:  # see if previous msg was acked
                 # prev_id = (i - 1) * 10
@@ -136,7 +136,7 @@ class BackendUnitTest:
         )
 
         m = None
-        async for i, x in asl.enumerate(await sub.message_generator()):
+        async for i, x in asl.enumerate(sub.message_generator()):
             m = x
             if i == 0:
                 break
@@ -158,7 +158,7 @@ class BackendUnitTest:
         await self._enqueue_mock_messages(mock_con, [b"foo, bar"], [12])
 
         m = None
-        async for i, x in asl.enumerate(await sub.message_generator()):
+        async for i, x in asl.enumerate(sub.message_generator()):
             assert i < 1
             m = x
         assert m is not None
@@ -195,7 +195,7 @@ class BackendUnitTest:
         fake_ids = [0, 1, 2]
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        gen = await sub.message_generator()
+        gen = sub.message_generator()
         i = 0
         async for msg in gen:
             logging.debug(i)
@@ -228,7 +228,7 @@ class BackendUnitTest:
             mock_con, fake_data, fake_ids, append_none=False
         )
 
-        gen = await sub.message_generator()  # propagate_error=True
+        gen = sub.message_generator()  # propagate_error=True
         i = 0
         async for msg in gen:
             logging.debug(i)
@@ -272,7 +272,7 @@ class BackendUnitTest:
         fake_ids = [i * 10 for i in range(num_msgs)]
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        gen = await sub.message_generator(propagate_error=False)
+        gen = sub.message_generator(propagate_error=False)
         i = 0
         async for msg in gen:
             logging.debug(i)
@@ -308,7 +308,7 @@ class BackendUnitTest:
 
         excepted = False
         try:
-            async for msg in await sub.message_generator(propagate_error=False):
+            async for msg in sub.message_generator(propagate_error=False):
                 logging.debug(msg)
                 raise Exception
         except Exception:
