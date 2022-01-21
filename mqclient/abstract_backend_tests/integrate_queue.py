@@ -228,7 +228,7 @@ class PubSubQueue:
 
         # Extra Sub
         with pytest.raises(Exception) as excinfo:
-            recv_thread(0)
+            await recv_thread(-1)
             assert "No message available" in str(excinfo.value)
 
         assert all_were_received(all_recvd)
