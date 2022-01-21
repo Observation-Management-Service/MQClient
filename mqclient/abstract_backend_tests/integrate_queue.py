@@ -46,7 +46,7 @@ class PubSubQueue:
 
         pub_sub.timeout = 1
         async with pub_sub.recv() as gen:
-            for i, d in enumerate(gen):
+            async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
                 # assert d == DATA_LIST[i]  # we don't guarantee order
@@ -135,7 +135,7 @@ class PubSubQueue:
             sub = Queue(self.backend, name=queue_name)
             sub.timeout = 1
             async with sub.recv() as gen:
-                recv_data_list = list(gen)
+                recv_data_list = [m async for m in gen]
             return _log_recv_multiple(recv_data_list)
 
         def start_recv_thread(num_id: int) -> Any:
@@ -248,7 +248,7 @@ class PubSubQueue:
             sub.timeout = 1
             sub.except_errors = False
             async with sub.recv() as gen:
-                received_data = list(gen)
+                received_data = [m async for m in gen]
             all_recvd.extend(_log_recv_multiple(received_data))
 
             assert len(received_data) == 1
@@ -269,7 +269,7 @@ class PubSubQueue:
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
         async with sub.recv() as gen:
-            received_data = list(gen)
+            received_data = [m async for m in gen]
         all_recvd.extend(_log_recv_multiple(received_data))
 
         assert all_were_received(all_recvd)
@@ -290,7 +290,7 @@ class PubSubQueue:
             sub = Queue(self.backend, name=queue_name)
             sub.timeout = 1
             async with sub.recv() as gen:
-                received_data = list(gen)
+                received_data = [m async for m in gen]
             all_recvd.extend(_log_recv_multiple(received_data))
 
             assert len(received_data) == 1
@@ -411,7 +411,7 @@ class PubSubQueue:
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)
         sub2.timeout = 1
         async with sub2.recv() as gen:
-            for _, d in enumerate(gen):
+            async for _, d in asl.enumerate(gen):
                 all_recvd.append(_log_recv(d))
 
         assert all_were_received(all_recvd)
@@ -432,7 +432,7 @@ class PubSubQueue:
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
         async with sub.recv() as gen:
-            for i, d in enumerate(gen):
+            async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 if i == 2:
                     raise TestException()
@@ -445,7 +445,7 @@ class PubSubQueue:
         reused = False
         sub.timeout = 1
         async with sub.recv() as gen:
-            for i, d in enumerate(gen):
+            async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 reused = True
                 all_recvd.append(_log_recv(d))
@@ -473,7 +473,7 @@ class PubSubQueue:
             sub.timeout = 1
             sub.except_errors = False
             async with sub.recv() as gen:
-                for i, d in enumerate(gen):
+                async for i, d in asl.enumerate(gen):
                     if i == 2:
                         raise TestException()
                     all_recvd.append(_log_recv(d))
@@ -489,7 +489,7 @@ class PubSubQueue:
         sub.timeout = 1
         sub.except_errors = False
         async with sub.recv() as gen:
-            for i, d in enumerate(gen):
+            async for i, d in asl.enumerate(gen):
                 reused = True
                 all_recvd.append(_log_recv(d))
                 # assert d == DATA_LIST[i]  # we don't guarantee order
@@ -509,7 +509,7 @@ class PubSubQueue:
         sub.timeout = 1
         recv_gen = sub.recv()
         async with recv_gen as gen:
-            for i, d in enumerate(gen):
+            async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 # assert d == DATA_LIST[i]  # we don't guarantee order
 
@@ -532,7 +532,7 @@ class PubSubQueue:
         sub.timeout = 1
         all_recvd = []
         async with sub.recv() as gen:
-            for i, d in enumerate(gen):
+            async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
                 if i == 2:
@@ -542,7 +542,7 @@ class PubSubQueue:
 
         # continue where we left off
         async with sub.recv() as gen:
-            for i, d in enumerate(gen):
+            async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
 
