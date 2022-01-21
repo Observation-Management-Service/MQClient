@@ -7,6 +7,7 @@ import logging
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
 
+import asyncstdlib as asl
 import pytest
 
 # local imports
@@ -72,7 +73,7 @@ class PubSubQueue:
 
         sub.timeout = 1
         async with sub.recv() as gen:
-            for i, d in enumerate(gen):
+            for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
                 # assert d == DATA_LIST[i]  # we don't guarantee order
