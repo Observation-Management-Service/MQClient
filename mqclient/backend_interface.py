@@ -137,7 +137,7 @@ class Sub(RawQueue):
         """Reject (nack) a message from the queue."""
         raise NotImplementedError()
 
-    async def message_generator(
+    def message_generator(
         self, timeout: int = 60, propagate_error: bool = True
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
