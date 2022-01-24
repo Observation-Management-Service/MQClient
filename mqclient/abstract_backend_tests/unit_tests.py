@@ -3,7 +3,7 @@
 # pylint:disable=invalid-name,protected-access
 
 import logging
-from typing import Any, List
+from typing import Any, List, Optional
 from unittest.mock import Mock
 
 import asyncstdlib as asl
@@ -107,6 +107,7 @@ class BackendUnitTest:
         fake_ids = [i * 10 for i in range(num_msgs)]
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
+        msg: Optional[Message]
         async for i, msg in asl.enumerate(sub.message_generator()):
             logging.debug(i)
             if i > 0:  # see if previous msg was acked
@@ -136,8 +137,9 @@ class BackendUnitTest:
         )
 
         m = None
-        async for i, x in asl.enumerate(sub.message_generator()):
-            m = x
+        msg: Optional[Message]
+        async for i, msg in asl.enumerate(sub.message_generator()):
+            m = msg
             if i == 0:
                 break
 
@@ -158,9 +160,10 @@ class BackendUnitTest:
         await self._enqueue_mock_messages(mock_con, [b"foo, bar"], [12])
 
         m = None
-        async for i, x in asl.enumerate(sub.message_generator()):
+        msg: Optional[Message]
+        async for i, msg in asl.enumerate(sub.message_generator()):
             assert i < 1
-            m = x
+            m = msg
         assert m is not None
         assert m.msg_id == 12
         assert m.payload == b"foo, bar"
