@@ -243,7 +243,7 @@ class BackendUnitTest:
 
             if i == 2:
                 with pytest.raises(Exception):
-                    gen.athrow(Exception)
+                    await gen.athrow(Exception)
                 # would be called by Queue
                 self._get_nack_mock_fn(mock_con).assert_not_called()
                 # would be called by Queue
@@ -282,7 +282,7 @@ class BackendUnitTest:
             assert msg.payload == fake_data[i]
 
             if i % 2 == 0:
-                gen.athrow(Exception)
+                await gen.athrow(Exception)
                 # would be called by Queue
                 self._get_nack_mock_fn(mock_con).assert_not_called()
 
