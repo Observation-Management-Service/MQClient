@@ -334,7 +334,7 @@ class BackendUnitTest:
         await self._enqueue_mock_messages(mock_con, fake_data, [0])
 
         async with q.recv() as gen:
-            for msg in gen:
+            async for msg in gen:
                 logging.debug(msg)
                 assert msg
                 assert msg == "baz"
@@ -398,7 +398,7 @@ class BackendUnitTest:
             pass
 
         async with q.recv() as gen:  # suppress_errors=True
-            for msg in gen:
+            async for msg in gen:
                 logging.debug(msg)
                 raise TestException
 
@@ -446,7 +446,7 @@ class BackendUnitTest:
         with pytest.raises(TestException):
             q.except_errors = False
             async with q.recv() as gen:
-                for msg in gen:
+                async for msg in gen:
                     logging.debug(msg)
                     raise TestException
 
