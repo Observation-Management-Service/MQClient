@@ -430,10 +430,12 @@ class MessageAsyncGeneratorContext:
         try:
             self.msg = get_message_callback(await self.gen.__anext__())
         except StopAsyncIteration:
+            self.msg = None  # signal there is no message to ack/nack in `__aexit__()`
             logging.debug(
                 "[MessageAsyncGeneratorContext.__anext__()] end of loop (StopAsyncIteration)"
             )
             raise
+
         if not self.msg:
             raise RuntimeError(
                 "Yielded value is `None`. This should not have happened."
