@@ -9,6 +9,7 @@ import logging
 from typing import List, Optional
 
 import asyncstdlib as asl
+import pytest
 
 # local imports
 from ..backend_interface import Backend, Message
@@ -31,6 +32,7 @@ class PubSubBackendInterface:
     backend = None  # type: Backend
     timeout = 1
 
+    @pytest.mark.asyncio
     async def test_00(self, queue_name: str) -> None:
         """Sanity test."""
         pub = await self.backend.create_pub_queue("localhost", queue_name)
@@ -60,6 +62,7 @@ class PubSubBackendInterface:
 
             await sub.ack_message(recv_msg)
 
+    @pytest.mark.asyncio
     async def test_10(self, queue_name: str) -> None:
         """Test nacking, front-loaded sending.
 
@@ -107,6 +110,7 @@ class PubSubBackendInterface:
                 await sub.reject_message(recv_msg)
                 logging.info("NACK!")
 
+    @pytest.mark.asyncio
     async def test_11(self, queue_name: str) -> None:
         """Test nacking, mixed sending and receiving.
 
@@ -157,6 +161,7 @@ class PubSubBackendInterface:
                 await sub.reject_message(recv_msg)
                 logging.info("NACK!")
 
+    @pytest.mark.asyncio
     async def test_20(self, queue_name: str) -> None:
         """Sanity test message generator."""
         pub = await self.backend.create_pub_queue("localhost", queue_name)
@@ -170,8 +175,9 @@ class PubSubBackendInterface:
 
         # receive
         last = 0
+        recv_msg: Optional[Message]
         async for i, recv_msg in asl.enumerate(
-            await sub.message_generator(timeout=self.timeout)
+            sub.message_generator(timeout=self.timeout)
         ):
             logging.info(i)
             _log_recv_message(recv_msg)
