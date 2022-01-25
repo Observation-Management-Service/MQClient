@@ -319,7 +319,7 @@ class MessageAsyncGeneratorContext:
         self.gen = self.sub.message_generator(
             timeout=self.queue.timeout,
             propagate_error=(not self.queue.except_errors),
-        )  # type: ignore[assignment] # python does magic to make coroutine into an async generator
+        )
 
         self._span = wtt.get_current_span()
         self._span_carrier = wtt.inject_span_carrier()
