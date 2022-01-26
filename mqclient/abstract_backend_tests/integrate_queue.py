@@ -33,16 +33,18 @@ class PubSubQueue:
         all_recvd: List[Any] = []
 
         pub_sub = Queue(self.backend, name=queue_name)
-        await pub_sub.send(DATA_LIST[0])
+        async with pub_sub.sender() as send:
+            await send(DATA_LIST[0])
         _log_send(DATA_LIST[0])
 
         async with pub_sub.recv_one() as d:
             all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
-        for d in DATA_LIST:
-            await pub_sub.send(d)
-            _log_send(d)
+        async with pub_sub.sender() as send:
+            for d in DATA_LIST:
+                await send(d)
+                _log_send(d)
 
         pub_sub.timeout = 1
         async with pub_sub.recv() as gen:
