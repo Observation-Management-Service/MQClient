@@ -62,8 +62,8 @@ class PubSubBackendInterface:
 
             await sub.ack_message(recv_msg)
 
-        pub.close()
-        sub.close()
+        await pub.close()
+        await sub.close()
 
     @pytest.mark.asyncio
     async def test_10(self, queue_name: str) -> None:
@@ -113,8 +113,8 @@ class PubSubBackendInterface:
                 await sub.reject_message(recv_msg)
                 logging.info("NACK!")
 
-        pub.close()
-        sub.close()
+        await pub.close()
+        await sub.close()
 
     @pytest.mark.asyncio
     async def test_11(self, queue_name: str) -> None:
@@ -167,8 +167,8 @@ class PubSubBackendInterface:
                 await sub.reject_message(recv_msg)
                 logging.info("NACK!")
 
-        pub.close()
-        sub.close()
+        await pub.close()
+        await sub.close()
 
     @pytest.mark.asyncio
     async def test_20(self, queue_name: str) -> None:
@@ -197,5 +197,5 @@ class PubSubBackendInterface:
 
         assert last == len(DATA_LIST) - 1
 
-        pub.close()
-        sub.close()
+        await pub.close()
+        await sub.close()
