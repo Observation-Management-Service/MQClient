@@ -24,15 +24,7 @@ def test_init() -> None:
     assert q._prefetch == 999
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
-async def test_pub() -> None:
-    """Test pub."""
-    mock_backend = AsyncMock()
-    q = Queue(mock_backend)
-    assert (await q.raw_pub_queue) == mock_backend.create_pub_queue.return_value
-
-
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_send() -> None:
     """Test send."""
     mock_backend = AsyncMock()
@@ -40,7 +32,8 @@ async def test_send() -> None:
     q = Queue(mock_backend)
 
     data = {"a": 1234}
-    await q.send(data)
+    async with q.sender() as s:
+        await s.send(data)
     mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
 
     # send() adds a unique header, so we need to look at only the data
@@ -51,7 +44,7 @@ async def test_send() -> None:
     assert msg.data == data
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_recv() -> None:
     """Test recv."""
 
@@ -73,7 +66,7 @@ async def test_recv() -> None:
         assert data == recv_data
 
 
-@pytest.mark.asyncio  # type: ignore[misc]
+@pytest.mark.asyncio
 async def test_recv_one() -> None:
     """Test recv_one."""
     mock_backend = AsyncMock()

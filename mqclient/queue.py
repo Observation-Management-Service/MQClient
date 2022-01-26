@@ -40,7 +40,6 @@ class Queue:
         self._address = address
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
-        self._pub_queue: Optional[Pub] = None
         self._auth_token = auth_token
 
         # publics
@@ -67,28 +66,11 @@ class Queue:
             raise Exception("prefetch must be positive")
         self._timeout = val
 
-    @property
-    async def raw_pub_queue(self) -> Pub:
-        """Get publisher queue."""
-        if not self._pub_queue:
-            self._pub_queue = await self._backend.create_pub_queue(
-                self._address, self._name, auth_token=self._auth_token
-            )
-
-        if not self._pub_queue:
-            raise Exception("Pub queue failed to be created.")
-        return self._pub_queue
-
-    @raw_pub_queue.deleter
-    async def raw_pub_queue(self) -> None:
-        logging.debug("Deleter Queue.raw_pub_queue")
-        await self._close_pub_queue()
-
-    async def _close_pub_queue(self) -> None:
-        if self._pub_queue:
-            logging.debug("Closing Queue._pub_queue")
-            await self._pub_queue.close()
-            self._pub_queue = None
+    async def _create_pub_queue(self) -> Pub:
+        """Wrap `self._backend.create_pub_queue()` with instance's config."""
+        return await self._backend.create_pub_queue(
+            self._address, self._name, auth_token=self._auth_token
+        )
 
     async def _create_sub_queue(self) -> Sub:
         """Wrap `self._backend.create_sub_queue()` with instance's config."""
@@ -96,6 +78,7 @@ class Queue:
             self._address, self._name, self._prefetch, auth_token=self._auth_token
         )
 
+    @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
         these=[
             "self._backend",
@@ -105,28 +88,14 @@ class Queue:
             "self.timeout",
         ]
     )
-    async def close(self) -> None:
-        """Close all persisted connections."""
-        await self._close_pub_queue()
+    async def sender(self) -> AsyncIterator["QueueSender"]:
+        """Send messages to the queue."""
+        pub = await self._create_pub_queue()
 
-    @wtt.spanned(
-        these=[
-            "self._backend",
-            "self._address",
-            "self._name",
-            "self._prefetch",
-            "self.timeout",
-        ],
-        kind=wtt.SpanKind.PRODUCER,
-    )
-    async def send(self, data: Any) -> None:
-        """Send a message to the queue.
-
-        Arguments:
-            data (Any): object of data to send (must be serializable)
-        """
-        msg = Message.serialize(data, headers=wtt.inject_links_carrier())
-        await (await self.raw_pub_queue).send_message(msg)
+        try:
+            yield QueueSender(pub)
+        finally:
+            await pub.close()
 
     @wtt.spanned(
         these=[
@@ -265,10 +234,20 @@ class Queue:
             f"address={self._address}, "
             f"name={self._name}, "
             f"prefetch={self._prefetch}, "
-            f"timeout={self.timeout}, "
-            f"pub={bool(self._pub_queue)}"
+            f"timeout={self.timeout}"
             f")"
         )
+
+
+class QueueSender:
+    def __init__(self, pub: Pub):
+        self.pub = pub
+
+    @wtt.spanned(kind=wtt.SpanKind.PRODUCER)
+    async def send(self, data: Any) -> None:
+        """Send a message."""
+        msg = Message.serialize(data, headers=wtt.inject_links_carrier())
+        await self.pub.send_message(msg)
 
 
 class MessageAsyncGeneratorContext:
@@ -319,7 +298,7 @@ class MessageAsyncGeneratorContext:
         self.gen = self.sub.message_generator(
             timeout=self.queue.timeout,
             propagate_error=(not self.queue.except_errors),
-        )  # type: ignore[assignment] # python does magic to make coroutine into an async generator
+        )
 
         self._span = wtt.get_current_span()
         self._span_carrier = wtt.inject_span_carrier()
@@ -430,10 +409,12 @@ class MessageAsyncGeneratorContext:
         try:
             self.msg = get_message_callback(await self.gen.__anext__())
         except StopAsyncIteration:
+            self.msg = None  # signal there is no message to ack/nack in `__aexit__()`
             logging.debug(
                 "[MessageAsyncGeneratorContext.__anext__()] end of loop (StopAsyncIteration)"
             )
             raise
+
         if not self.msg:
             raise RuntimeError(
                 "Yielded value is `None`. This should not have happened."
