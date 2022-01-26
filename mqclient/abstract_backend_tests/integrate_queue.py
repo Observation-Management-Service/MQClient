@@ -43,7 +43,7 @@ class PubSubQueue:
 
         async with pub_sub.sender() as s:
             for d in DATA_LIST:
-                await s.send(d)
+                await s.send(d, d, d)
                 _log_send(d)
 
         pub_sub.timeout = 1
