@@ -363,11 +363,12 @@ class PubSubQueue:
         """
         all_recvd: List[Any] = []
 
-        for i, data in enumerate(DATA_LIST):
-            if i % 2 == 0:  # each pub sends 2 messages back-to-back
+        for data_pairs in [DATA_LIST[i : i + 2] for i in range(0, len(DATA_LIST), 2)]:
+            for data in data_pairs:
                 pub = Queue(self.backend, name=queue_name)
-            await pub.send(data)
-            _log_send(data)
+                async with pub.sender() as send:
+                    await send(data)
+                    _log_send(data)
 
         for _ in range(len(DATA_LIST)):
             sub = Queue(self.backend, name=queue_name)
