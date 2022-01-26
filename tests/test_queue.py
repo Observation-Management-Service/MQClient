@@ -32,8 +32,8 @@ async def test_send() -> None:
     q = Queue(mock_backend)
 
     data = {"a": 1234}
-    async with q.sender() as send:
-        await send(data)
+    async with q.sender() as s:
+        await s.send(data)
     mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
 
     # send() adds a unique header, so we need to look at only the data
