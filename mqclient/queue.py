@@ -4,7 +4,16 @@ import contextlib
 import logging
 import types
 import uuid
-from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Dict,
+    Optional,
+    Type,
+)
 
 import wipac_telemetry.tracing_tools as wtt
 
@@ -40,7 +49,6 @@ class Queue:
         self._address = address
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
-        self._pub_queue: Optional[Pub] = None
         self._auth_token = auth_token
 
         # publics
@@ -67,28 +75,11 @@ class Queue:
             raise Exception("prefetch must be positive")
         self._timeout = val
 
-    @property
-    async def raw_pub_queue(self) -> Pub:
-        """Get publisher queue."""
-        if not self._pub_queue:
-            self._pub_queue = await self._backend.create_pub_queue(
-                self._address, self._name, auth_token=self._auth_token
-            )
-
-        if not self._pub_queue:
-            raise Exception("Pub queue failed to be created.")
-        return self._pub_queue
-
-    @raw_pub_queue.deleter
-    async def raw_pub_queue(self) -> None:
-        logging.debug("Deleter Queue.raw_pub_queue")
-        await self._close_pub_queue()
-
-    async def _close_pub_queue(self) -> None:
-        if self._pub_queue:
-            logging.debug("Closing Queue._pub_queue")
-            await self._pub_queue.close()
-            self._pub_queue = None
+    async def _create_pub_queue(self) -> Pub:
+        """Wrap `self._backend.create_pub_queue()` with instance's config."""
+        return await self._backend.create_pub_queue(
+            self._address, self._name, auth_token=self._auth_token
+        )
 
     async def _create_sub_queue(self) -> Sub:
         """Wrap `self._backend.create_sub_queue()` with instance's config."""
@@ -96,6 +87,7 @@ class Queue:
             self._address, self._name, self._prefetch, auth_token=self._auth_token
         )
 
+    @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
         these=[
             "self._backend",
@@ -105,28 +97,19 @@ class Queue:
             "self.timeout",
         ]
     )
-    async def close(self) -> None:
-        """Close all persisted connections."""
-        await self._close_pub_queue()
+    async def sender(self) -> AsyncIterator[Callable[[Any], Awaitable[None]]]:
+        """Send messages to the queue."""
+        pub = await self._create_pub_queue()
 
-    @wtt.spanned(
-        these=[
-            "self._backend",
-            "self._address",
-            "self._name",
-            "self._prefetch",
-            "self.timeout",
-        ],
-        kind=wtt.SpanKind.PRODUCER,
-    )
-    async def send(self, data: Any) -> None:
-        """Send a message to the queue.
+        @wtt.spanned(kind=wtt.SpanKind.PRODUCER)
+        async def _send(data: Any) -> None:
+            msg = Message.serialize(data, headers=wtt.inject_links_carrier())
+            await pub.send_message(msg)
 
-        Arguments:
-            data (Any): object of data to send (must be serializable)
-        """
-        msg = Message.serialize(data, headers=wtt.inject_links_carrier())
-        await (await self.raw_pub_queue).send_message(msg)
+        try:
+            yield _send
+        finally:
+            await pub.close()
 
     @wtt.spanned(
         these=[
