@@ -4,16 +4,7 @@ import contextlib
 import logging
 import types
 import uuid
-from typing import (
-    Any,
-    AsyncGenerator,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Dict,
-    Optional,
-    Type,
-)
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
 
 import wipac_telemetry.tracing_tools as wtt
 
@@ -97,17 +88,12 @@ class Queue:
             "self.timeout",
         ]
     )
-    async def sender(self) -> AsyncIterator[Callable[[Any], Awaitable[None]]]:
+    async def sender(self) -> AsyncIterator["QueueSender"]:
         """Send messages to the queue."""
         pub = await self._create_pub_queue()
 
-        @wtt.spanned(kind=wtt.SpanKind.PRODUCER)
-        async def _send(data: Any) -> None:
-            msg = Message.serialize(data, headers=wtt.inject_links_carrier())
-            await pub.send_message(msg)
-
         try:
-            yield _send
+            yield QueueSender(pub)
         finally:
             await pub.close()
 
@@ -251,6 +237,17 @@ class Queue:
             f"timeout={self.timeout}"
             f")"
         )
+
+
+class QueueSender:
+    def __init__(self, pub: Pub):
+        self.pub = pub
+
+    @wtt.spanned(kind=wtt.SpanKind.PRODUCER)
+    async def send(self, data: Any) -> None:
+        """Send a message."""
+        msg = Message.serialize(data, headers=wtt.inject_links_carrier())
+        await self.pub.send_message(msg)
 
 
 class MessageAsyncGeneratorContext:
