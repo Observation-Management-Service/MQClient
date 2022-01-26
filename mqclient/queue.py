@@ -248,8 +248,7 @@ class Queue:
             f"address={self._address}, "
             f"name={self._name}, "
             f"prefetch={self._prefetch}, "
-            f"timeout={self.timeout}, "
-            f"pub={bool(self._pub_queue)}"
+            f"timeout={self.timeout}"
             f")"
         )
 
