@@ -423,3 +423,17 @@ class MessageAsyncGeneratorContext:
             )
 
         return self.msg.data
+
+    @wtt.spanned(
+        these=[
+            "self.queue._backend",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+    )
+    async def nack_current(self) -> None:
+        """Manually nack the current (most recently yielded) message."""
+        await self.queue._safe_ack(self.sub, self.msg)
+        # TODO - add other checks during the auto-ack/nack logic, but first test
