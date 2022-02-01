@@ -28,7 +28,6 @@ def test_init() -> None:
 async def test_send() -> None:
     """Test send."""
     mock_backend = AsyncMock()
-
     q = Queue(mock_backend)
 
     data = {"a": 1234}
@@ -54,7 +53,6 @@ async def test_recv() -> None:
             yield Message(i, Message.serialize(d))
 
     mock_backend = AsyncMock()
-
     q = Queue(mock_backend)
 
     data = ["a", {"b": 100}, ["foo", "bar"]]
@@ -72,7 +70,6 @@ async def test_recv() -> None:
 async def test_recv_one() -> None:
     """Test recv_one."""
     mock_backend = AsyncMock()
-
     q = Queue(mock_backend)
 
     data = {"b": 100}
@@ -87,6 +84,56 @@ async def test_recv_one() -> None:
 
 
 @pytest.mark.asyncio
+async def test_safe_ack() -> None:
+    """Test _safe_ack()."""
+    mock_backend = AsyncMock()
+    q = Queue(mock_backend)
+
+    data = {"b": 100}
+    msg = Message(0, Message.serialize(data))
+
+    assert msg._ack_status == Message.AckStatus.NONE
+    q._safe_nack(AsyncMock(), msg)
+    mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
+    assert msg._ack_status == Message.AckStatus.ACK
+
+    assert msg._ack_status == Message.AckStatus.ACK
+    q._safe_nack(AsyncMock(), msg)
+    mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
+    assert msg._ack_status == Message.AckStatus.ACK
+
+    assert msg._ack_status == Message.AckStatus.NACK
+    q._safe_nack(AsyncMock(), msg)
+    mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
+    assert msg._ack_status == Message.AckStatus.NACK
+
+
+@pytest.mark.asyncio
+async def test_safe_nack() -> None:
+    """Test _safe_nack()."""
+    mock_backend = AsyncMock()
+    q = Queue(mock_backend)
+
+    data = {"b": 100}
+    msg = Message(0, Message.serialize(data))
+
+    assert msg._ack_status == Message.AckStatus.NONE
+    q._safe_nack(AsyncMock(), msg)
+    mock_backend.create_sub_queue.return_value.reject_message.assert_called_with(msg)
+    assert msg._ack_status == Message.AckStatus.NACK
+
+    assert msg._ack_status == Message.AckStatus.ACK
+    q._safe_nack(AsyncMock(), msg)
+    mock_backend.create_sub_queue.return_value.reject_message.assert_called_with(msg)
+    assert msg._ack_status == Message.AckStatus.ACK
+
+    assert msg._ack_status == Message.AckStatus.NACK
+    q._safe_nack(AsyncMock(), msg)
+    mock_backend.create_sub_queue.return_value.reject_message.assert_called_with(msg)
+    assert msg._ack_status == Message.AckStatus.NACK
+
+
+@pytest.mark.asyncio
 async def test_nack_previous() -> None:
     """Test recv with nack_current()."""
 
@@ -96,7 +143,6 @@ async def test_nack_previous() -> None:
             yield Message(i, Message.serialize(d))
 
     mock_backend = AsyncMock()
-
     q = Queue(mock_backend)
 
     data = ["a", {"b": 100}, ["foo", "bar"]]
