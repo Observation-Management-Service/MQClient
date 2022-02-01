@@ -3,7 +3,7 @@
 # pylint:disable=invalid-name,protected-access
 
 from typing import Any, AsyncGenerator
-from unittest.mock import AsyncMock, sentinel
+from unittest.mock import AsyncMock, call, sentinel
 
 import pytest
 
@@ -64,6 +64,9 @@ async def test_recv() -> None:
     async with q.recv() as recv_gen:
         recv_data = [d async for d in recv_gen]
         assert data == recv_data
+        mock_backend.create_sub_queue.return_value.ack_message.assert_has_calls(
+            [call(m) for m in recv_data]
+        )
 
 
 @pytest.mark.asyncio
