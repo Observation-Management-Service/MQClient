@@ -65,7 +65,7 @@ async def test_recv() -> None:
         recv_data = [d async for d in recv_gen]
         assert data == recv_data
         mock_backend.create_sub_queue.return_value.ack_message.assert_has_calls(
-            [call(m) for m in recv_data]
+            [call(Message(i, Message.serialize(d))) for i, d in enumerate(recv_data)]
         )
 
 
