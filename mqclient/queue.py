@@ -109,20 +109,21 @@ class Queue:
     )  # pylint:disable=no-self-use
     async def _safe_ack(self, sub: Sub, msg: Message) -> None:
         """Acknowledge the message."""
-        if msg.ack_status == Message.AckStatus.NONE:
+        # pylint:disable=protected-access
+        if msg._ack_status == Message.AckStatus.NONE:
             try:
                 await sub.ack_message(msg)
-                msg.ack_status = Message.AckStatus.ACKED  # mark after success
+                msg._ack_status = Message.AckStatus.ACKED  # mark after success
             except Exception as e:
                 raise AckException("Acking failed on backend") from e
-        elif msg.ack_status == Message.AckStatus.NACKED:
+        elif msg._ack_status == Message.AckStatus.NACKED:
             raise AckException(
                 "Message has already been rejected/nacked, it cannot be acked"
             )
-        elif msg.ack_status == Message.AckStatus.ACKED:
+        elif msg._ack_status == Message.AckStatus.ACKED:
             pass  # needless, so we'll skip it
         else:
-            raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg._ack_status}")
 
     @wtt.spanned(
         these=[
@@ -136,20 +137,21 @@ class Queue:
     )  # pylint:disable=no-self-use
     async def _safe_nack(self, sub: Sub, msg: Message) -> None:
         """Reject/nack the message."""
-        if msg.ack_status == Message.AckStatus.NONE:
+        # pylint:disable=protected-access
+        if msg._ack_status == Message.AckStatus.NONE:
             try:
                 await sub.reject_message(msg)
-                msg.ack_status = Message.AckStatus.NACKED  # mark after success
+                msg._ack_status = Message.AckStatus.NACKED  # mark after success
             except Exception as e:
                 raise NackException("Nacking failed on backend") from e
-        elif msg.ack_status == Message.AckStatus.NACKED:
+        elif msg._ack_status == Message.AckStatus.NACKED:
             pass  # needless, so we'll skip it
-        elif msg.ack_status == Message.AckStatus.ACKED:
+        elif msg._ack_status == Message.AckStatus.ACKED:
             raise NackException(
                 "Message has already been acked, it cannot be rejected/nacked"
             )
         else:
-            raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg._ack_status}")
 
     def recv(self) -> "MessageAsyncGeneratorContext":
         """Receive a stream of messages from the queue.
@@ -264,8 +266,8 @@ class MessageAsyncGeneratorContext:
         logging.debug("[MessageAsyncGeneratorContext.__init__()]")
         self.queue = queue
 
-        self.sub: Optional[Sub] = None
-        self.gen: Optional[AsyncGenerator[Optional[Message], None]] = None
+        self._sub: Optional[Sub] = None
+        self._gen: Optional[AsyncGenerator[Optional[Message], None]] = None
 
         self._span: Optional[wtt.Span] = None
         self._span_carrier: Optional[Dict[str, Any]] = None
@@ -291,13 +293,13 @@ class MessageAsyncGeneratorContext:
             "[MessageAsyncGeneratorContext.__aenter__()] entered `with-as` block"
         )
 
-        if self.sub and self.gen:
+        if self._sub and self._gen:
             raise RuntimeError(
                 "A 'MessageAsyncGeneratorContext' instance cannot be re-entered."
             )
 
-        self.sub = await self.queue._create_sub_queue()
-        self.gen = self.sub.message_generator(
+        self._sub = await self.queue._create_sub_queue()
+        self._gen = self._sub.message_generator(
             timeout=self.queue.timeout,
             propagate_error=(not self.queue.except_errors),
         )
@@ -329,7 +331,7 @@ class MessageAsyncGeneratorContext:
         logging.debug(
             f"[MessageAsyncGeneratorContext.__aexit__()] exiting `with-as` block (exc:{exc_type})"
         )
-        if not (self.sub and self.gen):
+        if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         reraise_exception = False
@@ -337,19 +339,19 @@ class MessageAsyncGeneratorContext:
         # Exception Was Raised
         if exc_type and exc_val:
             if self.msg:
-                await self.queue._safe_nack(self.sub, self.msg)
+                await self.queue._safe_nack(self._sub, self.msg)
             # see how the generator wants to handle the exception
             try:
                 # `athrow` is caught by the generator's try-except around `yield`
-                await self.gen.athrow(exc_type, exc_val, exc_tb)
+                await self._gen.athrow(exc_type, exc_val, exc_tb)
             except exc_type:  # message_generator re-raised Exception
                 reraise_exception = True
         # Good Exit (No Original Exception)
         else:
             if self.msg:
-                await self.queue._safe_ack(self.sub, self.msg)
+                await self.queue._safe_ack(self._sub, self.msg)
 
-        await self.sub.close()  # close after cleanup
+        await self._sub.close()  # close after cleanup
 
         if reraise_exception:
             logging.debug(
@@ -376,7 +378,7 @@ class MessageAsyncGeneratorContext:
         logging.debug(
             "[MessageAsyncGeneratorContext.__aiter__()] entered loop/`aiter()`"
         )
-        if not (self.sub and self.gen):
+        if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
@@ -393,12 +395,12 @@ class MessageAsyncGeneratorContext:
     async def __anext__(self) -> Any:
         """Return next Message in queue."""
         logging.debug("[MessageAsyncGeneratorContext.__anext__()] next iteration...")
-        if not (self.sub and self.gen):
+        if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         # ack the previous message before getting a new one
         if self.msg:
-            await self.queue._safe_ack(self.sub, self.msg)
+            await self.queue._safe_ack(self._sub, self.msg)
 
         @wtt.spanned(
             kind=wtt.SpanKind.CONSUMER,
@@ -409,7 +411,7 @@ class MessageAsyncGeneratorContext:
             return msg
 
         try:
-            self.msg = get_message_callback(await self.gen.__anext__())
+            self.msg = get_message_callback(await self._gen.__anext__())
         except StopAsyncIteration:
             self.msg = None  # signal there is no message to ack/nack in `__aexit__()`
             logging.debug(
@@ -435,5 +437,6 @@ class MessageAsyncGeneratorContext:
     )
     async def nack_current(self) -> None:
         """Manually nack the current (most recently yielded) message."""
-        await self.queue._safe_ack(self.sub, self.msg)
+        # pylint:disable=protected-access
+        await self.queue._safe_ack(self._sub, self.msg)
         # TODO - add other checks during the auto-ack/nack logic, but first test
