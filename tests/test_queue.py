@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, call, sentinel
 import pytest
 
 # local imports
-from mqclient.backend_interface import AckExceptionk, Backend, Message, NackException
+from mqclient.backend_interface import AckException, Backend, Message, NackException
 from mqclient.queue import Queue
 
 
