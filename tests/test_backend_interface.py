@@ -16,4 +16,4 @@ def test_Message() -> None:
     m = backend_interface.Message('foo', b'abc')
     assert m.msg_id == 'foo'
     assert m.payload == b'abc'
-    assert m._ack_status == backend_interface.AckStatus.NONE
+    assert m._ack_status == backend_interface.Message.AckStatus.NONE
