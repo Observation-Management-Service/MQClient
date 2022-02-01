@@ -93,17 +93,17 @@ async def test_safe_ack() -> None:
     msg = Message(0, Message.serialize(data))
 
     assert msg._ack_status == Message.AckStatus.NONE
-    await q._safe_nack(AsyncMock(), msg)
+    await q._safe_ack(AsyncMock(), msg)
     mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
     assert msg._ack_status == Message.AckStatus.ACK
 
     assert msg._ack_status == Message.AckStatus.ACK
-    await q._safe_nack(AsyncMock(), msg)
+    await q._safe_ack(AsyncMock(), msg)
     mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
     assert msg._ack_status == Message.AckStatus.ACK
 
     assert msg._ack_status == Message.AckStatus.NACK
-    await q._safe_nack(AsyncMock(), msg)
+    await q._safe_ack(AsyncMock(), msg)
     mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
     assert msg._ack_status == Message.AckStatus.NACK
 
