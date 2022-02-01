@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, call, sentinel
 import pytest
 
 # local imports
-from mqclient.backend_interface import Backend, Message
+from mqclient.backend_interface import Backend, Message, NackException
 from mqclient.queue import Queue
 
 
@@ -91,6 +91,7 @@ async def test_safe_ack() -> None:
 
     data = {"b": 100}
 
+    # okay/normal
     mock_sub = AsyncMock()
     msg = Message(0, Message.serialize(data))
     assert msg._ack_status == Message.AckStatus.NONE
@@ -98,6 +99,7 @@ async def test_safe_ack() -> None:
     mock_sub.ack_message.assert_called_with(msg)
     assert msg._ack_status == Message.AckStatus.ACKED
 
+    # okay but pointless
     mock_sub = AsyncMock()
     msg = Message(0, Message.serialize(data))
     msg._ack_status = Message.AckStatus.ACKED
@@ -106,11 +108,13 @@ async def test_safe_ack() -> None:
     mock_sub.ack_message.assert_not_called()
     assert msg._ack_status == Message.AckStatus.ACKED
 
+    # not okay
     mock_sub = AsyncMock()
     msg = Message(0, Message.serialize(data))
     msg._ack_status = Message.AckStatus.NACKED
     assert msg._ack_status == Message.AckStatus.NACKED
-    await q._safe_ack(mock_sub, msg)
+    with pytest.raises(AckException):
+        await q._safe_ack(mock_sub, msg)
     mock_sub.ack_message.assert_not_called()
     assert msg._ack_status == Message.AckStatus.NACKED
 
@@ -123,6 +127,7 @@ async def test_safe_nack() -> None:
 
     data = {"b": 100}
 
+    # okay/normal
     mock_sub = AsyncMock()
     msg = Message(0, Message.serialize(data))
     assert msg._ack_status == Message.AckStatus.NONE
@@ -130,14 +135,17 @@ async def test_safe_nack() -> None:
     mock_sub.ack_message.assert_called_with(msg)
     assert msg._ack_status == Message.AckStatus.NACKED
 
+    # not okay
     mock_sub = AsyncMock()
     msg = Message(0, Message.serialize(data))
     msg._ack_status = Message.AckStatus.ACKED
     assert msg._ack_status == Message.AckStatus.ACKED
-    await q._safe_nack(mock_sub, msg)
+    with pytest.raises(NackException):
+        await q._safe_nack(mock_sub, msg)
     mock_sub.ack_message.assert_not_called()
     assert msg._ack_status == Message.AckStatus.ACKED
 
+    # okay but pointless
     mock_sub = AsyncMock()
     msg = Message(0, Message.serialize(data))
     msg._ack_status = Message.AckStatus.NACKED
