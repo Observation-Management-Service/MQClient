@@ -88,7 +88,7 @@ async def test_recv_one() -> None:
 
 @pytest.mark.asyncio
 async def test_nack_previous() -> None:
-    """Test recv with nack_previous()."""
+    """Test recv with nack_current()."""
 
     # pylint:disable=unused-argument
     async def gen(*args: Any, **kwargs: Any) -> AsyncGenerator[Message, None]:
@@ -107,7 +107,7 @@ async def test_nack_previous() -> None:
         # manual nacking won't actually place the message for redelivery b/c of mocking
         async for data in recv_gen:
             mock_backend.create_sub_queue.return_value.ack_message.assert_not_called()
-            recv_gen.nack_previous()
+            recv_gen.nack_current()
             mock_backend.create_sub_queue.return_value.reject_message.assert_called_with(
                 Message(i, Message.serialize(data))
             )
