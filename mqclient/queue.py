@@ -107,7 +107,7 @@ class Queue:
             "msg.msg_id",
         ]
     )  # pylint:disable=no-self-use
-    async def ack(self, sub: Sub, msg: Message) -> None:
+    async def _safe_ack(self, sub: Sub, msg: Message) -> None:
         """Acknowledge the message."""
         if msg.ack_status == Message.AckStatus.NONE:
             try:
@@ -133,7 +133,7 @@ class Queue:
             "msg.msg_id",
         ]
     )  # pylint:disable=no-self-use
-    async def nack(self, sub: Sub, msg: Message) -> None:
+    async def _safe_nack(self, sub: Sub, msg: Message) -> None:
         """Reject/nack the message."""
         if msg.ack_status == Message.AckStatus.NONE:
             try:
@@ -218,11 +218,11 @@ class Queue:
         try:
             yield data
         except Exception:  # pylint:disable=broad-except
-            await self.nack(sub, msg)
+            await self._safe_nack(sub, msg)
             if not self.except_errors:
                 raise
         else:
-            await self.ack(sub, msg)
+            await self._safe_ack(sub, msg)
         finally:
             await sub.close()
 
@@ -335,7 +335,7 @@ class MessageAsyncGeneratorContext:
         # Exception Was Raised
         if exc_type and exc_val:
             if self.msg:
-                await self.queue.nack(self.sub, self.msg)
+                await self.queue._safe_nack(self.sub, self.msg)
             # see how the generator wants to handle the exception
             try:
                 # `athrow` is caught by the generator's try-except around `yield`
@@ -345,7 +345,7 @@ class MessageAsyncGeneratorContext:
         # Good Exit (No Original Exception)
         else:
             if self.msg:
-                await self.queue.ack(self.sub, self.msg)
+                await self.queue._safe_ack(self.sub, self.msg)
 
         await self.sub.close()  # close after cleanup
 
@@ -396,7 +396,7 @@ class MessageAsyncGeneratorContext:
 
         # ack the previous message before getting a new one
         if self.msg:
-            await self.queue.ack(self.sub, self.msg)
+            await self.queue._safe_ack(self.sub, self.msg)
 
         @wtt.spanned(
             kind=wtt.SpanKind.CONSUMER,
