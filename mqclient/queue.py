@@ -348,7 +348,8 @@ class MessageAsyncGeneratorContext:
                 reraise_exception = True
         # Good Exit (No Original Exception)
         else:
-            if self.msg:
+            # ack if there was a message yielded (unless it was already nacked)
+            if self.msg and self.msg._ack_status != Message.AckStatus.NACKED:
                 await self.queue._safe_ack(self._sub, self.msg)
 
         await self._sub.close()  # close after cleanup
@@ -398,8 +399,8 @@ class MessageAsyncGeneratorContext:
         if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
-        # ack the previous message before getting a new one
-        if self.msg:
+        # ack the previous message before getting a new one (unless it was already nacked)
+        if self.msg and self.msg._ack_status != Message.AckStatus.NACKED:
             await self.queue._safe_ack(self._sub, self.msg)
 
         @wtt.spanned(
@@ -439,4 +440,3 @@ class MessageAsyncGeneratorContext:
         """Manually nack the current (most recently yielded) message."""
         # pylint:disable=protected-access
         await self.queue._safe_ack(self._sub, self.msg)
-        # TODO - add other checks during the auto-ack/nack logic, but first test
