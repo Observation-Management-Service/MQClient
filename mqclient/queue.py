@@ -112,6 +112,7 @@ class Queue:
         if msg.ack_status == Message.AckStatus.NONE:
             try:
                 await sub.ack_message(msg)
+                msg.ack_status = Message.AckStatus.ACKED  # mark after success
             except Exception as e:
                 raise AckException("Acking failed on backend") from e
         elif msg.ack_status == Message.AckStatus.NACKED:
@@ -138,6 +139,7 @@ class Queue:
         if msg.ack_status == Message.AckStatus.NONE:
             try:
                 await sub.reject_message(msg)
+                msg.ack_status = Message.AckStatus.NACKED  # mark after success
             except Exception as e:
                 raise NackException("Nacking failed on backend") from e
         elif msg.ack_status == Message.AckStatus.NACKED:
