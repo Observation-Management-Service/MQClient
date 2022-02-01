@@ -132,7 +132,7 @@ async def test_safe_nack() -> None:
     msg = Message(0, Message.serialize(data))
     assert msg._ack_status == Message.AckStatus.NONE
     await q._safe_nack(mock_sub, msg)
-    mock_sub.ack_message.assert_called_with(msg)
+    mock_sub.reject_message.assert_called_with(msg)
     assert msg._ack_status == Message.AckStatus.NACKED
 
     # not okay
@@ -142,7 +142,7 @@ async def test_safe_nack() -> None:
     assert msg._ack_status == Message.AckStatus.ACKED
     with pytest.raises(NackException):
         await q._safe_nack(mock_sub, msg)
-    mock_sub.ack_message.assert_not_called()
+    mock_sub.reject_message.assert_not_called()
     assert msg._ack_status == Message.AckStatus.ACKED
 
     # okay but pointless
@@ -151,7 +151,7 @@ async def test_safe_nack() -> None:
     msg._ack_status = Message.AckStatus.NACKED
     assert msg._ack_status == Message.AckStatus.NACKED
     await q._safe_nack(mock_sub, msg)
-    mock_sub.ack_message.assert_not_called()
+    mock_sub.reject_message.assert_not_called()
     assert msg._ack_status == Message.AckStatus.NACKED
 
 
