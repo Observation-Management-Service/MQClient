@@ -96,19 +96,19 @@ async def test_safe_ack() -> None:
     assert msg._ack_status == Message.AckStatus.NONE
     await q._safe_ack(mock_sub, msg)
     mock_sub.ack_message.assert_called_with(msg)
-    assert msg._ack_status == Message.AckStatus.ACK
+    assert msg._ack_status == Message.AckStatus.ACKED
 
     mock_sub = AsyncMock()
-    assert msg._ack_status == Message.AckStatus.ACK
+    assert msg._ack_status == Message.AckStatus.ACKED
     await q._safe_ack(mock_sub, msg)
     mock_sub.ack_message.assert_not_called()
-    assert msg._ack_status == Message.AckStatus.ACK
+    assert msg._ack_status == Message.AckStatus.ACKED
 
     mock_sub = AsyncMock()
-    assert msg._ack_status == Message.AckStatus.NACK
+    assert msg._ack_status == Message.AckStatus.NACKED
     await q._safe_ack(mock_sub, msg)
     mock_sub.ack_message.assert_not_called()
-    assert msg._ack_status == Message.AckStatus.NACK
+    assert msg._ack_status == Message.AckStatus.NACKED
 
 
 @pytest.mark.asyncio
@@ -124,19 +124,19 @@ async def test_safe_nack() -> None:
     assert msg._ack_status == Message.AckStatus.NONE
     await q._safe_nack(mock_sub, msg)
     mock_sub.ack_message.assert_called_with(msg)
-    assert msg._ack_status == Message.AckStatus.NACK
+    assert msg._ack_status == Message.AckStatus.NACKED
 
     mock_sub = AsyncMock()
-    assert msg._ack_status == Message.AckStatus.ACK
+    assert msg._ack_status == Message.AckStatus.ACKED
     await q._safe_nack(mock_sub, msg)
     mock_sub.ack_message.assert_not_called()
-    assert msg._ack_status == Message.AckStatus.ACK
+    assert msg._ack_status == Message.AckStatus.ACKED
 
     mock_sub = AsyncMock()
-    assert msg._ack_status == Message.AckStatus.NACK
+    assert msg._ack_status == Message.AckStatus.NACKED
     await q._safe_nack(mock_sub, msg)
     mock_sub.ack_message.assert_not_called()
-    assert msg._ack_status == Message.AckStatus.NACK
+    assert msg._ack_status == Message.AckStatus.NACKED
 
 
 @pytest.mark.asyncio
