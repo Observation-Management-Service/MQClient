@@ -88,12 +88,12 @@ class Queue:
             "self.timeout",
         ]
     )
-    async def open_pub(self) -> AsyncIterator["QueueSender"]:
+    async def open_pub(self) -> AsyncIterator["QueuePubResource"]:
         """Open a resource to send messages to the queue."""
         pub = await self._create_pub_queue()
 
         try:
-            yield QueueSender(pub)
+            yield QueuePubResource(pub)
         finally:
             await pub.close()
 
@@ -245,7 +245,7 @@ class Queue:
         )
 
 
-class QueueSender:
+class QueuePubResource:
     def __init__(self, pub: Pub):
         self.pub = pub
 
