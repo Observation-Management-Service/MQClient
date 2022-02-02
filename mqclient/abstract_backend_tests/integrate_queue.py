@@ -486,7 +486,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_70_fail(self, queue_name: str) -> None:
-        """Failure-test open_sub() with reusing a 'MessageAsyncGeneratorContext' instance."""
+        """Failure-test open_sub() with reusing a 'QueueSubResource' instance."""
         async with Queue(self.backend, name=queue_name).open_pub() as s:
             for d in DATA_LIST:
                 await s.send(d)

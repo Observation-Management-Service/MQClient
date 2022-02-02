@@ -300,7 +300,7 @@ class BackendUnitTest:
     ) -> None:
         """Failure-test message generator.
 
-        Not so much a test, as an example of why MessageAsyncGeneratorContext
+        Not so much a test, as an example of why QueueSubResource
         is needed.
         """
         sub = await self.backend.create_sub_queue("localhost", queue_name)
@@ -315,9 +315,7 @@ class BackendUnitTest:
                 logging.debug(msg)
                 raise Exception
         except Exception:
-            excepted = (
-                True  # MessageAsyncGeneratorContext would've suppressed the Exception
-            )
+            excepted = True  # QueueSubResource would've suppressed the Exception
         assert excepted
 
         # would be called by Queue
