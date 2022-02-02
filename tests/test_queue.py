@@ -88,6 +88,22 @@ async def test_open_sub_one() -> None:
 
 
 @pytest.mark.asyncio
+async def test_open_sub_one__no_msg() -> None:
+    """Test open_sub_one with an empty queue."""
+    mock_backend = AsyncMock()
+    q = Queue(mock_backend)
+
+    mock_backend.create_sub_queue.return_value.get_message.return_value = None
+
+    async with q.open_sub_one() as _:
+        assert 0  # we should never get here
+
+    mock_backend.create_sub_queue.return_value.ack_message.assert_not_called()
+    mock_backend.create_sub_queue.return_value.reject_message.assert_not_called()
+    mock_backend.create_sub_queue.return_value.close.assert_called()
+
+
+@pytest.mark.asyncio
 async def test_safe_ack() -> None:
     """Test _safe_ack()."""
     mock_backend = AsyncMock()

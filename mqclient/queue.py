@@ -223,7 +223,7 @@ class Queue:
             contextlib.asynccontextmanager
 
         Yields:
-            Any -- object of data received, or None if queue is empty
+            Any -- object of data received, or nothing if queue is empty
         """
 
         @wtt.spanned(
@@ -231,17 +231,18 @@ class Queue:
             carrier="msg.headers",
             carrier_relation=wtt.CarrierRelation.LINK,
         )
-        def get_message_callback(msg: Message) -> Message:
-            if not msg:
-                raise Exception("No message available")
+        def get_message_callback(msg: Optional[Message]) -> Optional[Message]:
             return msg
 
         sub = await self._create_sub_queue()
         msg = get_message_callback(await sub.get_message(self.timeout * 1000))
 
-        data = msg.data
+        if not msg:
+            await sub.close()
+            return
+
         try:
-            yield data
+            yield msg.data
         except Exception:  # pylint:disable=broad-except
             await self._safe_nack(sub, msg)
             if not self.except_errors:
