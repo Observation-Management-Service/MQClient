@@ -155,18 +155,18 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg}")
 
-    def recv(self) -> "MessageAsyncGeneratorContext":
-        """Receive a stream of messages from the queue.
+    def open_sub(self) -> "MessageAsyncGeneratorContext":
+        """Open a resource to receive messages from the queue as an iterator.
 
         This returns a context-manager/generator. Its iterator stops when no
         messages are received for `timeout` seconds. If an exception is raised
         (inside the context), the message is rejected, the context is exited,
         and exception can be re-raised if configured by `except_errors`.
-        Multiple calls to `recv()` is okay, but reusing the returned instance
-        is not.
+        Multiple calls to `open_sub()` is okay, but reusing the returned
+        instance is not.
 
         Example:
-            async with queue.recv() as stream:
+            async with queue.open_sub() as stream:
                 async for data in stream:
                     ...
 

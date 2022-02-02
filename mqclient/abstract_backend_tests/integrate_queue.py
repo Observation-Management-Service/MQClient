@@ -47,7 +47,7 @@ class PubSubQueue:
                 _log_send(d)
 
         pub_sub.timeout = 1
-        async with pub_sub.recv() as gen:
+        async with pub_sub.open_sub() as gen:
             async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
@@ -76,7 +76,7 @@ class PubSubQueue:
                 _log_send(d)
 
         sub.timeout = 1
-        async with sub.recv() as gen:
+        async with sub.open_sub() as gen:
             async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
@@ -133,7 +133,7 @@ class PubSubQueue:
         async def recv_thread(_: int) -> List[Any]:
             sub = Queue(self.backend, name=queue_name)
             sub.timeout = 1
-            async with sub.recv() as gen:
+            async with sub.open_sub() as gen:
                 recv_data_list = [m async for m in gen]
             return _log_recv_multiple(recv_data_list)
 
@@ -242,7 +242,7 @@ class PubSubQueue:
 
             sub.timeout = 1
             sub.except_errors = False
-            async with sub.recv() as gen:
+            async with sub.open_sub() as gen:
                 received_data = [m async for m in gen]
             all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -263,7 +263,7 @@ class PubSubQueue:
 
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
-        async with sub.recv() as gen:
+        async with sub.open_sub() as gen:
             received_data = [m async for m in gen]
         all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -284,7 +284,7 @@ class PubSubQueue:
 
             sub = Queue(self.backend, name=queue_name)
             sub.timeout = 1
-            async with sub.recv() as gen:
+            async with sub.open_sub() as gen:
                 received_data = [m async for m in gen]
             all_recvd.extend(_log_recv_multiple(received_data))
 
@@ -397,7 +397,7 @@ class PubSubQueue:
 
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)
         sub2.timeout = 1
-        async with sub2.recv() as gen:
+        async with sub2.open_sub() as gen:
             async for _, d in asl.enumerate(gen):
                 all_recvd.append(_log_recv(d))
 
@@ -405,7 +405,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_60(self, queue_name: str) -> None:
-        """Test recv() fail and recovery, with multiple recv() calls."""
+        """Test open_sub() fail and recovery, with multiple open_sub() calls."""
         all_recvd: List[Any] = []
 
         async with Queue(self.backend, name=queue_name).open_pub() as s:
@@ -418,7 +418,7 @@ class PubSubQueue:
 
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
-        async with sub.recv() as gen:
+        async with sub.open_sub() as gen:
             async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 if i == 2:
@@ -431,7 +431,7 @@ class PubSubQueue:
         # continue where we left off
         reused = False
         sub.timeout = 1
-        async with sub.recv() as gen:
+        async with sub.open_sub() as gen:
             async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 reused = True
@@ -443,7 +443,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_61(self, queue_name: str) -> None:
-        """Test recv() fail and recovery, with error propagation."""
+        """Test open_sub() fail and recovery, with error propagation."""
         all_recvd: List[Any] = []
 
         async with Queue(self.backend, name=queue_name).open_pub() as s:
@@ -459,7 +459,7 @@ class PubSubQueue:
         try:
             sub.timeout = 1
             sub.except_errors = False
-            async with sub.recv() as gen:
+            async with sub.open_sub() as gen:
                 async for i, d in asl.enumerate(gen):
                     if i == 2:
                         raise TestException()
@@ -475,7 +475,7 @@ class PubSubQueue:
         reused = False
         sub.timeout = 1
         sub.except_errors = False
-        async with sub.recv() as gen:
+        async with sub.open_sub() as gen:
             async for i, d in asl.enumerate(gen):
                 reused = True
                 all_recvd.append(_log_recv(d))
@@ -486,7 +486,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_70_fail(self, queue_name: str) -> None:
-        """Failure-test recv() with reusing a 'MessageAsyncGeneratorContext' instance."""
+        """Failure-test open_sub() with reusing a 'MessageAsyncGeneratorContext' instance."""
         async with Queue(self.backend, name=queue_name).open_pub() as s:
             for d in DATA_LIST:
                 await s.send(d)
@@ -494,7 +494,7 @@ class PubSubQueue:
 
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
-        recv_gen = sub.recv()
+        recv_gen = sub.open_sub()
         async with recv_gen as gen:
             async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
@@ -509,7 +509,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_80_break(self, queue_name: str) -> None:
-        """Test recv() with a `break` statement."""
+        """Test open_sub() with a `break` statement."""
         async with Queue(self.backend, name=queue_name).open_pub() as s:
             for d in DATA_LIST:
                 await s.send(d)
@@ -518,7 +518,7 @@ class PubSubQueue:
         sub = Queue(self.backend, name=queue_name)
         sub.timeout = 1
         all_recvd = []
-        async with sub.recv() as gen:
+        async with sub.open_sub() as gen:
             async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))
@@ -528,7 +528,7 @@ class PubSubQueue:
         logging.warning("Round 2!")
 
         # continue where we left off
-        async with sub.recv() as gen:
+        async with sub.open_sub() as gen:
             async for i, d in asl.enumerate(gen):
                 print(f"{i}: `{d}`")
                 all_recvd.append(_log_recv(d))

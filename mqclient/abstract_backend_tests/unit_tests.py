@@ -328,7 +328,7 @@ class BackendUnitTest:
 
     @pytest.mark.asyncio
     async def test_queue_recv_00_consumer(self, mock_con: Any, queue_name: str) -> None:
-        """Test Queue.recv()."""
+        """Test Queue.open_sub()."""
         q = Queue(self.backend, address="localhost", name=queue_name)
         if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
@@ -336,7 +336,7 @@ class BackendUnitTest:
         fake_data = [Message.serialize("baz")]
         await self._enqueue_mock_messages(mock_con, fake_data, [0])
 
-        async with q.recv() as gen:
+        async with q.open_sub() as gen:
             async for msg in gen:
                 logging.debug(msg)
                 assert msg
@@ -349,7 +349,7 @@ class BackendUnitTest:
     async def test_queue_recv_10_comsumer_exception(
         self, mock_con: Any, queue_name: str
     ) -> None:
-        """Failure-test Queue.recv().
+        """Failure-test Queue.open_sub().
 
         When an Exception is raised in `with` block, the Queue should:
         - close (sub) on exit
@@ -369,7 +369,7 @@ class BackendUnitTest:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        async with q.recv() as gen:  # suppress_errors=True
+        async with q.open_sub() as gen:  # suppress_errors=True
             async for i, msg in asl.enumerate(gen):
                 assert i == 0
                 logging.debug(msg)
@@ -382,10 +382,10 @@ class BackendUnitTest:
     async def test_queue_recv_11_comsumer_exception(
         self, mock_con: Any, queue_name: str
     ) -> None:
-        """Failure-test Queue.recv().
+        """Failure-test Queue.open_sub().
 
         Same as test_queue_recv_10_comsumer_exception() but with multiple
-        recv() calls.
+        open_sub() calls.
         """
         q = Queue(self.backend, address="localhost", name=queue_name)
         if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
@@ -400,7 +400,7 @@ class BackendUnitTest:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        async with q.recv() as gen:  # suppress_errors=True
+        async with q.open_sub() as gen:  # suppress_errors=True
             async for msg in gen:
                 logging.debug(msg)
                 raise TestException
@@ -411,7 +411,7 @@ class BackendUnitTest:
         logging.info("Round 2")
 
         # continue where we left off
-        async with q.recv() as gen:  # suppress_errors=True
+        async with q.open_sub() as gen:  # suppress_errors=True
             # self._get_mock_ack(mock_con).assert_not_called()
             async for i, msg in asl.enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")
@@ -428,7 +428,7 @@ class BackendUnitTest:
     async def test_queue_recv_12_comsumer_exception(
         self, mock_con: Any, queue_name: str
     ) -> None:
-        """Failure-test Queue.recv().
+        """Failure-test Queue.open_sub().
 
         Same as test_queue_recv_11_comsumer_exception() but with error
         propagation.
@@ -448,7 +448,7 @@ class BackendUnitTest:
 
         with pytest.raises(TestException):
             q.except_errors = False
-            async with q.recv() as gen:
+            async with q.open_sub() as gen:
                 async for msg in gen:
                     logging.debug(msg)
                     raise TestException
@@ -468,7 +468,7 @@ class BackendUnitTest:
 
         # continue where we left off
         q.except_errors = False
-        async with q.recv() as gen:
+        async with q.open_sub() as gen:
             self._get_ack_mock_fn(mock_con).assert_not_called()
             async for i, msg in asl.enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")
