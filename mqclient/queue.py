@@ -89,7 +89,22 @@ class Queue:
         ]
     )
     async def open_pub(self) -> AsyncIterator["QueuePubResource"]:
-        """Open a resource to send messages to the queue."""
+        """Open a resource to send messages to the queue.
+
+        This is an async context manager. An object is returned that can be
+        used to send n messages.
+
+        Example:
+            async with queue.open_pub() as p:
+                for msg in my_messages:
+                    await p.send(msg)
+
+        Decorators:
+            contextlib.asynccontextmanager
+
+        Returns:
+            QueuePubResource -- the object to invoke `.send()` on
+        """
         pub = await self._create_pub_queue()
 
         try:
@@ -167,8 +182,8 @@ class Queue:
 
         Example:
             async with queue.open_sub() as stream:
-                async for data in stream:
-                    ...
+                async for msg in stream:
+                    print(msg)
 
         NOTE: If using the GCP backend, a message is allocated for
         redelivery if the consumer's iteration takes longer than 10 minutes.
@@ -199,6 +214,10 @@ class Queue:
 
         NOTE: If using the GCP backend, a message is allocated for
         redelivery if the context is open for longer than 10 minutes.
+
+        Example:
+            async with q.open_sub_one() as msg:
+                print(msg)
 
         Decorators:
             contextlib.asynccontextmanager
@@ -246,6 +265,8 @@ class Queue:
 
 
 class QueuePubResource:
+    """A manager class around `Pub.send_message()`."""
+
     def __init__(self, pub: Pub):
         self.pub = pub
 
