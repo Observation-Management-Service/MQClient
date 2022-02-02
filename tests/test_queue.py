@@ -34,6 +34,7 @@ async def test_send() -> None:
     async with q.open_pub() as s:
         await s.send(data)
     mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
+    mock_backend.create_pub_queue.return_value.close.assert_called()
 
     # send() adds a unique header, so we need to look at only the data
     msg = Message(
@@ -65,6 +66,8 @@ async def test_open_sub() -> None:
             [call(Message(i, Message.serialize(d))) for i, d in enumerate(recv_data)]
         )
 
+    mock_backend.create_sub_queue.return_value.close.assert_called()
+
 
 @pytest.mark.asyncio
 async def test_open_sub_one() -> None:
@@ -81,6 +84,7 @@ async def test_open_sub_one() -> None:
 
     assert data == recv_data
     mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
+    mock_backend.create_sub_queue.return_value.close.assert_called()
 
 
 @pytest.mark.asyncio
@@ -156,7 +160,7 @@ async def test_safe_nack() -> None:
 
 
 @pytest.mark.asyncio
-async def test_nack_previous() -> None:
+async def test_nack_current() -> None:
     """Test recv with nack_current()."""
 
     # pylint:disable=unused-argument
