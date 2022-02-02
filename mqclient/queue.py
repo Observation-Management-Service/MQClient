@@ -107,21 +107,24 @@ class Queue:
             "msg.msg_id",
         ]
     )  # pylint:disable=no-self-use
-    async def ack(self, sub: Sub, msg: Message) -> None:
+    async def _safe_ack(self, sub: Sub, msg: Message) -> None:
         """Acknowledge the message."""
-        if msg.ack_status == Message.AckStatus.NONE:
+        # pylint:disable=protected-access
+        if msg._ack_status == Message.AckStatus.NONE:
             try:
                 await sub.ack_message(msg)
+                msg._ack_status = Message.AckStatus.ACKED  # mark after success
             except Exception as e:
-                raise AckException("Acking failed on backend") from e
-        elif msg.ack_status == Message.AckStatus.NACKED:
+                raise AckException(f"Acking failed on backend: {msg}") from e
+        elif msg._ack_status == Message.AckStatus.NACKED:
             raise AckException(
-                "Message has already been rejected/nacked, it cannot be acked"
+                f"Message has already been nacked, it cannot be acked: {msg}"
             )
-        elif msg.ack_status == Message.AckStatus.ACKED:
-            pass  # needless, so we'll skip it
+        elif msg._ack_status == Message.AckStatus.ACKED:
+            # needless, so we'll skip it
+            logging.debug(f"Attempted to ack an already-acked message: {msg}")
         else:
-            raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg}")
 
     @wtt.spanned(
         these=[
@@ -133,21 +136,24 @@ class Queue:
             "msg.msg_id",
         ]
     )  # pylint:disable=no-self-use
-    async def nack(self, sub: Sub, msg: Message) -> None:
+    async def _safe_nack(self, sub: Sub, msg: Message) -> None:
         """Reject/nack the message."""
-        if msg.ack_status == Message.AckStatus.NONE:
+        # pylint:disable=protected-access
+        if msg._ack_status == Message.AckStatus.NONE:
             try:
                 await sub.reject_message(msg)
+                msg._ack_status = Message.AckStatus.NACKED  # mark after success
             except Exception as e:
-                raise NackException("Nacking failed on backend") from e
-        elif msg.ack_status == Message.AckStatus.NACKED:
-            pass  # needless, so we'll skip it
-        elif msg.ack_status == Message.AckStatus.ACKED:
+                raise NackException(f"Nacking failed on backend: {msg}") from e
+        elif msg._ack_status == Message.AckStatus.NACKED:
+            # needless, so we'll skip it
+            logging.debug(f"Attempted to nack an already-nacked message: {msg}")
+        elif msg._ack_status == Message.AckStatus.ACKED:
             raise NackException(
-                "Message has already been acked, it cannot be rejected/nacked"
+                f"Message has already been acked, it cannot be nacked: {msg}"
             )
         else:
-            raise RuntimeError(f"Unrecognized AckStatus value: {msg.ack_status}")
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg}")
 
     def recv(self) -> "MessageAsyncGeneratorContext":
         """Receive a stream of messages from the queue.
@@ -218,11 +224,11 @@ class Queue:
         try:
             yield data
         except Exception:  # pylint:disable=broad-except
-            await self.nack(sub, msg)
+            await self._safe_nack(sub, msg)
             if not self.except_errors:
                 raise
         else:
-            await self.ack(sub, msg)
+            await self._safe_ack(sub, msg)
         finally:
             await sub.close()
 
@@ -262,8 +268,8 @@ class MessageAsyncGeneratorContext:
         logging.debug("[MessageAsyncGeneratorContext.__init__()]")
         self.queue = queue
 
-        self.sub: Optional[Sub] = None
-        self.gen: Optional[AsyncGenerator[Optional[Message], None]] = None
+        self._sub: Optional[Sub] = None
+        self._gen: Optional[AsyncGenerator[Optional[Message], None]] = None
 
         self._span: Optional[wtt.Span] = None
         self._span_carrier: Optional[Dict[str, Any]] = None
@@ -289,13 +295,13 @@ class MessageAsyncGeneratorContext:
             "[MessageAsyncGeneratorContext.__aenter__()] entered `with-as` block"
         )
 
-        if self.sub and self.gen:
+        if self._sub and self._gen:
             raise RuntimeError(
                 "A 'MessageAsyncGeneratorContext' instance cannot be re-entered."
             )
 
-        self.sub = await self.queue._create_sub_queue()
-        self.gen = self.sub.message_generator(
+        self._sub = await self.queue._create_sub_queue()
+        self._gen = self._sub.message_generator(
             timeout=self.queue.timeout,
             propagate_error=(not self.queue.except_errors),
         )
@@ -327,7 +333,7 @@ class MessageAsyncGeneratorContext:
         logging.debug(
             f"[MessageAsyncGeneratorContext.__aexit__()] exiting `with-as` block (exc:{exc_type})"
         )
-        if not (self.sub and self.gen):
+        if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         reraise_exception = False
@@ -335,19 +341,20 @@ class MessageAsyncGeneratorContext:
         # Exception Was Raised
         if exc_type and exc_val:
             if self.msg:
-                await self.queue.nack(self.sub, self.msg)
+                await self.queue._safe_nack(self._sub, self.msg)
             # see how the generator wants to handle the exception
             try:
                 # `athrow` is caught by the generator's try-except around `yield`
-                await self.gen.athrow(exc_type, exc_val, exc_tb)
+                await self._gen.athrow(exc_type, exc_val, exc_tb)
             except exc_type:  # message_generator re-raised Exception
                 reraise_exception = True
         # Good Exit (No Original Exception)
         else:
-            if self.msg:
-                await self.queue.ack(self.sub, self.msg)
+            # ack if there was a message yielded (unless it was already nacked)
+            if self.msg and self.msg._ack_status != Message.AckStatus.NACKED:
+                await self.queue._safe_ack(self._sub, self.msg)
 
-        await self.sub.close()  # close after cleanup
+        await self._sub.close()  # close after cleanup
 
         if reraise_exception:
             logging.debug(
@@ -374,7 +381,7 @@ class MessageAsyncGeneratorContext:
         logging.debug(
             "[MessageAsyncGeneratorContext.__aiter__()] entered loop/`aiter()`"
         )
-        if not (self.sub and self.gen):
+        if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
@@ -391,12 +398,12 @@ class MessageAsyncGeneratorContext:
     async def __anext__(self) -> Any:
         """Return next Message in queue."""
         logging.debug("[MessageAsyncGeneratorContext.__anext__()] next iteration...")
-        if not (self.sub and self.gen):
+        if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
-        # ack the previous message before getting a new one
-        if self.msg:
-            await self.queue.ack(self.sub, self.msg)
+        # ack the previous message before getting a new one (unless it was already nacked)
+        if self.msg and self.msg._ack_status != Message.AckStatus.NACKED:
+            await self.queue._safe_ack(self._sub, self.msg)
 
         @wtt.spanned(
             kind=wtt.SpanKind.CONSUMER,
@@ -407,7 +414,7 @@ class MessageAsyncGeneratorContext:
             return msg
 
         try:
-            self.msg = get_message_callback(await self.gen.__anext__())
+            self.msg = get_message_callback(await self._gen.__anext__())
         except StopAsyncIteration:
             self.msg = None  # signal there is no message to ack/nack in `__aexit__()`
             logging.debug(
@@ -421,3 +428,17 @@ class MessageAsyncGeneratorContext:
             )
 
         return self.msg.data
+
+    @wtt.spanned(
+        these=[
+            "self.queue._backend",
+            "self.queue._address",
+            "self.queue._name",
+            "self.queue._prefetch",
+            "self.queue.timeout",
+        ],
+    )
+    async def nack_current(self) -> None:
+        """Manually nack the current (most recently yielded) message."""
+        # pylint:disable=protected-access
+        await self.queue._safe_nack(self._sub, self.msg)
