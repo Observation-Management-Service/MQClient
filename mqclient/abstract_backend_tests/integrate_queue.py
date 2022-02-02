@@ -94,9 +94,8 @@ class PubSubQueue:
             _log_send(DATA_LIST[0])
 
         with pytest.raises(Exception) as excinfo:
-            async with Queue(
-                self.backend, name=f"{queue_name}-fail"
-            ).open_sub_one() as d:
+            name = f"{queue_name}-fail"
+            async with Queue(self.backend, name=name).open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
             assert "No message available" in str(excinfo.value)
 
