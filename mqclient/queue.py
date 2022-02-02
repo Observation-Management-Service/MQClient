@@ -222,8 +222,11 @@ class Queue:
         Decorators:
             contextlib.asynccontextmanager
 
+        Raises:
+            EmptyQueueException -- if there is no available message
+
         Yields:
-            Any -- object of data received, or nothing if queue is empty
+            Any -- object of data received
         """
 
         @wtt.spanned(
@@ -239,7 +242,9 @@ class Queue:
 
         if not raw_msg:  # no message -> close and exit
             await sub.close()
-            return
+            raise EmptyQueueException(
+                "No message is available (`timeout` value may be too low)"
+            )
         else:  # got a message -> link and proceed
             msg = add_span_link(raw_msg)
 
@@ -265,6 +270,10 @@ class Queue:
             f"timeout={self.timeout}"
             f")"
         )
+
+
+class EmptyQueueException(Exception):
+    """Raised when the queue is empty."""
 
 
 class QueuePubResource:

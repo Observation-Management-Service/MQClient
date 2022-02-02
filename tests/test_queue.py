@@ -9,7 +9,7 @@ import pytest
 
 # local imports
 from mqclient.backend_interface import AckException, Backend, Message, NackException
-from mqclient.queue import Queue
+from mqclient.queue import EmptyQueueException, Queue
 
 
 def test_init() -> None:
@@ -95,8 +95,9 @@ async def test_open_sub_one__no_msg() -> None:
 
     mock_backend.create_sub_queue.return_value.get_message.return_value = None
 
-    async with q.open_sub_one() as _:
-        assert 0  # we should never get here
+    with pytest.raises(EmptyQueueException):
+        async with q.open_sub_one() as _:
+            assert 0  # we should never get here
 
     mock_backend.create_sub_queue.return_value.ack_message.assert_not_called()
     mock_backend.create_sub_queue.return_value.reject_message.assert_not_called()
