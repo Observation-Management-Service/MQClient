@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.0 (2022-02-02)
+### Feature
+* Rename Public-Facing API Methods ([#36](https://github.com/WIPACrepo/MQClient/issues/36)) ([`8b26b29`](https://github.com/WIPACrepo/MQClient/commit/8b26b29f92b3360f68bb382856fa3e085d0d71eb))
+
 ## v0.2.4 (2022-02-02)
 
 
