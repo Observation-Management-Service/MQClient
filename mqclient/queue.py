@@ -439,4 +439,4 @@ class MessageAsyncGeneratorContext:
     async def nack_current(self) -> None:
         """Manually nack the current (most recently yielded) message."""
         # pylint:disable=protected-access
-        await self.queue._safe_ack(self._sub, self.msg)
+        await self.queue._safe_nack(self._sub, self.msg)

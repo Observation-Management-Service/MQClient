@@ -61,7 +61,7 @@ async def test_recv() -> None:
     async with q.recv() as recv_gen:
         recv_data = [d async for d in recv_gen]
         assert data == recv_data
-        mock_backend.create_sub_queue.return_value.ack_message.assert_has_calls(
+        recv_gen._sub.ack_message.assert_has_calls(
             [call(Message(i, Message.serialize(d))) for i, d in enumerate(recv_data)]
         )
 
@@ -174,9 +174,9 @@ async def test_nack_previous() -> None:
         i = 0
         # manual nacking won't actually place the message for redelivery b/c of mocking
         async for data in recv_gen:
-            mock_backend.create_sub_queue.return_value.ack_message.assert_not_called()
+            recv_gen._sub.ack_message.assert_not_called()
             await recv_gen.nack_current()
-            mock_backend.create_sub_queue.return_value.reject_message.assert_called_with(
+            recv_gen._sub.reject_message.assert_called_with(
                 Message(i, Message.serialize(data))
             )
             i += 1
