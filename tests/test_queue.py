@@ -168,15 +168,27 @@ async def test_nack_previous() -> None:
     q = Queue(mock_backend)
 
     data = ["a", {"b": 100}, ["foo", "bar"]]
+    msgs = [Message(i, Message.serialize(d)) for i, d in enumerate(data)]
     mock_backend.create_sub_queue.return_value.message_generator = gen
 
     async with q.recv() as recv_gen:
         i = 0
         # manual nacking won't actually place the message for redelivery b/c of mocking
-        async for data in recv_gen:
-            recv_gen._sub.ack_message.assert_not_called()
-            await recv_gen.nack_current()
-            recv_gen._sub.reject_message.assert_called_with(
-                Message(i, Message.serialize(data))
-            )
+        async for _ in recv_gen:
+            if i == 0:  # nack it
+                await recv_gen.nack_current()
+                recv_gen._sub.reject_message.assert_has_calls([call(msgs[0])])
+            elif i == 1:  # DON'T nack it
+                recv_gen._sub.ack_message.assert_not_called()  # from i=0
+            elif i == 2:  # nack it
+                recv_gen._sub.reject_message.assert_has_calls([call(msgs[0])])
+                recv_gen._sub.ack_message.assert_has_calls([call(msgs[1])])
+                await recv_gen.nack_current()
+                recv_gen._sub.reject_message.assert_has_calls(
+                    [call(msgs[0]), call(msgs[2])]
+                )
+            else:
+                assert 0
             i += 1
+        recv_gen._sub.ack_message.assert_has_calls([call(msgs[1])])
+        recv_gen._sub.reject_message.assert_has_calls([call(msgs[0]), call(msgs[2])])
