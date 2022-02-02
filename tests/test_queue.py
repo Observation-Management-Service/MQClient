@@ -31,7 +31,7 @@ async def test_send() -> None:
     q = Queue(mock_backend)
 
     data = {"a": 1234}
-    async with q.sender() as s:
+    async with q.open_pub() as s:
         await s.send(data)
     mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
 
