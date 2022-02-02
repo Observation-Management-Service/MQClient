@@ -37,7 +37,7 @@ class PubSubQueue:
             await s.send(DATA_LIST[0])
             _log_send(DATA_LIST[0])
 
-        async with pub_sub.recv_one() as d:
+        async with pub_sub.open_sub_one() as d:
             all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
@@ -66,7 +66,7 @@ class PubSubQueue:
             _log_send(DATA_LIST[0])
 
         sub = Queue(self.backend, name=queue_name)
-        async with sub.recv_one() as d:
+        async with sub.open_sub_one() as d:
             all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
@@ -94,11 +94,13 @@ class PubSubQueue:
             _log_send(DATA_LIST[0])
 
         with pytest.raises(Exception) as excinfo:
-            async with Queue(self.backend, name=f"{queue_name}-fail").recv_one() as d:
+            async with Queue(
+                self.backend, name=f"{queue_name}-fail"
+            ).open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
             assert "No message available" in str(excinfo.value)
 
-        async with Queue(self.backend, name=queue_name).recv_one() as d:
+        async with Queue(self.backend, name=queue_name).open_sub_one() as d:
             all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
@@ -115,7 +117,7 @@ class PubSubQueue:
                 await s.send(data)
                 _log_send(data)
 
-                async with Queue(self.backend, name=queue_name).recv_one() as d:
+                async with Queue(self.backend, name=queue_name).open_sub_one() as d:
                     all_recvd.append(_log_recv(d))
                     assert d == data
 
@@ -184,7 +186,7 @@ class PubSubQueue:
                 _log_send(data)
 
         async def recv_thread(_: int) -> Any:
-            async with Queue(self.backend, name=queue_name).recv_one() as d:
+            async with Queue(self.backend, name=queue_name).open_sub_one() as d:
                 recv_data = d
             return _log_recv(recv_data)
 
@@ -200,7 +202,7 @@ class PubSubQueue:
     async def test_23(self, queue_name: str) -> None:
         """Failure-test one pub, and too many subs.
 
-        More subs than messages with `recv_one()` will raise an
+        More subs than messages with `open_sub_one()` will raise an
         exception.
         """
         all_recvd: List[Any] = []
@@ -211,7 +213,7 @@ class PubSubQueue:
                 _log_send(data)
 
         async def recv_thread(_: int) -> Any:
-            async with Queue(self.backend, name=queue_name).recv_one() as d:
+            async with Queue(self.backend, name=queue_name).open_sub_one() as d:
                 recv_data = d
             return _log_recv(recv_data)
 
@@ -307,7 +309,7 @@ class PubSubQueue:
                 _log_send(data)
 
         for _ in range(len(DATA_LIST)):
-            async with Queue(self.backend, name=queue_name).recv_one() as d:
+            async with Queue(self.backend, name=queue_name).open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
 
         assert all_were_received(all_recvd)
@@ -328,7 +330,7 @@ class PubSubQueue:
         for i in range(len(DATA_LIST)):
             if i % 2 == 0:  # each sub receives 2 messages back-to-back
                 sub = Queue(self.backend, name=queue_name)
-            async with sub.recv_one() as d:
+            async with sub.open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
 
         assert all_were_received(all_recvd)
@@ -348,7 +350,7 @@ class PubSubQueue:
                     _log_send(data)
 
         for _ in range(len(DATA_LIST)):
-            async with Queue(self.backend, name=queue_name).recv_one() as d:
+            async with Queue(self.backend, name=queue_name).open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
 
         assert all_were_received(all_recvd)
@@ -369,7 +371,7 @@ class PubSubQueue:
                     _log_send(data)
 
                     sub = Queue(self.backend, name=queue_name, prefetch=i)
-                    async with sub.recv_one() as d:
+                    async with sub.open_sub_one() as d:
                         all_recvd.append(_log_recv(d))
                         assert d == data
 
@@ -390,9 +392,9 @@ class PubSubQueue:
 
         # this should not eat up the whole queue
         sub = Queue(self.backend, name=queue_name, prefetch=20)
-        async with sub.recv_one() as d:
+        async with sub.open_sub_one() as d:
             all_recvd.append(_log_recv(d))
-        async with sub.recv_one() as d:
+        async with sub.open_sub_one() as d:
             all_recvd.append(_log_recv(d))
 
         sub2 = Queue(self.backend, name=queue_name, prefetch=2)

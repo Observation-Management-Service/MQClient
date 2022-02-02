@@ -189,8 +189,8 @@ class Queue:
             "self.timeout",
         ]
     )
-    async def recv_one(self) -> AsyncIterator[Message]:
-        """Receive one message from the queue.
+    async def open_sub_one(self) -> AsyncIterator[Message]:
+        """Open a context to receive a single messages from the queue.
 
         This is an async context manager. If an exception is raised
         (inside the context), the message is rejected, the context is

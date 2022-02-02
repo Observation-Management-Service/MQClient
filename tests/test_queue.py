@@ -67,8 +67,8 @@ async def test_open_sub() -> None:
 
 
 @pytest.mark.asyncio
-async def test_recv_one() -> None:
-    """Test recv_one."""
+async def test_open_sub_one() -> None:
+    """Test open_sub_one."""
     mock_backend = AsyncMock()
     q = Queue(mock_backend)
 
@@ -76,7 +76,7 @@ async def test_recv_one() -> None:
     msg = Message(0, Message.serialize(data))
     mock_backend.create_sub_queue.return_value.get_message.return_value = msg
 
-    async with q.recv_one() as d:
+    async with q.open_sub_one() as d:
         recv_data = d
 
     assert data == recv_data
