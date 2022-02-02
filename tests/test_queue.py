@@ -192,3 +192,49 @@ async def test_nack_previous() -> None:
             i += 1
         recv_gen._sub.ack_message.assert_has_calls([call(msgs[1])])
         recv_gen._sub.reject_message.assert_has_calls([call(msgs[0]), call(msgs[2])])
+
+
+@pytest.mark.asyncio
+async def test_nack_previous_end_w_except() -> None:
+    """Test recv with nack_current() & end with a raised exception."""
+
+    # pylint:disable=unused-argument
+    async def gen(*args: Any, **kwargs: Any) -> AsyncGenerator[Message, None]:
+        for i, d in enumerate(data):
+            yield Message(i, Message.serialize(d))
+
+    mock_backend = AsyncMock()
+    q = Queue(mock_backend)
+
+    data = ["a", {"b": 100}, ["foo", "bar"], "bam"]
+    msgs = [Message(i, Message.serialize(d)) for i, d in enumerate(data)]
+    mock_backend.create_sub_queue.return_value.message_generator = gen
+
+    async with q.recv() as recv_gen:
+        i = 0
+        # manual nacking won't actually place the message for redelivery b/c of mocking
+        async for _ in recv_gen:
+            if i == 0:  # nack it
+                await recv_gen.nack_current()
+                recv_gen._sub.reject_message.assert_has_calls([call(msgs[0])])
+            elif i == 1:  # DON'T nack it
+                recv_gen._sub.ack_message.assert_not_called()  # from i=0
+            elif i == 2:  # nack it
+                recv_gen._sub.reject_message.assert_has_calls([call(msgs[0])])
+                recv_gen._sub.ack_message.assert_has_calls([call(msgs[1])])
+                await recv_gen.nack_current()
+                recv_gen._sub.reject_message.assert_has_calls(
+                    [call(msgs[0]), call(msgs[2])]
+                )
+            else:  # nack it & raise -- should not double nack
+                assert i == 3
+                await recv_gen.nack_current()
+                recv_gen._sub.reject_message.assert_has_calls(
+                    [call(msgs[0]), call(msgs[2]), call(msgs[3])]
+                )
+                raise Exception()
+            i += 1
+        recv_gen._sub.ack_message.assert_has_calls([call(msgs[1])])
+        recv_gen._sub.reject_message.assert_has_calls(
+            [call(msgs[0]), call(msgs[2]), call(msgs[3])]
+        )
