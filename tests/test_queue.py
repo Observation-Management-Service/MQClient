@@ -31,8 +31,8 @@ async def test_send() -> None:
     q = Queue(mock_backend)
 
     data = {"a": 1234}
-    async with q.open_pub() as s:
-        await s.send(data)
+    async with q.open_pub() as p:
+        await p.send(data)
     mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
     mock_backend.create_pub_queue.return_value.close.assert_called()
 
@@ -59,10 +59,10 @@ async def test_open_sub() -> None:
     data = ["a", {"b": 100}, ["foo", "bar"]]
     mock_backend.create_sub_queue.return_value.message_generator = gen
 
-    async with q.open_sub() as recv_gen:
-        recv_data = [d async for d in recv_gen]
+    async with q.open_sub() as stream:
+        recv_data = [d async for d in stream]
         assert data == recv_data
-        recv_gen._sub.ack_message.assert_has_calls(
+        stream._sub.ack_message.assert_has_calls(
             [call(Message(i, Message.serialize(d))) for i, d in enumerate(recv_data)]
         )
 
@@ -191,24 +191,24 @@ async def test_nack_current() -> None:
     msgs = [Message(i, Message.serialize(d)) for i, d in enumerate(data)]
     mock_backend.create_sub_queue.return_value.message_generator = gen
 
-    async with q.open_sub() as recv_gen:
+    async with q.open_sub() as stream:
         i = 0
         # manual nacking won't actually place the message for redelivery b/c of mocking
-        async for _ in recv_gen:
+        async for _ in stream:
             if i == 0:  # nack it
-                await recv_gen.nack_current()
-                recv_gen._sub.reject_message.assert_has_calls([call(msgs[0])])
+                await stream.nack_current()
+                stream._sub.reject_message.assert_has_calls([call(msgs[0])])
             elif i == 1:  # DON'T nack it
-                recv_gen._sub.ack_message.assert_not_called()  # from i=0
+                stream._sub.ack_message.assert_not_called()  # from i=0
             elif i == 2:  # nack it
-                recv_gen._sub.reject_message.assert_has_calls([call(msgs[0])])
-                recv_gen._sub.ack_message.assert_has_calls([call(msgs[1])])
-                await recv_gen.nack_current()
-                recv_gen._sub.reject_message.assert_has_calls(
+                stream._sub.reject_message.assert_has_calls([call(msgs[0])])
+                stream._sub.ack_message.assert_has_calls([call(msgs[1])])
+                await stream.nack_current()
+                stream._sub.reject_message.assert_has_calls(
                     [call(msgs[0]), call(msgs[2])]
                 )
             else:
                 assert 0
             i += 1
-        recv_gen._sub.ack_message.assert_has_calls([call(msgs[1])])
-        recv_gen._sub.reject_message.assert_has_calls([call(msgs[0]), call(msgs[2])])
+        stream._sub.ack_message.assert_has_calls([call(msgs[1])])
+        stream._sub.reject_message.assert_has_calls([call(msgs[0]), call(msgs[2])])
