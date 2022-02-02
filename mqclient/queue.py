@@ -88,12 +88,27 @@ class Queue:
             "self.timeout",
         ]
     )
-    async def sender(self) -> AsyncIterator["QueueSender"]:
-        """Send messages to the queue."""
+    async def open_pub(self) -> AsyncIterator["QueuePubResource"]:
+        """Open a resource to send messages to the queue.
+
+        This is an async context manager. An object is returned that can be
+        used to send n messages.
+
+        Example:
+            async with queue.open_pub() as p:
+                for msg in my_messages:
+                    await p.send(msg)
+
+        Decorators:
+            contextlib.asynccontextmanager
+
+        Returns:
+            QueuePubResource -- the object to invoke `.send()` on
+        """
         pub = await self._create_pub_queue()
 
         try:
-            yield QueueSender(pub)
+            yield QueuePubResource(pub)
         finally:
             await pub.close()
 
@@ -155,29 +170,29 @@ class Queue:
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg}")
 
-    def recv(self) -> "MessageAsyncGeneratorContext":
-        """Receive a stream of messages from the queue.
+    def open_sub(self) -> "QueueSubResource":
+        """Open a resource to receive messages from the queue as an iterator.
 
         This returns a context-manager/generator. Its iterator stops when no
         messages are received for `timeout` seconds. If an exception is raised
         (inside the context), the message is rejected, the context is exited,
         and exception can be re-raised if configured by `except_errors`.
-        Multiple calls to `recv()` is okay, but reusing the returned instance
-        is not.
+        Multiple calls to `open_sub()` is okay, but reusing the returned
+        instance is not.
 
         Example:
-            async with queue.recv() as stream:
-                async for data in stream:
-                    ...
+            async with queue.open_sub() as stream:
+                async for msg in stream:
+                    print(msg)
 
         NOTE: If using the GCP backend, a message is allocated for
         redelivery if the consumer's iteration takes longer than 10 minutes.
 
         Returns:
-            MessageAsyncGeneratorContext -- context manager and generator object
+            QueueSubResource -- context manager and generator object
         """
-        logging.debug("Creating new MessageAsyncGeneratorContext instance.")
-        return MessageAsyncGeneratorContext(self)
+        logging.debug("Creating new QueueSubResource instance.")
+        return QueueSubResource(self)
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
@@ -189,8 +204,8 @@ class Queue:
             "self.timeout",
         ]
     )
-    async def recv_one(self) -> AsyncIterator[Message]:
-        """Receive one message from the queue.
+    async def open_sub_one(self) -> AsyncIterator[Message]:
+        """Open a context to receive a single messages from the queue.
 
         This is an async context manager. If an exception is raised
         (inside the context), the message is rejected, the context is
@@ -200,11 +215,18 @@ class Queue:
         NOTE: If using the GCP backend, a message is allocated for
         redelivery if the context is open for longer than 10 minutes.
 
+        Example:
+            async with q.open_sub_one() as msg:
+                print(msg)
+
         Decorators:
             contextlib.asynccontextmanager
 
+        Raises:
+            EmptyQueueException -- if there is no available message
+
         Yields:
-            Any -- object of data received, or None if queue is empty
+            Any -- object of data received
         """
 
         @wtt.spanned(
@@ -212,17 +234,22 @@ class Queue:
             carrier="msg.headers",
             carrier_relation=wtt.CarrierRelation.LINK,
         )
-        def get_message_callback(msg: Message) -> Message:
-            if not msg:
-                raise Exception("No message available")
+        def add_span_link(msg: Message) -> Message:
             return msg
 
         sub = await self._create_sub_queue()
-        msg = get_message_callback(await sub.get_message(self.timeout * 1000))
+        raw_msg = await sub.get_message(self.timeout * 1000)
 
-        data = msg.data
+        if not raw_msg:  # no message -> close and exit
+            await sub.close()
+            raise EmptyQueueException(
+                "No message is available (`timeout` value may be too low)"
+            )
+        else:  # got a message -> link and proceed
+            msg = add_span_link(raw_msg)
+
         try:
-            yield data
+            yield msg.data
         except Exception:  # pylint:disable=broad-except
             await self._safe_nack(sub, msg)
             if not self.except_errors:
@@ -245,7 +272,13 @@ class Queue:
         )
 
 
-class QueueSender:
+class EmptyQueueException(Exception):
+    """Raised when the queue is empty."""
+
+
+class QueuePubResource:
+    """A manager class around `Pub.send_message()`."""
+
     def __init__(self, pub: Pub):
         self.pub = pub
 
@@ -256,16 +289,16 @@ class QueueSender:
         await self.pub.send_message(msg)
 
 
-class MessageAsyncGeneratorContext:
+class QueueSubResource:
     """An async context manager wrapping `Sub.message_generator()`."""
 
     RUNTIME_ERROR_CONTEXT_STRING = (
-        "'MessageAsyncGeneratorContext' object's runtime "
+        "'QueueSubResource' object's runtime "
         "context has not been entered. Use 'async with ... as ...' syntax."
     )
 
     def __init__(self, queue: Queue) -> None:
-        logging.debug("[MessageAsyncGeneratorContext.__init__()]")
+        logging.debug("[QueueSubResource.__init__()]")
         self.queue = queue
 
         self._sub: Optional[Sub] = None
@@ -286,19 +319,15 @@ class MessageAsyncGeneratorContext:
         ],
         behavior=wtt.SpanBehavior.ONLY_END_ON_EXCEPTION,
     )
-    async def __aenter__(self) -> "MessageAsyncGeneratorContext":
+    async def __aenter__(self) -> "QueueSubResource":
         """Return instance.
 
         Triggered by 'with ... as'.
         """
-        logging.debug(
-            "[MessageAsyncGeneratorContext.__aenter__()] entered `with-as` block"
-        )
+        logging.debug("[QueueSubResource.__aenter__()] entered `with-as` block")
 
         if self._sub and self._gen:
-            raise RuntimeError(
-                "A 'MessageAsyncGeneratorContext' instance cannot be re-entered."
-            )
+            raise RuntimeError("A 'QueueSubResource' instance cannot be re-entered.")
 
         self._sub = await self.queue._create_sub_queue()
         self._gen = self._sub.message_generator(
@@ -331,7 +360,7 @@ class MessageAsyncGeneratorContext:
             exc_tb {Optional[types.TracebackType]} -- Exception Traceback.
         """
         logging.debug(
-            f"[MessageAsyncGeneratorContext.__aexit__()] exiting `with-as` block (exc:{exc_type})"
+            f"[QueueSubResource.__aexit__()] exiting `with-as` block (exc:{exc_type})"
         )
         if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
@@ -357,30 +386,24 @@ class MessageAsyncGeneratorContext:
         await self._sub.close()  # close after cleanup
 
         if reraise_exception:
-            logging.debug(
-                "[MessageAsyncGeneratorContext.__aexit__()] exited & propagated error."
-            )
+            logging.debug("[QueueSubResource.__aexit__()] exited & propagated error.")
             return False  # propagate the Exception!
         else:
             # either no exception or suppress the exception
             if exc_type and exc_val:
                 logging.debug(
-                    "[MessageAsyncGeneratorContext.__aexit__()] exited & suppressed error."
+                    "[QueueSubResource.__aexit__()] exited & suppressed error."
                 )
             else:
-                logging.debug(
-                    "[MessageAsyncGeneratorContext.__aexit__()] exited w/o error."
-                )
+                logging.debug("[QueueSubResource.__aexit__()] exited w/o error.")
             return True  # suppress any Exception
 
-    def __aiter__(self) -> "MessageAsyncGeneratorContext":
+    def __aiter__(self) -> "QueueSubResource":
         """Return instance.
 
         Triggered with 'for'/'aiter()'.
         """
-        logging.debug(
-            "[MessageAsyncGeneratorContext.__aiter__()] entered loop/`aiter()`"
-        )
+        logging.debug("[QueueSubResource.__aiter__()] entered loop/`aiter()`")
         if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
@@ -397,7 +420,7 @@ class MessageAsyncGeneratorContext:
     )
     async def __anext__(self) -> Any:
         """Return next Message in queue."""
-        logging.debug("[MessageAsyncGeneratorContext.__anext__()] next iteration...")
+        logging.debug("[QueueSubResource.__anext__()] next iteration...")
         if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
@@ -418,7 +441,7 @@ class MessageAsyncGeneratorContext:
         except StopAsyncIteration:
             self.msg = None  # signal there is no message to ack/nack in `__aexit__()`
             logging.debug(
-                "[MessageAsyncGeneratorContext.__anext__()] end of loop (StopAsyncIteration)"
+                "[QueueSubResource.__anext__()] end of loop (StopAsyncIteration)"
             )
             raise
 

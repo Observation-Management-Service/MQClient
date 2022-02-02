@@ -9,7 +9,7 @@ import pytest
 
 # local imports
 from mqclient.backend_interface import AckException, Backend, Message, NackException
-from mqclient.queue import Queue
+from mqclient.queue import EmptyQueueException, Queue
 
 
 def test_init() -> None:
@@ -31,9 +31,10 @@ async def test_send() -> None:
     q = Queue(mock_backend)
 
     data = {"a": 1234}
-    async with q.sender() as s:
-        await s.send(data)
+    async with q.open_pub() as p:
+        await p.send(data)
     mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
+    mock_backend.create_pub_queue.return_value.close.assert_called()
 
     # send() adds a unique header, so we need to look at only the data
     msg = Message(
@@ -44,7 +45,7 @@ async def test_send() -> None:
 
 
 @pytest.mark.asyncio
-async def test_recv() -> None:
+async def test_open_sub() -> None:
     """Test recv."""
 
     # pylint:disable=unused-argument
@@ -58,17 +59,19 @@ async def test_recv() -> None:
     data = ["a", {"b": 100}, ["foo", "bar"]]
     mock_backend.create_sub_queue.return_value.message_generator = gen
 
-    async with q.recv() as recv_gen:
-        recv_data = [d async for d in recv_gen]
+    async with q.open_sub() as stream:
+        recv_data = [d async for d in stream]
         assert data == recv_data
-        recv_gen._sub.ack_message.assert_has_calls(
+        stream._sub.ack_message.assert_has_calls(
             [call(Message(i, Message.serialize(d))) for i, d in enumerate(recv_data)]
         )
 
+    mock_backend.create_sub_queue.return_value.close.assert_called()
+
 
 @pytest.mark.asyncio
-async def test_recv_one() -> None:
-    """Test recv_one."""
+async def test_open_sub_one() -> None:
+    """Test open_sub_one."""
     mock_backend = AsyncMock()
     q = Queue(mock_backend)
 
@@ -76,11 +79,29 @@ async def test_recv_one() -> None:
     msg = Message(0, Message.serialize(data))
     mock_backend.create_sub_queue.return_value.get_message.return_value = msg
 
-    async with q.recv_one() as d:
+    async with q.open_sub_one() as d:
         recv_data = d
 
     assert data == recv_data
     mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
+    mock_backend.create_sub_queue.return_value.close.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_open_sub_one__no_msg() -> None:
+    """Test open_sub_one with an empty queue."""
+    mock_backend = AsyncMock()
+    q = Queue(mock_backend)
+
+    mock_backend.create_sub_queue.return_value.get_message.return_value = None
+
+    with pytest.raises(EmptyQueueException):
+        async with q.open_sub_one() as _:
+            assert 0  # we should never get here
+
+    mock_backend.create_sub_queue.return_value.ack_message.assert_not_called()
+    mock_backend.create_sub_queue.return_value.reject_message.assert_not_called()
+    mock_backend.create_sub_queue.return_value.close.assert_called()
 
 
 @pytest.mark.asyncio
@@ -156,7 +177,7 @@ async def test_safe_nack() -> None:
 
 
 @pytest.mark.asyncio
-async def test_nack_previous() -> None:
+async def test_nack_current() -> None:
     """Test recv with nack_current()."""
 
     # pylint:disable=unused-argument
@@ -171,24 +192,24 @@ async def test_nack_previous() -> None:
     msgs = [Message(i, Message.serialize(d)) for i, d in enumerate(data)]
     mock_backend.create_sub_queue.return_value.message_generator = gen
 
-    async with q.recv() as recv_gen:
+    async with q.open_sub() as stream:
         i = 0
         # manual nacking won't actually place the message for redelivery b/c of mocking
-        async for _ in recv_gen:
+        async for _ in stream:
             if i == 0:  # nack it
-                await recv_gen.nack_current()
-                recv_gen._sub.reject_message.assert_has_calls([call(msgs[0])])
+                await stream.nack_current()
+                stream._sub.reject_message.assert_has_calls([call(msgs[0])])
             elif i == 1:  # DON'T nack it
-                recv_gen._sub.ack_message.assert_not_called()  # from i=0
+                stream._sub.ack_message.assert_not_called()  # from i=0
             elif i == 2:  # nack it
-                recv_gen._sub.reject_message.assert_has_calls([call(msgs[0])])
-                recv_gen._sub.ack_message.assert_has_calls([call(msgs[1])])
-                await recv_gen.nack_current()
-                recv_gen._sub.reject_message.assert_has_calls(
+                stream._sub.reject_message.assert_has_calls([call(msgs[0])])
+                stream._sub.ack_message.assert_has_calls([call(msgs[1])])
+                await stream.nack_current()
+                stream._sub.reject_message.assert_has_calls(
                     [call(msgs[0]), call(msgs[2])]
                 )
             else:
                 assert 0
             i += 1
-        recv_gen._sub.ack_message.assert_has_calls([call(msgs[1])])
-        recv_gen._sub.reject_message.assert_has_calls([call(msgs[0]), call(msgs[2])])
+        stream._sub.ack_message.assert_has_calls([call(msgs[1])])
+        stream._sub.reject_message.assert_has_calls([call(msgs[0]), call(msgs[2])])
