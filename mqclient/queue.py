@@ -231,15 +231,17 @@ class Queue:
             carrier="msg.headers",
             carrier_relation=wtt.CarrierRelation.LINK,
         )
-        def get_message_callback(msg: Optional[Message]) -> Optional[Message]:
+        def add_span_link(msg: Message) -> Message:
             return msg
 
         sub = await self._create_sub_queue()
-        msg = get_message_callback(await sub.get_message(self.timeout * 1000))
+        raw_msg = await sub.get_message(self.timeout * 1000)
 
-        if not msg:
+        if not raw_msg:  # no message -> close and exit
             await sub.close()
             return
+        else:  # got a message -> link and proceed
+            msg = add_span_link(raw_msg)
 
         try:
             yield msg.data
