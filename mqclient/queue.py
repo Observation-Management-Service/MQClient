@@ -115,15 +115,16 @@ class Queue:
                 await sub.ack_message(msg)
                 msg._ack_status = Message.AckStatus.ACKED  # mark after success
             except Exception as e:
-                raise AckException("Acking failed on backend") from e
+                raise AckException(f"Acking failed on backend: {msg}") from e
         elif msg._ack_status == Message.AckStatus.NACKED:
             raise AckException(
-                "Message has already been rejected/nacked, it cannot be acked"
+                f"Message has already been nacked, it cannot be acked: {msg}"
             )
         elif msg._ack_status == Message.AckStatus.ACKED:
-            pass  # needless, so we'll skip it
+            # needless, so we'll skip it
+            logging.debug(f"Attempted to ack an already-acked message: {msg}")
         else:
-            raise RuntimeError(f"Unrecognized AckStatus value: {msg._ack_status}")
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg}")
 
     @wtt.spanned(
         these=[
@@ -143,15 +144,16 @@ class Queue:
                 await sub.reject_message(msg)
                 msg._ack_status = Message.AckStatus.NACKED  # mark after success
             except Exception as e:
-                raise NackException("Nacking failed on backend") from e
+                raise NackException(f"Nacking failed on backend: {msg}") from e
         elif msg._ack_status == Message.AckStatus.NACKED:
-            pass  # needless, so we'll skip it
+            # needless, so we'll skip it
+            logging.debug(f"Attempted to nack an already-nacked message: {msg}")
         elif msg._ack_status == Message.AckStatus.ACKED:
             raise NackException(
-                "Message has already been acked, it cannot be rejected/nacked"
+                f"Message has already been acked, it cannot be nacked: {msg}"
             )
         else:
-            raise RuntimeError(f"Unrecognized AckStatus value: {msg._ack_status}")
+            raise RuntimeError(f"Unrecognized AckStatus value: {msg}")
 
     def recv(self) -> "MessageAsyncGeneratorContext":
         """Receive a stream of messages from the queue.
