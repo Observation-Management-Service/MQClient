@@ -6,8 +6,7 @@ import types
 import uuid
 from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
 
-import wipac_telemetry.tracing_tools as wtt
-
+from . import telemetry as wtt
 from .backend_interface import AckException, Backend, Message, NackException, Pub, Sub
 
 
