@@ -15,19 +15,24 @@ try:
     import wipac_telemetry.tracing_tools as wtt  # type: ignore[import]  # ignore for CI/CD
 
     evented = wtt.evented
-    spanned = wtt.spanned
-    SpanNamer = wtt.SpanNamer
-    SpanKind = wtt.SpanKind
-    SpanBehavior = wtt.SpanBehavior
+    get_current_span = wtt.get_current_span
+    inject_links_carrier = wtt.inject_links_carrier
+    inject_span_carrier = wtt.inject_span_carrier
     respanned = wtt.respanned
+    spanned = wtt.spanned
+
     CarrierRelation = wtt.CarrierRelation
+    Span = wtt.Span
+    SpanBehavior = wtt.SpanBehavior
+    SpanKind = wtt.SpanKind
+    SpanNamer = wtt.SpanNamer
 
     def set_current_span_attribute(key: str, value: Any) -> None:
         wtt.get_current_span().set_attribute(key, value)
 
     def inject_span_carrier_if_recording(carrier: Optional[Dict[str, Any]]) -> None:
         if wtt.get_current_span().is_recording():
-            wtt.propagations.inject_span_carrier(carrier)
+            wtt.inject_span_carrier(carrier)
 
 
 #
@@ -59,6 +64,7 @@ except ImportError:
             pass
 
     SpanNamer = DummyClass  # type: ignore[assignment, misc]
+    Span = DummyClass  # type: ignore[assignment, misc]
 
     class SpanKind(Enum):  # type: ignore[no-redef]
         INTERNAL = 0
@@ -78,3 +84,12 @@ except ImportError:
 
     set_current_span_attribute = dummy_func
     inject_span_carrier_if_recording = dummy_func
+
+    def inject_span_carrier(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+        return {}
+
+    def inject_links_carrier(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+        return {}
+
+    def get_current_span() -> Span:  # type: ignore[misc]
+        return Span()  # type: ignore[abstract]
