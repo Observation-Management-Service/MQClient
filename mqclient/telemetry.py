@@ -1,11 +1,11 @@
 """Convenience wrapper around wipac-telemetry, so package can be used with/without it.
 
-Copied from https://github.com/WIPACrepo/rest-tools/blob/master/rest_tools/telemetry.py
+Based on https://github.com/WIPACrepo/rest-tools/blob/master/rest_tools/telemetry.py
 """
 
 # pylint:skip-file
 
-from enum import Enum
+from enum import Enum, auto
 from typing import Any, Callable, Dict, Optional, TypeVar, cast
 
 #
@@ -18,6 +18,7 @@ try:
     spanned = wtt.spanned
     SpanNamer = wtt.SpanNamer
     SpanKind = wtt.SpanKind
+    SpanBehavior = wtt.SpanBehavior
 
     def set_current_span_attribute(key: str, value: Any) -> None:
         wtt.get_current_span().set_attribute(key, value)
@@ -62,6 +63,11 @@ except ImportError:
         CLIENT = 2
         PRODUCER = 3
         CONSUMER = 4
+
+    class SpanBehavior(Enum):  # type: ignore[no-redef]
+        END_ON_EXIT = auto()
+        DONT_END = auto()
+        ONLY_END_ON_EXCEPTION = auto()
 
     set_current_span_attribute = dummy_func
     inject_span_carrier_if_recording = dummy_func
