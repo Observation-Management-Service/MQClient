@@ -20,6 +20,7 @@ try:
     SpanKind = wtt.SpanKind
     SpanBehavior = wtt.SpanBehavior
     respanned = wtt.respanned
+    CarrierRelation = wtt.CarrierRelation
 
     def set_current_span_attribute(key: str, value: Any) -> None:
         wtt.get_current_span().set_attribute(key, value)
@@ -70,6 +71,10 @@ except ImportError:
         END_ON_EXIT = auto()
         DONT_END = auto()
         ONLY_END_ON_EXCEPTION = auto()
+
+    class CarrierRelation(Enum):  # type: ignore[no-redef]
+        SPAN_CHILD = auto()
+        LINK = auto()
 
     set_current_span_attribute = dummy_func
     inject_span_carrier_if_recording = dummy_func
