@@ -19,6 +19,7 @@ try:
     SpanNamer = wtt.SpanNamer
     SpanKind = wtt.SpanKind
     SpanBehavior = wtt.SpanBehavior
+    respanned = wtt.respanned
 
     def set_current_span_attribute(key: str, value: Any) -> None:
         wtt.get_current_span().set_attribute(key, value)
@@ -47,6 +48,7 @@ except ImportError:
 
     evented = dummy_wrapper
     spanned = dummy_wrapper
+    respanned = dummy_wrapper
 
     def dummy_func(*args: Any, **kwargs: Any) -> None:
         pass
