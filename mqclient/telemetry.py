@@ -91,5 +91,5 @@ except ImportError:
     def inject_links_carrier(*args: Any, **kwargs: Any) -> Dict[str, Any]:
         return {}
 
-    def get_current_span() -> Span:  # type: ignore[misc]
+    def get_current_span() -> "Span":  # type: ignore[misc]
         return Span()  # type: ignore[abstract]
