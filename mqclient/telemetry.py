@@ -64,7 +64,11 @@ except ImportError:
             pass
 
     SpanNamer = DummyClass  # type: ignore[assignment, misc]
-    Span = DummyClass  # type: ignore[assignment, misc]
+
+    class Span:  # type: ignore[no-redef]
+        # This needs to be a full class so that it can be used as a type
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
 
     class SpanKind(Enum):  # type: ignore[no-redef]
         INTERNAL = 0
