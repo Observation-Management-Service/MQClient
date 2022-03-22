@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.4.1 (2022-03-22)
+
+
 ## v0.4.0 (2022-03-21)
 ### Feature
 * Updates for PyPI Publish ([#40](https://github.com/WIPACrepo/MQClient/issues/40)) ([`f8758a9`](https://github.com/WIPACrepo/MQClient/commit/f8758a9ce90bd203a4042b4137ca1919f16f6d03))
