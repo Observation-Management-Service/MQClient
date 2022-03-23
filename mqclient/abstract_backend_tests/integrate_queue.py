@@ -93,11 +93,10 @@ class PubSubQueue:
             await p.send(DATA_LIST[0])
             _log_send(DATA_LIST[0])
 
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(Exception):
             name = f"{queue_name}-fail"
             async with Queue(self.backend, name=name).open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
-        assert "No message available" in str(excinfo.value)
 
         async with Queue(self.backend, name=queue_name).open_sub_one() as d:
             all_recvd.append(_log_recv(d))
@@ -223,9 +222,8 @@ class PubSubQueue:
             all_recvd = p.map(start_recv_thread, range(len(DATA_LIST)))
 
         # Extra Sub
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(Exception):
             await recv_thread(-1)
-        assert "No message available" in str(excinfo.value)
 
         assert all_were_received(all_recvd)
 
