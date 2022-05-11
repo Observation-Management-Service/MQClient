@@ -205,7 +205,7 @@ class Queue:
             "self.timeout",
         ]
     )
-    async def open_sub_one(self) -> AsyncIterator[Message]:
+    async def open_sub_one(self) -> AsyncIterator[Any]:
         """Open a context to receive a single messages from the queue.
 
         This is an async context manager. If an exception is raised
