@@ -9,6 +9,8 @@ from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
 from . import telemetry as wtt
 from .backend_interface import AckException, Backend, Message, NackException, Pub, Sub
 
+LOGGER = logging.getLogger("mqclient")
+
 
 class Queue:
     """User-facing queue library.
@@ -136,7 +138,7 @@ class Queue:
             )
         elif msg._ack_status == Message.AckStatus.ACKED:
             # needless, so we'll skip it
-            logging.debug(f"Attempted to ack an already-acked message: {msg}")
+            LOGGER.debug(f"Attempted to ack an already-acked message: {msg}")
         else:
             raise RuntimeError(f"Unrecognized AckStatus value: {msg}")
 
@@ -161,7 +163,7 @@ class Queue:
                 raise NackException(f"Nacking failed on backend: {msg}") from e
         elif msg._ack_status == Message.AckStatus.NACKED:
             # needless, so we'll skip it
-            logging.debug(f"Attempted to nack an already-nacked message: {msg}")
+            LOGGER.debug(f"Attempted to nack an already-nacked message: {msg}")
         elif msg._ack_status == Message.AckStatus.ACKED:
             raise NackException(
                 f"Message has already been acked, it cannot be nacked: {msg}"
@@ -190,7 +192,7 @@ class Queue:
         Returns:
             QueueSubResource -- context manager and generator object
         """
-        logging.debug("Creating new QueueSubResource instance.")
+        LOGGER.debug("Creating new QueueSubResource instance.")
         return QueueSubResource(self)
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
@@ -203,7 +205,7 @@ class Queue:
             "self.timeout",
         ]
     )
-    async def open_sub_one(self) -> AsyncIterator[Message]:
+    async def open_sub_one(self) -> AsyncIterator[Any]:
         """Open a context to receive a single messages from the queue.
 
         This is an async context manager. If an exception is raised
@@ -297,7 +299,7 @@ class QueueSubResource:
     )
 
     def __init__(self, queue: Queue) -> None:
-        logging.debug("[QueueSubResource.__init__()]")
+        LOGGER.debug("[QueueSubResource.__init__()]")
         self.queue = queue
 
         self._sub: Optional[Sub] = None
@@ -323,7 +325,7 @@ class QueueSubResource:
 
         Triggered by 'with ... as'.
         """
-        logging.debug("[QueueSubResource.__aenter__()] entered `with-as` block")
+        LOGGER.debug("[QueueSubResource.__aenter__()] entered `with-as` block")
 
         if self._sub and self._gen:
             raise RuntimeError("A 'QueueSubResource' instance cannot be re-entered.")
@@ -358,7 +360,7 @@ class QueueSubResource:
             exc_val {Optional[Type[BaseException]]} -- Exception object.
             exc_tb {Optional[types.TracebackType]} -- Exception Traceback.
         """
-        logging.debug(
+        LOGGER.debug(
             f"[QueueSubResource.__aexit__()] exiting `with-as` block (exc:{exc_type})"
         )
         if not (self._sub and self._gen):
@@ -385,16 +387,16 @@ class QueueSubResource:
         await self._sub.close()  # close after cleanup
 
         if reraise_exception:
-            logging.debug("[QueueSubResource.__aexit__()] exited & propagated error.")
+            LOGGER.debug("[QueueSubResource.__aexit__()] exited & propagated error.")
             return False  # propagate the Exception!
         else:
             # either no exception or suppress the exception
             if exc_type and exc_val:
-                logging.debug(
+                LOGGER.debug(
                     "[QueueSubResource.__aexit__()] exited & suppressed error."
                 )
             else:
-                logging.debug("[QueueSubResource.__aexit__()] exited w/o error.")
+                LOGGER.debug("[QueueSubResource.__aexit__()] exited w/o error.")
             return True  # suppress any Exception
 
     def __aiter__(self) -> "QueueSubResource":
@@ -402,7 +404,7 @@ class QueueSubResource:
 
         Triggered with 'for'/'aiter()'.
         """
-        logging.debug("[QueueSubResource.__aiter__()] entered loop/`aiter()`")
+        LOGGER.debug("[QueueSubResource.__aiter__()] entered loop/`aiter()`")
         if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
@@ -419,7 +421,7 @@ class QueueSubResource:
     )
     async def __anext__(self) -> Any:
         """Return next Message in queue."""
-        logging.debug("[QueueSubResource.__anext__()] next iteration...")
+        LOGGER.debug("[QueueSubResource.__anext__()] next iteration...")
         if not (self._sub and self._gen):
             raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
 
@@ -439,7 +441,7 @@ class QueueSubResource:
             self.msg = get_message_callback(await self._gen.__anext__())
         except StopAsyncIteration:
             self.msg = None  # signal there is no message to ack/nack in `__aexit__()`
-            logging.debug(
+            LOGGER.debug(
                 "[QueueSubResource.__anext__()] end of loop (StopAsyncIteration)"
             )
             raise
