@@ -58,6 +58,9 @@ class Message:
         self.payload = payload
         self._ack_status: Message.AckStatus = Message.AckStatus.NONE
 
+        self._data = None
+        self._headers = None
+
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
         return f"Message(msg_id={self.msg_id!r}, payload={self.payload!r}, _ack_status={self._ack_status})"
@@ -74,12 +77,16 @@ class Message:
     @property
     def data(self) -> Any:
         """Read and return an object from the `data` field."""
-        return pickle.loads(self.payload)["data"]
+        if not self._data:
+            self._data = pickle.loads(self.payload)["data"]
+        return self._data
 
     @property
     def headers(self) -> Any:
         """Read and return dict from the `headers` field."""
-        return pickle.loads(self.payload)["headers"]
+        if not self._headers:
+            self._headers = pickle.loads(self.payload)["headers"]
+        return self._headers
 
     @staticmethod
     def serialize(data: Any, headers: Optional[Dict[str, Any]] = None) -> bytes:
