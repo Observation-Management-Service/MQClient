@@ -246,8 +246,9 @@ class Queue:
             raise EmptyQueueException(
                 "No message is available (`timeout` value may be too low)"
             )
-        else:  # got a message -> link and proceed
-            msg = add_span_link(raw_msg)
+
+        LOGGER.info(f"Received Message: {raw_msg.size_repr()}")
+        msg = add_span_link(raw_msg)  # got a message -> link and proceed
 
         try:
             yield msg.data
@@ -287,6 +288,7 @@ class QueuePubResource:
     async def send(self, data: Any) -> None:
         """Send a message."""
         msg = Message.serialize(data, headers=wtt.inject_links_carrier())
+        LOGGER.info(f"Sending Message: {msg.size_repr()}")
         await self.pub.send_message(msg)
 
 
@@ -451,6 +453,7 @@ class QueueSubResource:
                 "Yielded value is `None`. This should not have happened."
             )
 
+        LOGGER.info(f"Received Message: {self.msg.size_repr()}")
         return self.msg.data
 
     @wtt.spanned(
