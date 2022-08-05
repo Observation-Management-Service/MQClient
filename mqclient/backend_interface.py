@@ -2,7 +2,6 @@
 
 
 import pickle
-import sys
 from enum import Enum, auto
 from typing import Any, AsyncGenerator, Dict, Optional, Union
 
@@ -65,17 +64,6 @@ class Message:
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
         return f"Message(msg_id={self.msg_id!r}, payload={self.payload!r}, _ack_status={self._ack_status})"
-
-    def size_repr(self) -> str:
-        """Get a string of the byte-sizes of the components."""
-        return (
-            f"Message_Size("
-            f"msg_id={self.msg_id!r}, "
-            f"total_bytes={sys.getsizeof(self)}, "
-            f"payload_bytes={sys.getsizeof(self.payload)}, "
-            f"data_bytes={sys.getsizeof(self.data)}, "
-            f"headers_bytes={sys.getsizeof(self.headers)})"
-        )
 
     def __eq__(self, other: object) -> bool:
         """Return True if self's and other's `data` are equal.
