@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.1 (2022-08-05)
+
+
 ## v0.5.0 (2022-05-13)
 ### Feature
 * Type Hint Patch & Package-Specific Logger ([#45](https://github.com/WIPACrepo/MQClient/issues/45)) ([`f11148b`](https://github.com/WIPACrepo/MQClient/commit/f11148b41da3b305b79c6587cebb3b97012d246b))
