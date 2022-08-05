@@ -2,6 +2,7 @@
 
 import contextlib
 import logging
+import sys
 import types
 import uuid
 from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
@@ -10,6 +11,14 @@ from . import telemetry as wtt
 from .backend_interface import AckException, Backend, Message, NackException, Pub, Sub
 
 LOGGER = logging.getLogger("mqclient")
+
+
+def _message_size_message(msg: Message) -> str:
+    return (
+        f"{sys.getsizeof(msg.payload)} bytes "
+        f"(data={sys.getsizeof(msg.data)}, headers={sys.getsizeof(msg.headers)}) "
+        f"[msg_id={msg.msg_id!r}]"
+    )
 
 
 class Queue:
@@ -246,8 +255,9 @@ class Queue:
             raise EmptyQueueException(
                 "No message is available (`timeout` value may be too low)"
             )
-        else:  # got a message -> link and proceed
-            msg = add_span_link(raw_msg)
+
+        msg = add_span_link(raw_msg)  # got a message -> link and proceed
+        LOGGER.info(f"Received Message: {_message_size_message(msg)}")
 
         try:
             yield msg.data
@@ -286,8 +296,9 @@ class QueuePubResource:
     @wtt.spanned(kind=wtt.SpanKind.PRODUCER)
     async def send(self, data: Any) -> None:
         """Send a message."""
-        msg = Message.serialize(data, headers=wtt.inject_links_carrier())
-        await self.pub.send_message(msg)
+        msg_bytes = Message.serialize(data, headers=wtt.inject_links_carrier())
+        LOGGER.info(f"Sending Message: {sys.getsizeof(msg_bytes)} bytes")
+        await self.pub.send_message(msg_bytes)
 
 
 class QueueSubResource:
@@ -451,6 +462,7 @@ class QueueSubResource:
                 "Yielded value is `None`. This should not have happened."
             )
 
+        LOGGER.info(f"Received Message: {_message_size_message(self.msg)}")
         return self.msg.data
 
     @wtt.spanned(
