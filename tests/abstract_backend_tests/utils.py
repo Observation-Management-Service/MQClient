@@ -4,9 +4,7 @@ import logging
 from typing import Any, List, Optional
 
 import pytest
-
-# local imports
-from ..queue import Queue
+from mqclient.queue import Queue
 
 
 def is_inst_name(obj: Any, name: str) -> bool:
