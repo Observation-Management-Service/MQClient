@@ -58,7 +58,7 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - run: |
           pip install --upgrade pip wheel setuptools
-          pip install .
+          pip install .[dev]
           pytest -vvv tests/unit
 
   integration-test:
@@ -75,7 +75,7 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - run: |
           pip install --upgrade pip wheel setuptools
-          pip install .
+          pip install .[dev]
           pytest -vvv tests/unit
 
   release:
