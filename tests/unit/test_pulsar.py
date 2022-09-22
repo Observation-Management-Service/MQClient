@@ -3,9 +3,10 @@
 from typing import Any, List
 
 import pytest
-from mqclient.abstract_backend_tests.unit_tests import BackendUnitTest
 from mqclient.backend_interface import Message
 from mqclient_pulsar.apachepulsar import Backend
+
+from ..abstract_backend_tests.unit_tests import BackendUnitTest
 
 
 class TestUnitApachePulsar(BackendUnitTest):

@@ -4,11 +4,11 @@ import asyncio
 import logging
 
 import pytest
-from mqclient.abstract_backend_tests import integrate_backend_interface, integrate_queue
-from mqclient.abstract_backend_tests.utils import (  # pytest.fixture # noqa: F401 # pylint: disable=W0611
+
+from ..abstract_backend_tests import integrate_backend_interface, integrate_queue
+from ..abstract_backend_tests.utils import (  # pytest.fixture # noqa: F401 # pylint: disable=W0611
     queue_name,
 )
-from mqclient_nats.nats import Backend
 
 logging.getLogger().setLevel(logging.DEBUG)
 logging.getLogger("flake8").setLevel(logging.WARNING)
@@ -24,10 +24,10 @@ def event_loop():  # type: ignore[no-untyped-def]
 class TestNATSQueue(integrate_queue.PubSubQueue):
     """Run PubSubQueue integration tests with NATS backend."""
 
-    backend = Backend()
+    backend = "nats"
 
 
 class TestNATSBackend(integrate_backend_interface.PubSubBackendInterface):
     """Run PubSubBackendInterface integration tests with NATS backend."""
 
-    backend = Backend()
+    backend = "nats"

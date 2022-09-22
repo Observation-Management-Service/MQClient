@@ -10,9 +10,8 @@ from typing import List, Optional
 
 import asyncstdlib as asl
 import pytest
+from mqclient.backend_interface import Backend, Message
 
-# local imports
-from ..backend_interface import Backend, Message
 from .utils import DATA_LIST, _log_recv, _log_send
 
 
@@ -29,7 +28,7 @@ class PubSubBackendInterface:
     Only test things that cannot be tested via the Queue class.
     """
 
-    backend = None  # type: Backend
+    backend: Backend = None
     timeout = 1
 
     @pytest.mark.asyncio

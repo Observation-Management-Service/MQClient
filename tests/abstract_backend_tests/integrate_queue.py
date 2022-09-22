@@ -9,10 +9,8 @@ from typing import Any, List
 
 import asyncstdlib as asl
 import pytest
+from mqclient.queue import Queue
 
-# local imports
-from ..backend_interface import Backend
-from ..queue import Queue
 from .utils import (
     DATA_LIST,
     _log_recv,
@@ -25,7 +23,7 @@ from .utils import (
 class PubSubQueue:
     """Integration test suite for Queue objects."""
 
-    backend = None  # type: Backend
+    backend: str = ""
 
     @pytest.mark.asyncio
     async def test_10(self, queue_name: str) -> None:
