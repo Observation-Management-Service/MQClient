@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import asyncstdlib as asl
 import pytest
-from mqclient.backend_interface import Message
+from mqclient.backend_interface import Backend, Message
 from mqclient.queue import Queue
 
 from .utils import is_inst_name
@@ -17,7 +17,7 @@ from .utils import is_inst_name
 class BackendUnitTest:
     """Unit test suite interface for specified backend."""
 
-    backend: str = ""
+    backend: Optional[Backend] = None
     con_patch = ""
 
     @pytest.fixture

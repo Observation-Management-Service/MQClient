@@ -3,8 +3,8 @@
 from typing import Any, List
 
 import pytest
+from mqclient import backend_manager
 from mqclient.backend_interface import Message
-from mqclient_pulsar.apachepulsar import Backend
 
 from ..abstract_backend_tests.unit_tests import BackendUnitTest
 
@@ -12,7 +12,7 @@ from ..abstract_backend_tests.unit_tests import BackendUnitTest
 class TestUnitApachePulsar(BackendUnitTest):
     """Unit test suite interface for Apache Pulsar backend."""
 
-    backend = Backend()
+    backend = backend_manager.get_backend("pulsar")
     con_patch = "pulsar.Client"
 
     @staticmethod

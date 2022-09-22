@@ -5,8 +5,8 @@ from typing import Any, List
 from unittest.mock import MagicMock
 
 import pytest
+from mqclient import backend_manager
 from mqclient.backend_interface import Message
-from mqclient_rabbitmq.rabbitmq import Backend
 
 from ..abstract_backend_tests.unit_tests import BackendUnitTest
 
@@ -14,7 +14,7 @@ from ..abstract_backend_tests.unit_tests import BackendUnitTest
 class TestUnitRabbitMQ(BackendUnitTest):
     """Unit test suite interface for RabbitMQ backend."""
 
-    backend = Backend()
+    backend = backend_manager.get_backend("rabbitmq")
     con_patch = "pika.BlockingConnection"
 
     @staticmethod

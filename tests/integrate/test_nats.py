@@ -4,6 +4,7 @@ import asyncio
 import logging
 
 import pytest
+from mqclient import backend_manager
 
 from ..abstract_backend_tests import integrate_backend_interface, integrate_queue
 from ..abstract_backend_tests.utils import (  # pytest.fixture # noqa: F401 # pylint: disable=W0611
@@ -30,4 +31,4 @@ class TestNATSQueue(integrate_queue.PubSubQueue):
 class TestNATSBackend(integrate_backend_interface.PubSubBackendInterface):
     """Run PubSubBackendInterface integration tests with NATS backend."""
 
-    backend = "nats"
+    backend = backend_manager.get_backend("nats")

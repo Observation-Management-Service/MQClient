@@ -7,7 +7,7 @@ import types
 import uuid
 from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
 
-from . import manager
+from . import backend_manager
 from . import telemetry as wtt
 from .backend_interface import AckException, Message, NackException, Pub, Sub
 
@@ -47,7 +47,7 @@ class Queue:
         except_errors: bool = True,
         auth_token: str = "",
     ) -> None:
-        self._backend = manager.get_backend(backend)
+        self._backend = backend_manager.get_backend(backend)
         self._address = address
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
