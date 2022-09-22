@@ -33,7 +33,6 @@ jobs:
       - uses: WIPACrepo/wipac-dev-py-setup-action@extras
         with:
           base-keywords: WIPAC IceCube
-          directory-exclude: tests test examples
 
   py-versions:
     needs: [py-setup]
