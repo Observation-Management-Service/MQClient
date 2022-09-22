@@ -72,7 +72,9 @@ typing-extensions==4.3.0
 urllib3==1.26.12
     # via requests
 wipac-dev-tools==1.5.0
-    # via wipac-telemetry
+    # via
+    #   wipac-mqclient (setup.py)
+    #   wipac-telemetry
 wipac-telemetry==0.2.4
     # via wipac-mqclient (setup.py)
 wrapt==1.14.1
