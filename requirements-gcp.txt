@@ -28,13 +28,13 @@ googleapis-common-protos[grpc]==1.56.4
     #   wipac-mqclient (setup.py)
 grpc-google-iam-v1==0.12.4
     # via google-cloud-pubsub
-grpcio==1.48.1
+grpcio==1.49.1
     # via
     #   google-api-core
     #   google-cloud-pubsub
     #   grpc-google-iam-v1
     #   grpcio-status
-grpcio-status==1.48.1
+grpcio-status==1.49.1
     # via
     #   google-api-core
     #   google-cloud-pubsub
