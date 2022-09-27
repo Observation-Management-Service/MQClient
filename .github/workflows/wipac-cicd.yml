@@ -34,7 +34,7 @@ jobs:
         with:
           base-keywords: WIPAC IceCube
 
-  examples:
+  example:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -43,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
-      - name: tests
+      - name: example
         run: |
           echo "--------------------------------------------------------------"
           echo "starting broker..."
