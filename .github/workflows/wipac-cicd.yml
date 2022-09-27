@@ -75,9 +75,6 @@ jobs:
         with:
           python-version: ${{ matrix.py3 }}
       - run: |
-          pip install --upgrade pip wheel setuptools
-          pip install .[dev,${{ matrix.backend }}]
-
           wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
           # Pulsar
@@ -101,9 +98,12 @@ jobs:
           # NATS
           elif [ "${{ matrix.broker }}" = "nats" ]; then
             ./resources/local-nats-js.sh &
-            sleep 15
           fi
 
+          sleep 15
+
+          pip install --upgrade pip wheel setuptools
+          pip install .[dev,${{ matrix.backend }}]
           pytest -vvv tests/integrate/test_${{ matrix.backend }}.py
 
   release:
