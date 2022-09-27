@@ -4,8 +4,9 @@ import unittest
 from typing import Any, List
 from unittest.mock import MagicMock
 
+import mqclient
 import pytest
-from mqclient import backend_manager, rabbitmq
+from mqclient import backend_manager
 from mqclient.backend_interface import Message
 
 from ..abstract_backend_tests.unit_tests import BackendUnitTest
@@ -50,7 +51,7 @@ class TestUnitRabbitMQ(BackendUnitTest):
     async def test_create_pub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating pub queue."""
         pub = await self.backend.create_pub_queue("localhost", queue_name)
-        assert isinstance(pub, rabbitmq.RabbitMQPub)
+        assert isinstance(pub, mqclient.rabbitmq.RabbitMQPub)
         assert pub.queue == queue_name
         mock_con.return_value.channel.assert_called()
 
@@ -58,7 +59,7 @@ class TestUnitRabbitMQ(BackendUnitTest):
     async def test_create_sub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating sub queue."""
         sub = await self.backend.create_sub_queue("localhost", queue_name, prefetch=213)
-        assert isinstance(sub, rabbitmq.RabbitMQSub)
+        assert isinstance(sub, mqclient.rabbitmq.RabbitMQSub)
         assert sub.queue == queue_name
         assert sub.prefetch == 213
         mock_con.return_value.channel.assert_called()
