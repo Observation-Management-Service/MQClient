@@ -69,6 +69,8 @@ jobs:
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         backend: [pulsar, rabbitmq, gcp, nats]
+    env:
+      DOCKERIZE_VERSION: v0.6.1
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
@@ -85,7 +87,6 @@ jobs:
                 -p 8080:8080 \
                 --name $PULSAR_CONTAINER apachepulsar/pulsar:2.6.0 /bin/bash \
                 -c "sed -i s/brokerDeleteInactiveTopicsEnabled=.*/brokerDeleteInactiveTopicsEnabled=false/ /pulsar/conf/standalone.conf && bin/pulsar standalone"
-            export DOCKERIZE_VERSION=v0.3.0
             dockerize -wait tcp://localhost:8080 -timeout 1m
             dockerize -wait tcp://localhost:6650 -timeout 1m
             sleep 60
