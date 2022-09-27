@@ -71,6 +71,7 @@ jobs:
         backend: [pulsar, rabbitmq, gcp, nats]
     env:
       DOCKERIZE_VERSION: v0.6.1
+      PULSAR_CONTAINER: local-pulsar
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
