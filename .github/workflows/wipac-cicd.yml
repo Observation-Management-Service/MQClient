@@ -71,8 +71,8 @@ jobs:
 
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.backend }}]
-          python examples/worker.py &
-          python examples/server.py
+          python examples/worker.py --broker-type ${{ matrix.backend }} &
+          python examples/server.py --broker-type ${{ matrix.backend }}
 
   py-versions:
     needs: [py-setup]
