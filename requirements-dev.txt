@@ -8,7 +8,7 @@ asyncstdlib==3.10.5
     # via wipac-mqclient (setup.py)
 attrs==22.1.0
     # via pytest
-certifi==2022.9.14
+certifi==2022.9.24
     # via requests
 charset-normalizer==2.1.1
     # via requests
@@ -16,7 +16,7 @@ idna==3.4
     # via requests
 iniconfig==1.1.1
     # via pytest
-mypy==0.971
+mypy==0.981
     # via wipac-mqclient (setup.py)
 mypy-extensions==0.4.3
     # via mypy
@@ -49,5 +49,5 @@ typing-extensions==4.3.0
     #   wipac-dev-tools
 urllib3==1.26.12
     # via requests
-wipac-dev-tools==1.5.0
+wipac-dev-tools==1.5.1
     # via wipac-mqclient (setup.py)
