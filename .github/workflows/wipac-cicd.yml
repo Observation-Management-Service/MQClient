@@ -74,7 +74,8 @@ jobs:
       - uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.py3 }}
-      - run: |
+      - name: tests
+        run: |
           wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
           # Pulsar
@@ -87,20 +88,24 @@ jobs:
             export DOCKERIZE_VERSION=v0.3.0
             dockerize -wait tcp://localhost:8080 -timeout 1m
             dockerize -wait tcp://localhost:6650 -timeout 1m
+            sleep 60
           # RabbitMQ
           elif [ "${{ matrix.broker }}" = "rabbitmq" ]; then
             docker run -i -d --rm deadtrickster/rabbitmq_prometheus:3.7
             dockerize -wait tcp://localhost:5672 -timeout 1m
+            sleep 15
           # GCP
           elif [ "${{ matrix.broker }}" = "gcp" ]; then
             ./resources/gcp-install.sh
             gcloud beta emulators pubsub start --project="i3-gcp-proj" &
+            sleep 15
           # NATS
           elif [ "${{ matrix.broker }}" = "nats" ]; then
             ./resources/local-nats-js.sh &
+            sleep 15
           fi
 
-          sleep 15
+
 
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.backend }}]
