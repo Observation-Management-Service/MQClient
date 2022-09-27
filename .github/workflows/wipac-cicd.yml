@@ -68,6 +68,7 @@ jobs:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
+        backend: [pulsar, rabbitmq, gcp, nats]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
@@ -75,8 +76,8 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - run: |
           pip install --upgrade pip wheel setuptools
-          pip install .[dev]
-          pytest -vvv tests/unit
+          pip install .[dev,${{ matrix.backend }}]
+          pytest -vvv tests/integrate/test_${{ matrix.backend }}
 
   release:
     if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
