@@ -80,6 +80,9 @@ jobs:
         run: |
           wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
+          echo "--------------------------------------------------------------"
+          echo "starting broker..."
+
           # Pulsar
           if [ "${{ matrix.backend }}" = "pulsar" ]; then
             docker run -i -d --rm \
@@ -102,7 +105,12 @@ jobs:
             ./resources/local-nats-js.sh &
           fi
 
+          echo "--------------------------------------------------------------"
+          echo "waiting for broker..."
           sleep 15
+
+          echo "--------------------------------------------------------------"
+          echo "running tests..."
 
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.backend }}]
