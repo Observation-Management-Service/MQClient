@@ -14,8 +14,10 @@ from ..abstract_backend_tests.unit_tests import BackendUnitTest
 class TestUnitRabbitMQ(BackendUnitTest):
     """Unit test suite interface for RabbitMQ backend."""
 
-    backend = backend_manager.get_backend("rabbitmq")
     con_patch = "pika.BlockingConnection"
+
+    def __init__(self) -> None:
+        super().__init__(backend_manager.get_backend("rabbitmq"))
 
     @staticmethod
     def _get_nack_mock_fn(mock_con: Any) -> Any:
