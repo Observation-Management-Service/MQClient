@@ -12,7 +12,7 @@ from mqclient.queue import EmptyQueueException, Queue
 try:
     from unittest.mock import AsyncMock
 except ImportError:
-    from asyncmock import AsyncMock  # type: ignore[import]
+    from mock import AsyncMock  # use backport
 
 
 def test_init() -> None:
