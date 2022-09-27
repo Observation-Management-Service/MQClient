@@ -3,13 +3,16 @@
 # pylint:disable=invalid-name,protected-access
 
 from typing import Any, AsyncGenerator
-from unittest.mock import AsyncMock, call, sentinel
+from unittest.mock import call, sentinel
 
 import pytest
-
-# local imports
 from mqclient.backend_interface import AckException, Backend, Message, NackException
 from mqclient.queue import EmptyQueueException, Queue
+
+try:
+    from unittest.mock import AsyncMock
+except ImportError:
+    from asyncmock import AsyncMock  # type: ignore[import]
 
 
 def test_init() -> None:
