@@ -104,7 +104,7 @@ jobs:
             sleep 15
           fi
 
-          pytest -vvv tests/integrate/test_${{ matrix.backend }}
+          pytest -vvv tests/integrate/test_${{ matrix.backend }}.py
 
   release:
     if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
