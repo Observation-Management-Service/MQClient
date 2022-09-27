@@ -3,7 +3,7 @@
 # pylint:disable=invalid-name,protected-access
 
 from typing import Any, AsyncGenerator
-from unittest.mock import call, sentinel
+from unittest.mock import call, patch, sentinel
 
 import pytest
 from mqclient.backend_interface import AckException, Message, NackException
@@ -30,7 +30,9 @@ def test_init() -> None:
 async def test_send() -> None:
     """Test send."""
     mock_backend = AsyncMock()
-    q = Queue(mock_backend)
+    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
+        mock_get_backend.return_value = mock_backend
+        q = Queue("mock")
 
     data = {"a": 1234}
     async with q.open_pub() as p:
@@ -56,7 +58,9 @@ async def test_open_sub() -> None:
             yield Message(i, Message.serialize(d))
 
     mock_backend = AsyncMock()
-    q = Queue(mock_backend)
+    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
+        mock_get_backend.return_value = mock_backend
+        q = Queue("mock")
 
     data = ["a", {"b": 100}, ["foo", "bar"]]
     mock_backend.create_sub_queue.return_value.message_generator = gen
@@ -75,7 +79,9 @@ async def test_open_sub() -> None:
 async def test_open_sub_one() -> None:
     """Test open_sub_one."""
     mock_backend = AsyncMock()
-    q = Queue(mock_backend)
+    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
+        mock_get_backend.return_value = mock_backend
+        q = Queue("mock")
 
     data = {"b": 100}
     msg = Message(0, Message.serialize(data))
@@ -93,7 +99,9 @@ async def test_open_sub_one() -> None:
 async def test_open_sub_one__no_msg() -> None:
     """Test open_sub_one with an empty queue."""
     mock_backend = AsyncMock()
-    q = Queue(mock_backend)
+    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
+        mock_get_backend.return_value = mock_backend
+        q = Queue("mock")
 
     mock_backend.create_sub_queue.return_value.get_message.return_value = None
 
@@ -110,7 +118,9 @@ async def test_open_sub_one__no_msg() -> None:
 async def test_safe_ack() -> None:
     """Test _safe_ack()."""
     mock_backend = AsyncMock()
-    q = Queue(mock_backend)
+    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
+        mock_get_backend.return_value = mock_backend
+        q = Queue("mock")
 
     data = {"b": 100}
 
@@ -146,7 +156,9 @@ async def test_safe_ack() -> None:
 async def test_safe_nack() -> None:
     """Test _safe_nack()."""
     mock_backend = AsyncMock()
-    q = Queue(mock_backend)
+    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
+        mock_get_backend.return_value = mock_backend
+        q = Queue("mock")
 
     data = {"b": 100}
 
@@ -188,7 +200,9 @@ async def test_nack_current() -> None:
             yield Message(i, Message.serialize(d))
 
     mock_backend = AsyncMock()
-    q = Queue(mock_backend)
+    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
+        mock_get_backend.return_value = mock_backend
+        q = Queue("mock")
 
     data = ["a", {"b": 100}, ["foo", "bar"]]
     msgs = [Message(i, Message.serialize(d)) for i, d in enumerate(data)]
