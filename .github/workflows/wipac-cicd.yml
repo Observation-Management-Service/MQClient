@@ -96,7 +96,9 @@ jobs:
             dockerize -wait tcp://localhost:6650 -timeout $PORT_WAIT
           # RabbitMQ
           elif [ "${{ matrix.backend }}" = "rabbitmq" ]; then
-            docker run -i -d --rm deadtrickster/rabbitmq_prometheus:3.7
+            docker run -i -d --rm \
+                -p 5672:5672 \
+                deadtrickster/rabbitmq_prometheus:3.7
             dockerize -wait tcp://localhost:5672 -timeout $PORT_WAIT
           # GCP
           elif [ "${{ matrix.backend }}" = "gcp" ]; then
