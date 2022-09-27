@@ -8,5 +8,9 @@ sudo apt-get install google-cloud-sdk
 sudo apt-get install google-cloud-sdk-pubsub-emulator
 gcloud components list
 
-export PUBSUB_EMULATOR_HOST=localhost:8085
+if [ "$PUBSUB_EMULATOR_HOST" -neq "localhost:8085" ]; then
+    echo "Don't forget to 'export PUBSUB_EMULATOR_HOST=localhost:8085'"
+    exit 1
+fi
+
 gcloud beta emulators pubsub start --project="i3-gcp-proj" &
