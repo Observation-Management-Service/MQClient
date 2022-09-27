@@ -4,8 +4,6 @@
 #
 #    pip-compile --extra=dev --output-file=requirements-dev.txt
 #
-asyncmock==0.4.2
-    # via wipac-mqclient (setup.py)
 asyncstdlib==3.10.5
     # via wipac-mqclient (setup.py)
 attrs==22.1.0
@@ -19,7 +17,7 @@ idna==3.4
 iniconfig==1.1.1
     # via pytest
 mock==4.0.3
-    # via asyncmock
+    # via wipac-mqclient (setup.py)
 mypy==0.981
     # via wipac-mqclient (setup.py)
 mypy-extensions==0.4.3
