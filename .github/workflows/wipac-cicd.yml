@@ -56,10 +56,10 @@ jobs:
             ./resources/docker-rabbitmq.sh
           # GCP
           elif [ "${{ matrix.backend }}" = "gcp" ]; then
-            ./resources/local-gcp-emulator.sh &
+            ./resources/local-gcp-emulator.sh
           # NATS
           elif [ "${{ matrix.backend }}" = "nats" ]; then
-            ./resources/local-nats-js.sh &
+            ./resources/local-nats-js.sh
           fi
 
           echo "--------------------------------------------------------------"
@@ -127,10 +127,10 @@ jobs:
             ./resources/docker-rabbitmq.sh
           # GCP
           elif [ "${{ matrix.backend }}" = "gcp" ]; then
-            ./resources/local-gcp-emulator.sh &
+            ./resources/local-gcp-emulator.sh
           # NATS
           elif [ "${{ matrix.backend }}" = "nats" ]; then
-            ./resources/local-nats-js.sh &
+            ./resources/local-nats-js.sh
           fi
 
           echo "--------------------------------------------------------------"
