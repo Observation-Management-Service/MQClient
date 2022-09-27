@@ -69,10 +69,6 @@ jobs:
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         backend: [pulsar, rabbitmq, gcp, nats]
-    env:
-      DOCKERIZE_VERSION: v0.6.1
-      PULSAR_CONTAINER: local-pulsar
-      PORT_WAIT: 10m
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
@@ -80,31 +76,18 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - name: tests
         run: |
-          wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
-
           echo "--------------------------------------------------------------"
           echo "starting broker..."
 
           # Pulsar
           if [ "${{ matrix.backend }}" = "pulsar" ]; then
-            docker run -i -d --rm \
-                -p 6650:6650 \
-                -p 8080:8080 \
-                --name $PULSAR_CONTAINER apachepulsar/pulsar:2.6.0 /bin/bash \
-                -c "sed -i s/brokerDeleteInactiveTopicsEnabled=.*/brokerDeleteInactiveTopicsEnabled=false/ /pulsar/conf/standalone.conf && bin/pulsar standalone"
-            dockerize -wait tcp://localhost:8080 -timeout $PORT_WAIT
-            dockerize -wait tcp://localhost:6650 -timeout $PORT_WAIT
+            ./resources/docker-pulsar.sh
           # RabbitMQ
           elif [ "${{ matrix.backend }}" = "rabbitmq" ]; then
-            docker run -i -d --rm \
-                -p 5672:5672 \
-                deadtrickster/rabbitmq_prometheus:3.7
-            dockerize -wait tcp://localhost:5672 -timeout $PORT_WAIT
+            ./resources/docker-rabbitmq.sh
           # GCP
           elif [ "${{ matrix.backend }}" = "gcp" ]; then
-            ./resources/gcp-install.sh
-            export PUBSUB_EMULATOR_HOST=localhost:8085
-            gcloud beta emulators pubsub start --project="i3-gcp-proj" &
+            ./resources/local-gcp-emulator.sh &
           # NATS
           elif [ "${{ matrix.backend }}" = "nats" ]; then
             ./resources/local-nats-js.sh &
