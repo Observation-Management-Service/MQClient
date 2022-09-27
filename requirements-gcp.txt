@@ -14,7 +14,7 @@ google-api-core[grpc]==2.10.1
     # via
     #   google-cloud-pubsub
     #   wipac-mqclient (setup.py)
-google-auth==2.11.1
+google-auth==2.12.0
     # via
     #   google-api-core
     #   wipac-mqclient (setup.py)
