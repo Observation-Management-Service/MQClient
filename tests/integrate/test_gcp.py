@@ -22,4 +22,5 @@ class TestGCPQueue(integrate_queue.PubSubQueue):
 class TestGCPBackend(integrate_backend_interface.PubSubBackendInterface):
     """Run PubSubBackendInterface integration tests with GCP backend."""
 
-    backend = backend_manager.get_backend("gcp")
+    def __init__(self) -> None:
+        super().__init__(backend_manager.get_backend("gcp"))

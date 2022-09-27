@@ -22,4 +22,5 @@ class TestPulsarQueue(integrate_queue.PubSubQueue):
 class TestPulsarBackend(integrate_backend_interface.PubSubBackendInterface):
     """Run PubSubBackendInterface integration tests with Pulsar backend."""
 
-    backend = backend_manager.get_backend("pulsar")
+    def __init__(self) -> None:
+        super().__init__(backend_manager.get_backend("pulsar"))

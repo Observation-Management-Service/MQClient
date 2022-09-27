@@ -23,4 +23,5 @@ class TestRabbitMQQueue(integrate_queue.PubSubQueue):
 class TestRabbitMQBackend(integrate_backend_interface.PubSubBackendInterface):
     """Run PubSubBackendInterface integration tests with RabbitMQ backend."""
 
-    backend = backend_manager.get_backend("rabbitmq")
+    def __init__(self) -> None:
+        super().__init__(backend_manager.get_backend("rabbitmq"))
