@@ -64,6 +64,7 @@ jobs:
             ./resources/docker-rabbitmq.sh
           # GCP
           elif [ "${{ matrix.backend }}" = "gcp" ]; then
+            export PUBSUB_EMULATOR_HOST=localhost:8085
             ./resources/local-gcp-emulator.sh
           # NATS
           elif [ "${{ matrix.backend }}" = "nats" ]; then
@@ -135,6 +136,7 @@ jobs:
             ./resources/docker-rabbitmq.sh
           # GCP
           elif [ "${{ matrix.backend }}" = "gcp" ]; then
+            export PUBSUB_EMULATOR_HOST=localhost:8085
             ./resources/local-gcp-emulator.sh
           # NATS
           elif [ "${{ matrix.backend }}" = "nats" ]; then
