@@ -357,6 +357,8 @@ class Backend(backend_interface.Backend):
         Backend
     """
 
+    NAME = "rabbitmq"
+
     @staticmethod
     async def create_pub_queue(
         address: str, name: str, auth_token: str = ""

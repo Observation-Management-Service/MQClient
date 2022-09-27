@@ -11,25 +11,25 @@ def get_backend(backend_name: str) -> Backend:
         if backend_name.lower() == "pulsar":
             from .backends import apachepulsar
 
-            return apachepulsar.Backend
+            return apachepulsar.Backend()
 
         # GCP
         elif backend_name.lower() == "gcp":
             from .backends import gcp
 
-            return gcp.Backend
+            return gcp.Backend()
 
         # NATS
         elif backend_name.lower() == "nats":
             from .backends import nats
 
-            return nats.Backend
+            return nats.Backend()
 
         # RabbitMQ
         elif backend_name.lower() == "rabbitmq":
             from .backends import rabbitmq
 
-            return rabbitmq.Backend
+            return rabbitmq.Backend()
 
         # Error
         else:

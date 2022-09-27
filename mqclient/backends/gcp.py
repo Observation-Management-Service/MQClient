@@ -358,6 +358,8 @@ class Backend(backend_interface.Backend):
         Backend
     """
 
+    NAME = "gcp"
+
     # NOTE - this could be an enviro var, but it is always constant across all members
     PROJECT_ID = "i3-gcp-proj"
 

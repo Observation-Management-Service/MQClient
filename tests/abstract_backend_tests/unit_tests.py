@@ -326,7 +326,7 @@ class BackendUnitTest:
     @pytest.mark.asyncio
     async def test_queue_recv_00_consumer(self, mock_con: Any, queue_name: str) -> None:
         """Test Queue.open_sub()."""
-        q = Queue(self.backend, address="localhost", name=queue_name)
+        q = Queue(self.backend.NAME, address="localhost", name=queue_name)
         if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
@@ -353,7 +353,7 @@ class BackendUnitTest:
         - nack the last message
         - suppress the Exception
         """
-        q = Queue(self.backend, address="localhost", name=queue_name)
+        q = Queue(self.backend.NAME, address="localhost", name=queue_name)
         if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
@@ -384,7 +384,7 @@ class BackendUnitTest:
         Same as test_queue_recv_10_comsumer_exception() but with multiple
         open_sub() calls.
         """
-        q = Queue(self.backend, address="localhost", name=queue_name)
+        q = Queue(self.backend.NAME, address="localhost", name=queue_name)
         if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
@@ -430,7 +430,7 @@ class BackendUnitTest:
         Same as test_queue_recv_11_comsumer_exception() but with error
         propagation.
         """
-        q = Queue(self.backend, address="localhost", name=queue_name)
+        q = Queue(self.backend.NAME, address="localhost", name=queue_name)
         if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 

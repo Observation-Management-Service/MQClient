@@ -317,6 +317,8 @@ class Backend(backend_interface.Backend):
         Backend
     """
 
+    NAME = "pulsar"
+
     # NOTE - use single shared subscription
     # (making multiple unique subscription names would create independent subscriptions)
     SUBSCRIPTION_NAME = "i3-pulsar-sub"
