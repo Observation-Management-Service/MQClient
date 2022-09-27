@@ -12,6 +12,10 @@ certifi==2022.9.24
     # via requests
 charset-normalizer==2.1.1
     # via requests
+coloredlogs==15.0.1
+    # via wipac-mqclient (setup.py)
+humanfriendly==10.0
+    # via coloredlogs
 idna==3.4
     # via requests
 iniconfig==1.1.1
