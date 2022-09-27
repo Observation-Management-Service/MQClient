@@ -2,7 +2,6 @@
 
 from typing import Any, List
 
-import mqclient
 import pytest
 from mqclient import backend_manager
 from mqclient.backend_interface import Message
@@ -52,17 +51,15 @@ class TestUnitApachePulsar(BackendUnitTest):
     async def test_create_pub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating pub queue."""
         pub = await self.backend.create_pub_queue("localhost", queue_name)
-        assert isinstance(pub, mqclient.apachepulsar.PulsarPub)
-        assert pub.topic == queue_name
+        assert pub.topic == queue_name  # type: ignore
         mock_con.return_value.create_producer.assert_called()
 
     @pytest.mark.asyncio
     async def test_create_sub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating sub queue."""
         sub = await self.backend.create_sub_queue("localhost", queue_name, prefetch=213)
-        assert isinstance(sub, mqclient.apachepulsar.PulsarSub)
-        assert sub.topic == queue_name
-        assert sub.prefetch == 213
+        assert sub.topic == queue_name  # type: ignore
+        assert sub.prefetch == 213  # type: ignore
         mock_con.return_value.subscribe.assert_called()
 
     @pytest.mark.asyncio
