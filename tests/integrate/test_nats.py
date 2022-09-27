@@ -31,5 +31,4 @@ class TestNATSQueue(integrate_queue.PubSubQueue):
 class TestNATSBackend(integrate_backend_interface.PubSubBackendInterface):
     """Run PubSubBackendInterface integration tests with NATS backend."""
 
-    def __init__(self) -> None:
-        super().__init__(backend_manager.get_backend("nats"))
+    backend = backend_manager.get_backend("nats")

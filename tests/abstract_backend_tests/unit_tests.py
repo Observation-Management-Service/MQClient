@@ -17,10 +17,8 @@ from .utils import is_inst_name
 class BackendUnitTest:
     """Unit test suite interface for specified backend."""
 
+    backend: Optional[Backend] = None
     con_patch = ""
-
-    def __init__(self, backend: Backend):
-        self.backend = backend
 
     @pytest.fixture
     def mock_con(self, mocker: Any) -> Any:

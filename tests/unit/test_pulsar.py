@@ -12,10 +12,8 @@ from ..abstract_backend_tests.unit_tests import BackendUnitTest
 class TestUnitApachePulsar(BackendUnitTest):
     """Unit test suite interface for Apache Pulsar backend."""
 
+    backend = backend_manager.get_backend("pulsar")
     con_patch = "pulsar.Client"
-
-    def __init__(self) -> None:
-        super().__init__(backend_manager.get_backend("pulsar"))
 
     @staticmethod
     def _get_nack_mock_fn(mock_con: Any) -> Any:

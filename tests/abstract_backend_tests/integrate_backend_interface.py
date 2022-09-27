@@ -28,10 +28,8 @@ class PubSubBackendInterface:
     Only test things that cannot be tested via the Queue class.
     """
 
+    backend: Optional[Backend] = None
     timeout = 1
-
-    def __init__(self, backend: Backend):
-        self.backend = backend
 
     @pytest.mark.asyncio
     async def test_00(self, queue_name: str) -> None:
