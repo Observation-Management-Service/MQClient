@@ -34,6 +34,46 @@ jobs:
         with:
           base-keywords: WIPAC IceCube
 
+  examples:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [pulsar, rabbitmq, gcp, nats]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+      - name: tests
+        run: |
+          echo "--------------------------------------------------------------"
+          echo "starting broker..."
+
+          # Pulsar
+          if [ "${{ matrix.backend }}" = "pulsar" ]; then
+            ./resources/docker-pulsar.sh
+          # RabbitMQ
+          elif [ "${{ matrix.backend }}" = "rabbitmq" ]; then
+            ./resources/docker-rabbitmq.sh
+          # GCP
+          elif [ "${{ matrix.backend }}" = "gcp" ]; then
+            ./resources/local-gcp-emulator.sh &
+          # NATS
+          elif [ "${{ matrix.backend }}" = "nats" ]; then
+            ./resources/local-nats-js.sh &
+          fi
+
+          echo "--------------------------------------------------------------"
+          echo "waiting for broker..."
+          sleep 15
+
+          echo "--------------------------------------------------------------"
+          echo "running examples..."
+
+          pip install --upgrade pip wheel setuptools
+          pip install .[dev,${{ matrix.backend }}]
+          python examples/worker.py &
+          python examples/server.py
+
   py-versions:
     needs: [py-setup]
     runs-on: ubuntu-latest
