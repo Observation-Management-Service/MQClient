@@ -6,7 +6,7 @@ from typing import Any, AsyncGenerator
 from unittest.mock import call, sentinel
 
 import pytest
-from mqclient.backend_interface import AckException, Backend, Message, NackException
+from mqclient.backend_interface import AckException, Message, NackException
 from mqclient.queue import EmptyQueueException, Queue
 
 try:
@@ -17,11 +17,10 @@ except ImportError:
 
 def test_init() -> None:
     """Test constructor."""
-    mock_backend = Backend()
-    q = Queue(mock_backend)
-    assert q._backend == mock_backend
+    q = Queue("pulsar")
+    assert q._backend.NAME == "pulsar"
 
-    q = Queue(Backend(), name="nnn", address="aaa", prefetch=999)
+    q = Queue("pulsar", name="nnn", address="aaa", prefetch=999)
     assert q._name == "nnn"
     assert q._address == "aaa"
     assert q._prefetch == 999
