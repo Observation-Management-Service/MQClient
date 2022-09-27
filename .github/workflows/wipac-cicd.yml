@@ -99,6 +99,7 @@ jobs:
           # GCP
           elif [ "${{ matrix.backend }}" = "gcp" ]; then
             ./resources/gcp-install.sh
+            export PUBSUB_EMULATOR_HOST=localhost:8085
             gcloud beta emulators pubsub start --project="i3-gcp-proj" &
           # NATS
           elif [ "${{ matrix.backend }}" = "nats" ]; then
