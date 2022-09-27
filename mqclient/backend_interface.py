@@ -166,6 +166,8 @@ class Sub(RawQueue):
 class Backend:
     """Backend Pub-Sub Factory."""
 
+    NAME = "abstract-backend"
+
     @staticmethod
     async def create_pub_queue(address: str, name: str, auth_token: str = "") -> Pub:
         """Create a publishing queue."""
