@@ -1,18 +1,18 @@
-"""Unit Tests for Pulsar Backend."""
+"""Unit Tests for Pulsar BrokerClient."""
 
 from typing import Any, List
 
 import pytest
-from mqclient import backend_manager
-from mqclient.backend_interface import Message
+from mqclient import broker_client_manager
+from mqclient.broker_client_interface import Message
 
-from ..abstract_backend_tests.unit_tests import BackendUnitTest
+from ..abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
 
 
-class TestUnitApachePulsar(BackendUnitTest):
-    """Unit test suite interface for Apache Pulsar backend."""
+class TestUnitApachePulsar(BrokerClientUnitTest):
+    """Unit test suite interface for Apache Pulsar broker_client."""
 
-    backend = backend_manager.get_backend("pulsar")
+    broker_client = broker_client_manager.get_broker_client("pulsar")
     con_patch = "pulsar.Client"
 
     @staticmethod
@@ -48,14 +48,16 @@ class TestUnitApachePulsar(BackendUnitTest):
     @pytest.mark.asyncio
     async def test_create_pub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating pub queue."""
-        pub = await self.backend.create_pub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
         assert pub.topic == queue_name  # type: ignore
         mock_con.return_value.create_producer.assert_called()
 
     @pytest.mark.asyncio
     async def test_create_sub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating sub queue."""
-        sub = await self.backend.create_sub_queue("localhost", queue_name, prefetch=213)
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, prefetch=213
+        )
         assert sub.topic == queue_name  # type: ignore
         assert sub.prefetch == 213  # type: ignore
         mock_con.return_value.subscribe.assert_called()
@@ -63,7 +65,7 @@ class TestUnitApachePulsar(BackendUnitTest):
     @pytest.mark.asyncio
     async def test_send_message(self, mock_con: Any, queue_name: str) -> None:
         """Test sending message."""
-        pub = await self.backend.create_pub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
         await pub.send_message(b"foo, bar, baz")
         mock_con.return_value.create_producer.return_value.send.assert_called_with(
             b"foo, bar, baz"
@@ -72,7 +74,7 @@ class TestUnitApachePulsar(BackendUnitTest):
     @pytest.mark.asyncio
     async def test_get_message(self, mock_con: Any, queue_name: str) -> None:
         """Test getting message."""
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
         mock_con.return_value.subscribe.return_value.receive.return_value.data.return_value = Message.serialize(
             "foo, bar"
         )
@@ -94,7 +96,7 @@ class TestUnitApachePulsar(BackendUnitTest):
         Generator should raise Exception originating upstream (a.k.a.
         from pulsar-package code).
         """
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
 
         mock_con.return_value.subscribe.return_value.receive.side_effect = Exception()
         with pytest.raises(Exception):

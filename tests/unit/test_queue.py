@@ -6,7 +6,7 @@ from typing import Any, AsyncGenerator
 from unittest.mock import call, patch, sentinel
 
 import pytest
-from mqclient.backend_interface import AckException, Message, NackException
+from mqclient.broker_client_interface import AckException, Message, NackException
 from mqclient.queue import EmptyQueueException, Queue
 
 try:
@@ -18,7 +18,7 @@ except ImportError:
 def test_init() -> None:
     """Test constructor."""
     q = Queue("pulsar")
-    assert q._backend.NAME == "pulsar"
+    assert q._broker_client.NAME == "pulsar"
 
     q = Queue("pulsar", name="nnn", address="aaa", prefetch=999)
     assert q._name == "nnn"
@@ -29,21 +29,23 @@ def test_init() -> None:
 @pytest.mark.asyncio
 async def test_send() -> None:
     """Test send."""
-    mock_backend = AsyncMock()
-    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
-        mock_get_backend.return_value = mock_backend
+    mock_broker_client = AsyncMock()
+    with patch(
+        "mqclient.broker_client_manager.get_broker_client"
+    ) as mock_get_broker_client:
+        mock_get_broker_client.return_value = mock_broker_client
         q = Queue("mock")
 
     data = {"a": 1234}
     async with q.open_pub() as p:
         await p.send(data)
-    mock_backend.create_pub_queue.return_value.send_message.assert_awaited()
-    mock_backend.create_pub_queue.return_value.close.assert_called()
+    mock_broker_client.create_pub_queue.return_value.send_message.assert_awaited()
+    mock_broker_client.create_pub_queue.return_value.close.assert_called()
 
     # send() adds a unique header, so we need to look at only the data
     msg = Message(
         id(sentinel.ID),
-        mock_backend.create_pub_queue.return_value.send_message.call_args.args[0],
+        mock_broker_client.create_pub_queue.return_value.send_message.call_args.args[0],
     )
     assert msg.data == data
 
@@ -57,13 +59,15 @@ async def test_open_sub() -> None:
         for i, d in enumerate(data):
             yield Message(i, Message.serialize(d))
 
-    mock_backend = AsyncMock()
-    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
-        mock_get_backend.return_value = mock_backend
+    mock_broker_client = AsyncMock()
+    with patch(
+        "mqclient.broker_client_manager.get_broker_client"
+    ) as mock_get_broker_client:
+        mock_get_broker_client.return_value = mock_broker_client
         q = Queue("mock")
 
     data = ["a", {"b": 100}, ["foo", "bar"]]
-    mock_backend.create_sub_queue.return_value.message_generator = gen
+    mock_broker_client.create_sub_queue.return_value.message_generator = gen
 
     async with q.open_sub() as stream:
         recv_data = [d async for d in stream]
@@ -72,54 +76,60 @@ async def test_open_sub() -> None:
             [call(Message(i, Message.serialize(d))) for i, d in enumerate(recv_data)]
         )
 
-    mock_backend.create_sub_queue.return_value.close.assert_called()
+    mock_broker_client.create_sub_queue.return_value.close.assert_called()
 
 
 @pytest.mark.asyncio
 async def test_open_sub_one() -> None:
     """Test open_sub_one."""
-    mock_backend = AsyncMock()
-    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
-        mock_get_backend.return_value = mock_backend
+    mock_broker_client = AsyncMock()
+    with patch(
+        "mqclient.broker_client_manager.get_broker_client"
+    ) as mock_get_broker_client:
+        mock_get_broker_client.return_value = mock_broker_client
         q = Queue("mock")
 
     data = {"b": 100}
     msg = Message(0, Message.serialize(data))
-    mock_backend.create_sub_queue.return_value.get_message.return_value = msg
+    mock_broker_client.create_sub_queue.return_value.get_message.return_value = msg
 
     async with q.open_sub_one() as d:
         recv_data = d
 
     assert data == recv_data
-    mock_backend.create_sub_queue.return_value.ack_message.assert_called_with(msg)
-    mock_backend.create_sub_queue.return_value.close.assert_called()
+    mock_broker_client.create_sub_queue.return_value.ack_message.assert_called_with(msg)
+    mock_broker_client.create_sub_queue.return_value.close.assert_called()
 
 
 @pytest.mark.asyncio
 async def test_open_sub_one__no_msg() -> None:
     """Test open_sub_one with an empty queue."""
-    mock_backend = AsyncMock()
-    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
-        mock_get_backend.return_value = mock_backend
+    mock_broker_client = AsyncMock()
+    with patch(
+        "mqclient.broker_client_manager.get_broker_client"
+    ) as mock_get_broker_client:
+        mock_get_broker_client.return_value = mock_broker_client
         q = Queue("mock")
 
-    mock_backend.create_sub_queue.return_value.get_message.return_value = None
+    mock_broker_client.create_sub_queue.return_value.get_message.return_value = None
 
     with pytest.raises(EmptyQueueException):
         async with q.open_sub_one() as _:
             assert 0  # we should never get here
 
-    mock_backend.create_sub_queue.return_value.ack_message.assert_not_called()
-    mock_backend.create_sub_queue.return_value.reject_message.assert_not_called()
-    mock_backend.create_sub_queue.return_value.close.assert_called()
+    mock_broker_client.create_sub_queue.return_value.ack_message.assert_not_called()
+    mock_broker_client.create_sub_queue.return_value.reject_message.assert_not_called()
+    mock_broker_client.create_sub_queue.return_value.close.assert_called()
 
 
 @pytest.mark.asyncio
 async def test_safe_ack() -> None:
     """Test _safe_ack()."""
-    mock_backend = AsyncMock()
-    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
-        mock_get_backend.return_value = mock_backend
+    mock_broker_client = AsyncMock()
+    with patch(
+        "mqclient.broker_client_manager.get_broker_client"
+    ) as mock_get_broker_client:
+        mock_get_broker_client.return_value = mock_broker_client
         q = Queue("mock")
 
     data = {"b": 100}
@@ -155,9 +165,11 @@ async def test_safe_ack() -> None:
 @pytest.mark.asyncio
 async def test_safe_nack() -> None:
     """Test _safe_nack()."""
-    mock_backend = AsyncMock()
-    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
-        mock_get_backend.return_value = mock_backend
+    mock_broker_client = AsyncMock()
+    with patch(
+        "mqclient.broker_client_manager.get_broker_client"
+    ) as mock_get_broker_client:
+        mock_get_broker_client.return_value = mock_broker_client
         q = Queue("mock")
 
     data = {"b": 100}
@@ -199,14 +211,16 @@ async def test_nack_current() -> None:
         for i, d in enumerate(data):
             yield Message(i, Message.serialize(d))
 
-    mock_backend = AsyncMock()
-    with patch("mqclient.backend_manager.get_backend") as mock_get_backend:
-        mock_get_backend.return_value = mock_backend
+    mock_broker_client = AsyncMock()
+    with patch(
+        "mqclient.broker_client_manager.get_broker_client"
+    ) as mock_get_broker_client:
+        mock_get_broker_client.return_value = mock_broker_client
         q = Queue("mock")
 
     data = ["a", {"b": 100}, ["foo", "bar"]]
     msgs = [Message(i, Message.serialize(d)) for i, d in enumerate(data)]
-    mock_backend.create_sub_queue.return_value.message_generator = gen
+    mock_broker_client.create_sub_queue.return_value.message_generator = gen
 
     async with q.open_sub() as stream:
         i = 0

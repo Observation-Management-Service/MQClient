@@ -32,7 +32,7 @@ if __name__ == "__main__":
     coloredlogs.install(level=logging.DEBUG)
 
     parser = argparse.ArgumentParser(description="Worker")
-    parser.add_argument("--broker-type", required=True, help="which kind of broker")
+    parser.add_argument("--broker-client", required=True, help="which kind of broker")
     parser.add_argument("--address", default="localhost", help="queue address")
     parser.add_argument("--work-queue", default="queue1", help="work queue")
     parser.add_argument("--result-queue", default="queue2", help="result queue")

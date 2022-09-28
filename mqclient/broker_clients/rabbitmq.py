@@ -7,8 +7,8 @@ from typing import Any, AsyncGenerator, Callable, Optional, Union
 
 import pika  # type: ignore
 
-from .. import backend_interface, log_msgs
-from ..backend_interface import (
+from .. import broker_client_interface, log_msgs
+from ..broker_client_interface import (
     RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     TRY_ATTEMPTS,
@@ -350,11 +350,11 @@ async def try_yield(
     raise Exception("RabbitMQ connection error")
 
 
-class Backend(backend_interface.Backend):
-    """RabbitMQ Pub-Sub Backend Factory.
+class BrokerClient(broker_client_interface.BrokerClient):
+    """RabbitMQ Pub-Sub BrokerClient Factory.
 
     Extends:
-        Backend
+        BrokerClient
     """
 
     NAME = "rabbitmq"

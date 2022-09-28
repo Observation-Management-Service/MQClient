@@ -1,4 +1,4 @@
-"""Define an interface that backends will adhere to."""
+"""Define an interface that broker_clients will adhere to."""
 
 
 import pickle
@@ -131,7 +131,7 @@ class Sub(RawQueue):
 
     @staticmethod
     def _to_message(*args: Any) -> Optional[Message]:
-        """Convert backend-specific payload to standardized Message type."""
+        """Convert broker_client-specific payload to standardized Message type."""
         raise NotImplementedError()
 
     async def get_message(
@@ -163,10 +163,10 @@ class Sub(RawQueue):
         raise NotImplementedError()
 
 
-class Backend:
-    """Backend Pub-Sub Factory."""
+class BrokerClient:
+    """BrokerClient Pub-Sub Factory."""
 
-    NAME = "abstract-backend"
+    NAME = "abstract-broker_client"
 
     @staticmethod
     async def create_pub_queue(address: str, name: str, auth_token: str = "") -> Pub:

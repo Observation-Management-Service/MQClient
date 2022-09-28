@@ -1,11 +1,14 @@
-"""Run integration tests for RabbitMQ backend."""
+"""Run integration tests for RabbitMQ broker_client."""
 
 import logging
 
-from mqclient import backend_manager
+from mqclient import broker_client_manager
 
-from ..abstract_backend_tests import integrate_backend_interface, integrate_queue
-from ..abstract_backend_tests.utils import (  # pytest.fixture # noqa: F401 # pylint: disable=W0611
+from ..abstract_broker_client_tests import (
+    integrate_broker_client_interface,
+    integrate_queue,
+)
+from ..abstract_broker_client_tests.utils import (  # pytest.fixture # noqa: F401 # pylint: disable=W0611
     queue_name,
 )
 
@@ -15,12 +18,14 @@ logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 class TestRabbitMQQueue(integrate_queue.PubSubQueue):
-    """Run PubSubQueue integration tests with RabbitMQ backend."""
+    """Run PubSubQueue integration tests with RabbitMQ broker_client."""
 
-    backend = "rabbitmq"
+    broker_client = "rabbitmq"
 
 
-class TestRabbitMQBackend(integrate_backend_interface.PubSubBackendInterface):
-    """Run PubSubBackendInterface integration tests with RabbitMQ backend."""
+class TestRabbitMQBrokerClient(
+    integrate_broker_client_interface.PubSubBrokerClientInterface
+):
+    """Run PubSubBrokerClientInterface integration tests with RabbitMQ broker_client."""
 
-    backend = backend_manager.get_backend("rabbitmq")
+    broker_client = broker_client_manager.get_broker_client("rabbitmq")

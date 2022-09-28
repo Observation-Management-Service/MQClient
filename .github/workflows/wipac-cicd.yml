@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [pulsar, rabbitmq, gcp, nats]
+        broker_client: [pulsar, rabbitmq, gcp, nats]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
@@ -57,17 +57,17 @@ jobs:
           echo "starting broker..."
 
           # Pulsar
-          if [ "${{ matrix.backend }}" = "pulsar" ]; then
+          if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
             ./resources/docker-pulsar.sh
           # RabbitMQ
-          elif [ "${{ matrix.backend }}" = "rabbitmq" ]; then
+          elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
             ./resources/docker-rabbitmq.sh
           # GCP
-          elif [ "${{ matrix.backend }}" = "gcp" ]; then
+          elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
             export PUBSUB_EMULATOR_HOST=localhost:8085
             ./resources/local-gcp-emulator.sh
           # NATS
-          elif [ "${{ matrix.backend }}" = "nats" ]; then
+          elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
           fi
 
@@ -79,9 +79,9 @@ jobs:
           echo "running examples..."
 
           pip install --upgrade pip wheel setuptools
-          pip install .[dev,${{ matrix.backend }}]
-          python examples/worker.py --broker-type ${{ matrix.backend }} &
-          python examples/server.py --broker-type ${{ matrix.backend }}
+          pip install .[dev,${{ matrix.broker_client }}]
+          python examples/worker.py --broker-client ${{ matrix.broker_client }} &
+          python examples/server.py --broker-client ${{ matrix.broker_client }}
 
   py-versions:
     needs: [py-setup]
@@ -117,7 +117,7 @@ jobs:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        backend: [pulsar, rabbitmq, gcp, nats]
+        broker_client: [pulsar, rabbitmq, gcp, nats]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
@@ -129,17 +129,17 @@ jobs:
           echo "starting broker..."
 
           # Pulsar
-          if [ "${{ matrix.backend }}" = "pulsar" ]; then
+          if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
             ./resources/docker-pulsar.sh
           # RabbitMQ
-          elif [ "${{ matrix.backend }}" = "rabbitmq" ]; then
+          elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
             ./resources/docker-rabbitmq.sh
           # GCP
-          elif [ "${{ matrix.backend }}" = "gcp" ]; then
+          elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
             export PUBSUB_EMULATOR_HOST=localhost:8085
             ./resources/local-gcp-emulator.sh
           # NATS
-          elif [ "${{ matrix.backend }}" = "nats" ]; then
+          elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
           fi
 
@@ -151,8 +151,8 @@ jobs:
           echo "running tests..."
 
           pip install --upgrade pip wheel setuptools
-          pip install .[dev,${{ matrix.backend }}]
-          pytest -vvv tests/integrate/test_${{ matrix.backend }}.py
+          pip install .[dev,${{ matrix.broker_client }}]
+          pytest -vvv tests/integrate/test_${{ matrix.broker_client }}.py
 
   release:
     if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}

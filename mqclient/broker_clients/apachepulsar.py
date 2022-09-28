@@ -8,8 +8,8 @@ from typing import AsyncGenerator, Optional
 import pulsar  # type: ignore
 from wipac_dev_tools import from_environment
 
-from .. import backend_interface, log_msgs
-from ..backend_interface import (
+from .. import broker_client_interface, log_msgs
+from ..broker_client_interface import (
     RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     TRY_ATTEMPTS,
@@ -90,7 +90,7 @@ class PulsarPub(Pulsar, Pub):
         inner_sub = PulsarSub(
             self.address,
             self.topic,
-            Backend.SUBSCRIPTION_NAME,
+            BrokerClient.SUBSCRIPTION_NAME,
             auth_token=self._auth_token,
         )
         await inner_sub.connect()
@@ -310,11 +310,11 @@ class PulsarSub(Pulsar, Sub):
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
 
-class Backend(backend_interface.Backend):
-    """Pulsar Pub-Sub Backend Factory.
+class BrokerClient(broker_client_interface.BrokerClient):
+    """Pulsar Pub-Sub BrokerClient Factory.
 
     Extends:
-        Backend
+        BrokerClient
     """
 
     NAME = "pulsar"
@@ -340,7 +340,9 @@ class Backend(backend_interface.Backend):
     ) -> PulsarSub:
         """Create a subscription queue."""
         # pylint: disable=invalid-name
-        q = PulsarSub(address, name, Backend.SUBSCRIPTION_NAME, auth_token=auth_token)
+        q = PulsarSub(
+            address, name, BrokerClient.SUBSCRIPTION_NAME, auth_token=auth_token
+        )
         q.prefetch = prefetch
         await q.connect()
         return q

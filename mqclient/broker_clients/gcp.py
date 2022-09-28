@@ -7,8 +7,8 @@ from typing import AsyncGenerator, Generator, List, Optional, Tuple
 from google.api_core import exceptions, retry  # type: ignore[import]
 from google.cloud import pubsub  # type: ignore[import]
 
-from .. import backend_interface, log_msgs
-from ..backend_interface import (
+from .. import broker_client_interface, log_msgs
+from ..broker_client_interface import (
     RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     TRY_ATTEMPTS,
@@ -351,11 +351,11 @@ class GCPSub(GCP, Sub):
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
 
-class Backend(backend_interface.Backend):
-    """GCP Pub-Sub Backend Factory.
+class BrokerClient(broker_client_interface.BrokerClient):
+    """GCP Pub-Sub BrokerClient Factory.
 
     Extends:
-        Backend
+        BrokerClient
     """
 
     NAME = "gcp"
@@ -375,9 +375,9 @@ class Backend(backend_interface.Backend):
     def _figure_host_address(address: str) -> str:
         """If the pub-sub emulator enviro var is set, use that address."""
         try:
-            emulator = os.environ[Backend.PUBSUB_EMULATOR_HOST]
+            emulator = os.environ[BrokerClient.PUBSUB_EMULATOR_HOST]
             LOGGER.warning(
-                f"Environment variable `{Backend.PUBSUB_EMULATOR_HOST}` is set: "
+                f"Environment variable `{BrokerClient.PUBSUB_EMULATOR_HOST}` is set: "
                 f"using Pub-Sub Emulator at {emulator} (overriding `{address}`)."
             )
             return emulator
@@ -391,10 +391,10 @@ class Backend(backend_interface.Backend):
         # NOTE - `auth_token` is not used currently
         """
         q = GCPPub(  # pylint: disable=invalid-name
-            Backend._figure_host_address(address),
-            Backend.PROJECT_ID,
+            BrokerClient._figure_host_address(address),
+            BrokerClient.PROJECT_ID,
             name,
-            [f"{Backend.SUBSCRIPTION_ID}-{name}"],
+            [f"{BrokerClient.SUBSCRIPTION_ID}-{name}"],
         )
         await q.connect()
         return q
@@ -408,10 +408,10 @@ class Backend(backend_interface.Backend):
         # NOTE - `auth_token` is not used currently
         """
         q = GCPSub(  # pylint: disable=invalid-name
-            Backend._figure_host_address(address),
-            Backend.PROJECT_ID,
+            BrokerClient._figure_host_address(address),
+            BrokerClient.PROJECT_ID,
             name,
-            f"{Backend.SUBSCRIPTION_ID}-{name}",
+            f"{BrokerClient.SUBSCRIPTION_ID}-{name}",
         )
         q.prefetch = prefetch
         await q.connect()

@@ -18,8 +18,8 @@ from typing import (
 
 import nats
 
-from .. import backend_interface, log_msgs
-from ..backend_interface import (
+from .. import broker_client_interface, log_msgs
+from ..broker_client_interface import (
     RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     TRY_ATTEMPTS,
@@ -332,11 +332,11 @@ class NATSSub(NATS, Sub):
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
 
-class Backend(backend_interface.Backend):
-    """NATS Pub-Sub Backend Factory.
+class BrokerClient(broker_client_interface.BrokerClient):
+    """NATS Pub-Sub BrokerClient Factory.
 
     Extends:
-        Backend
+        BrokerClient
     """
 
     NAME = "nats"

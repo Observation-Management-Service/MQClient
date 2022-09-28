@@ -1,4 +1,4 @@
-"""Run integration tests for given backend, on backend_interface classes.
+"""Run integration tests for given broker_client, on broker_client_interface classes.
 
 Verify functionality that is abstracted away from the Queue class.
 """
@@ -10,7 +10,7 @@ from typing import List, Optional
 
 import asyncstdlib as asl
 import pytest
-from mqclient.backend_interface import Backend, Message
+from mqclient.broker_client_interface import BrokerClient, Message
 
 from .utils import DATA_LIST, _log_recv, _log_send
 
@@ -22,20 +22,20 @@ def _log_recv_message(recv_msg: Optional[Message]) -> None:
     _log_recv(f"{recv_msg} -> {recv_data}")
 
 
-class PubSubBackendInterface:
-    """Integration test suite for backend_interface objects.
+class PubSubBrokerClientInterface:
+    """Integration test suite for broker_client_interface objects.
 
     Only test things that cannot be tested via the Queue class.
     """
 
-    backend: Backend
+    broker_client: BrokerClient
     timeout = 1
 
     @pytest.mark.asyncio
     async def test_00(self, queue_name: str) -> None:
         """Sanity test."""
-        pub = await self.backend.create_pub_queue("localhost", queue_name)
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
 
         # send
         for msg in DATA_LIST:
@@ -70,8 +70,8 @@ class PubSubBackendInterface:
 
         Order is not guaranteed on redelivery.
         """
-        pub = await self.backend.create_pub_queue("localhost", queue_name)
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
 
         # send
         for msg in DATA_LIST:
@@ -121,8 +121,8 @@ class PubSubBackendInterface:
 
         Order is not guaranteed on redelivery.
         """
-        pub = await self.backend.create_pub_queue("localhost", queue_name)
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
 
         data_to_send = copy.deepcopy(DATA_LIST)
         nacked_msgs = []  # type: List[Message]
@@ -172,8 +172,8 @@ class PubSubBackendInterface:
     @pytest.mark.asyncio
     async def test_20(self, queue_name: str) -> None:
         """Sanity test message generator."""
-        pub = await self.backend.create_pub_queue("localhost", queue_name)
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
 
         # send
         for msg in DATA_LIST:
