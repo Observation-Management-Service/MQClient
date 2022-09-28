@@ -32,13 +32,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     inq = Queue(
-        args.broker_type,
+        args.broker_client,
         address=args.address,
         name=args.in_queue,
         prefetch=args.prefetch,
     )
     outq = Queue(
-        args.broker_type,
+        args.broker_client,
         address=args.address,
         name=args.out_queue,
     )

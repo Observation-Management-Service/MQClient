@@ -42,12 +42,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     workq = Queue(
-        args.broker_type,
+        args.broker_client,
         address=args.address,
         name=args.work_queue,
     )
     resultq = Queue(
-        args.broker_type,
+        args.broker_client,
         address=args.address,
         name=args.result_queue,
         prefetch=args.prefetch,
