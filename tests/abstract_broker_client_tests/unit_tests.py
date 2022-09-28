@@ -1,4 +1,4 @@
-"""Parent class for backend unit tests."""
+"""Parent class for broker_client unit tests."""
 
 # pylint:disable=invalid-name,protected-access
 
@@ -8,17 +8,16 @@ from unittest.mock import Mock
 
 import asyncstdlib as asl
 import pytest
+from mqclient.broker_client_interface import BrokerClient, Message
+from mqclient.queue import Queue
 
-# local imports
-from ..backend_interface import Backend, Message
-from ..queue import Queue
 from .utils import is_inst_name
 
 
-class BackendUnitTest:
-    """Unit test suite interface for specified backend."""
+class BrokerClientUnitTest:
+    """Unit test suite interface for specified broker_client."""
 
-    backend = None  # type: Backend
+    broker_client: BrokerClient
     con_patch = ""
 
     @pytest.fixture
@@ -79,8 +78,10 @@ class BackendUnitTest:
     @pytest.mark.asyncio
     async def test_ack_message(self, mock_con: Any, queue_name: str) -> None:
         """Test acking message."""
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
         await sub.ack_message(Message(12, b""))
         self._get_ack_mock_fn(mock_con).assert_called_with(12)
@@ -88,8 +89,10 @@ class BackendUnitTest:
     @pytest.mark.asyncio
     async def test_reject_message(self, mock_con: Any, queue_name: str) -> None:
         """Test rejecting message."""
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
         await sub.reject_message(Message(12, b""))
         self._get_nack_mock_fn(mock_con).assert_called_with(12)
@@ -97,8 +100,10 @@ class BackendUnitTest:
     @pytest.mark.asyncio
     async def test_message_generator_00(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         num_msgs = 100
@@ -126,8 +131,10 @@ class BackendUnitTest:
     @pytest.mark.asyncio
     async def test_message_generator_01(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [b"foo, bar", b"baz"]
@@ -153,8 +160,10 @@ class BackendUnitTest:
     @pytest.mark.asyncio
     async def test_message_generator_02(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         await self._enqueue_mock_messages(mock_con, [b"foo, bar"], [12])
@@ -190,8 +199,10 @@ class BackendUnitTest:
 
         Generator should not ack messages.
         """
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [b"baz-0", b"baz-1", b"baz-2"]
@@ -221,8 +232,10 @@ class BackendUnitTest:
         Generator should raise Exception, nack, and close. Unlike in an
         integration test, nacked messages are not put back on the queue.
         """
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [b"baz-0", b"baz-1", b"baz-2"]
@@ -263,8 +276,10 @@ class BackendUnitTest:
         Generator should not raise Exception. Unlike in an integration
         test, nacked messages are not put back on the queue.
         """
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         num_msgs = 11
@@ -303,8 +318,10 @@ class BackendUnitTest:
         Not so much a test, as an example of why QueueSubResource
         is needed.
         """
-        sub = await self.backend.create_sub_queue("localhost", queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         await self._enqueue_mock_messages(mock_con, [b"baz"], [0], append_none=False)
@@ -327,8 +344,10 @@ class BackendUnitTest:
     @pytest.mark.asyncio
     async def test_queue_recv_00_consumer(self, mock_con: Any, queue_name: str) -> None:
         """Test Queue.open_sub()."""
-        q = Queue(self.backend, address="localhost", name=queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        q = Queue(self.broker_client.NAME, address="localhost", name=queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [Message.serialize("baz")]
@@ -354,8 +373,10 @@ class BackendUnitTest:
         - nack the last message
         - suppress the Exception
         """
-        q = Queue(self.backend, address="localhost", name=queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        q = Queue(self.broker_client.NAME, address="localhost", name=queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         fake_data = [Message.serialize("baz-0"), Message.serialize("baz-1")]
@@ -385,8 +406,10 @@ class BackendUnitTest:
         Same as test_queue_recv_10_comsumer_exception() but with multiple
         open_sub() calls.
         """
-        q = Queue(self.backend, address="localhost", name=queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        q = Queue(self.broker_client.NAME, address="localhost", name=queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         num_msgs = 12
@@ -431,8 +454,10 @@ class BackendUnitTest:
         Same as test_queue_recv_11_comsumer_exception() but with error
         propagation.
         """
-        q = Queue(self.backend, address="localhost", name=queue_name)
-        if is_inst_name(self.backend, "rabbitmq.Backend"):  # HACK: manually set attr
+        q = Queue(self.broker_client.NAME, address="localhost", name=queue_name)
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
 
         num_msgs = 12
@@ -461,7 +486,7 @@ class BackendUnitTest:
         # the entire original list.
         # ***Note***: this hack isn't needed in non-mocking tests, see
         # integrate_queue.py integration tests #60+.
-        if is_inst_name(q._backend, "rabbitmq.Backend"):
+        if is_inst_name(q._broker_client, "rabbitmq.BrokerClient"):
             await self._enqueue_mock_messages(mock_con, fake_data[1:], fake_ids[1:])
 
         # continue where we left off

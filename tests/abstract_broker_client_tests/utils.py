@@ -4,9 +4,7 @@ import logging
 from typing import Any, List, Optional
 
 import pytest
-
-# local imports
-from ..queue import Queue
+from mqclient.queue import Queue
 
 
 def is_inst_name(obj: Any, name: str) -> bool:
@@ -20,7 +18,7 @@ def is_inst_name(obj: Any, name: str) -> bool:
 def queue_name() -> str:
     """Get random queue name.
 
-    Obeys the valid naming scheme for GCP (other backends are less picky).
+    Obeys the valid naming scheme for GCP (other broker_clients are less picky).
     (See https://cloud.google.com/resource-manager/reference/rest/v1/projects#resource:-project)
     """
     name = Queue.make_name()

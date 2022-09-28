@@ -1,8 +1,8 @@
 """Public init."""
 
-from . import queue
+from .queue import Queue
 
-__all__ = ["queue"]
+__all__ = ["Queue"]
 
 # version is a human-readable version number.
 

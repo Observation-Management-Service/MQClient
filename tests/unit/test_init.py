@@ -8,4 +8,4 @@ def test_import() -> None:
     m = importlib.import_module("mqclient")
     print(dir(m))
     assert hasattr(m, "queue")
-    assert hasattr(m, "backend_interface")
+    assert hasattr(m, "broker_client_interface")

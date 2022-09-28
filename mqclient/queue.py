@@ -7,8 +7,9 @@ import types
 import uuid
 from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
 
+from . import broker_client_manager
 from . import telemetry as wtt
-from .backend_interface import AckException, Backend, Message, NackException, Pub, Sub
+from .broker_client_interface import AckException, Message, NackException, Pub, Sub
 
 LOGGER = logging.getLogger("mqclient")
 
@@ -25,7 +26,7 @@ class Queue:
     """User-facing queue library.
 
     Args:
-        backend: the backend to use
+        broker_client: the broker_client to use
         address: address of queue
         name: name of queue
         prefetch: size of prefetch buffer for receiving messages
@@ -38,7 +39,7 @@ class Queue:
 
     def __init__(
         self,
-        backend: Backend,
+        broker_client: str,
         address: str = "localhost",
         name: str = "",
         prefetch: int = 1,
@@ -46,7 +47,7 @@ class Queue:
         except_errors: bool = True,
         auth_token: str = "",
     ) -> None:
-        self._backend = backend
+        self._broker_client = broker_client_manager.get_broker_client(broker_client)
         self._address = address
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
@@ -61,7 +62,7 @@ class Queue:
     def make_name() -> str:
         """Return a pseudo-unique string that is a legal queue identifier.
 
-        This name is valid for any backend chosen.
+        This name is valid for any broker_client chosen.
         """
         return "a" + (uuid.uuid4().hex)[:20]
 
@@ -77,21 +78,21 @@ class Queue:
         self._timeout = val
 
     async def _create_pub_queue(self) -> Pub:
-        """Wrap `self._backend.create_pub_queue()` with instance's config."""
-        return await self._backend.create_pub_queue(
+        """Wrap `self._broker_client.create_pub_queue()` with instance's config."""
+        return await self._broker_client.create_pub_queue(
             self._address, self._name, auth_token=self._auth_token
         )
 
     async def _create_sub_queue(self) -> Sub:
-        """Wrap `self._backend.create_sub_queue()` with instance's config."""
-        return await self._backend.create_sub_queue(
+        """Wrap `self._broker_client.create_sub_queue()` with instance's config."""
+        return await self._broker_client.create_sub_queue(
             self._address, self._name, self._prefetch, auth_token=self._auth_token
         )
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
         these=[
-            "self._backend",
+            "self._broker_client",
             "self._address",
             "self._name",
             "self._prefetch",
@@ -124,7 +125,7 @@ class Queue:
 
     @wtt.spanned(
         these=[
-            "self._backend",
+            "self._broker_client",
             "self._address",
             "self._name",
             "self._prefetch",
@@ -140,7 +141,7 @@ class Queue:
                 await sub.ack_message(msg)
                 msg._ack_status = Message.AckStatus.ACKED  # mark after success
             except Exception as e:
-                raise AckException(f"Acking failed on backend: {msg}") from e
+                raise AckException(f"Acking failed on broker_client: {msg}") from e
         elif msg._ack_status == Message.AckStatus.NACKED:
             raise AckException(
                 f"Message has already been nacked, it cannot be acked: {msg}"
@@ -153,7 +154,7 @@ class Queue:
 
     @wtt.spanned(
         these=[
-            "self._backend",
+            "self._broker_client",
             "self._address",
             "self._name",
             "self._prefetch",
@@ -169,7 +170,7 @@ class Queue:
                 await sub.reject_message(msg)
                 msg._ack_status = Message.AckStatus.NACKED  # mark after success
             except Exception as e:
-                raise NackException(f"Nacking failed on backend: {msg}") from e
+                raise NackException(f"Nacking failed on broker_client: {msg}") from e
         elif msg._ack_status == Message.AckStatus.NACKED:
             # needless, so we'll skip it
             LOGGER.debug(f"Attempted to nack an already-nacked message: {msg}")
@@ -195,7 +196,7 @@ class Queue:
                 async for msg in stream:
                     print(msg)
 
-        NOTE: If using the GCP backend, a message is allocated for
+        NOTE: If using the GCP broker_client, a message is allocated for
         redelivery if the consumer's iteration takes longer than 10 minutes.
 
         Returns:
@@ -207,7 +208,7 @@ class Queue:
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
         these=[
-            "self._backend",
+            "self._broker_client",
             "self._address",
             "self._name",
             "self._prefetch",
@@ -222,7 +223,7 @@ class Queue:
         exited, and exception can be re-raised if configured by
         `except_errors`.
 
-        NOTE: If using the GCP backend, a message is allocated for
+        NOTE: If using the GCP broker_client, a message is allocated for
         redelivery if the context is open for longer than 10 minutes.
 
         Example:
@@ -274,7 +275,7 @@ class Queue:
         """Return string of basic properties/attributes."""
         return (
             f"Queue("
-            f"{self._backend.__module__}, "
+            f"{self._broker_client.__module__}, "
             f"address={self._address}, "
             f"name={self._name}, "
             f"prefetch={self._prefetch}, "
@@ -323,7 +324,7 @@ class QueueSubResource:
 
     @wtt.spanned(
         these=[
-            "self.queue._backend",
+            "self.queue._broker_client",
             "self.queue._address",
             "self.queue._name",
             "self.queue._prefetch",
@@ -422,7 +423,7 @@ class QueueSubResource:
 
     @wtt.spanned(
         these=[
-            "self.queue._backend",
+            "self.queue._broker_client",
             "self.queue._address",
             "self.queue._name",
             "self.queue._prefetch",
@@ -467,7 +468,7 @@ class QueueSubResource:
 
     @wtt.spanned(
         these=[
-            "self.queue._backend",
+            "self.queue._broker_client",
             "self.queue._address",
             "self.queue._name",
             "self.queue._prefetch",
