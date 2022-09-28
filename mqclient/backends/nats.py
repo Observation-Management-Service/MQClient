@@ -23,7 +23,7 @@ from ..backend_interface import (
     RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     TRY_ATTEMPTS,
-    ClosingFailedExcpetion,
+    ClosingFailedException,
     Message,
     Pub,
     RawQueue,
@@ -101,7 +101,7 @@ class NATS(RawQueue):
         """Close connection."""
         await super().close()
         if not self._nats_client:
-            raise ClosingFailedExcpetion("No connection to close.")
+            raise ClosingFailedException("No connection to close.")
         await self._nats_client.close()
 
 
@@ -171,7 +171,7 @@ class NATSSub(NATS, Sub):
         """Close sub."""
         LOGGER.debug(log_msgs.CLOSING_SUB)
         if not self._subscription:
-            raise ClosingFailedExcpetion("No sub to close.")
+            raise ClosingFailedException("No sub to close.")
         await super().close()
         LOGGER.debug(log_msgs.CLOSED_SUB)
 

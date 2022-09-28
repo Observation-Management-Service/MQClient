@@ -12,9 +12,9 @@ from ..backend_interface import (
     RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     TRY_ATTEMPTS,
-    AlreadyClosedExcpetion,
-    ClosingFailedExcpetion,
-    ConnectingFailedExcpetion,
+    AlreadyClosedException,
+    ClosingFailedException,
+    ConnectingFailedException,
     Message,
     Pub,
     RawQueue,
@@ -56,16 +56,16 @@ class RabbitMQ(RawQueue):
         await super().close()
 
         if not self.channel:
-            raise ClosingFailedExcpetion("No channel to close.")
+            raise ClosingFailedException("No channel to close.")
         if not self.connection:
-            raise ClosingFailedExcpetion("No connection to close.")
+            raise ClosingFailedException("No connection to close.")
         if self.connection.is_closed:
-            raise AlreadyClosedExcpetion()
+            raise AlreadyClosedException()
 
         try:
             self.connection.close()
         except Exception as e:
-            raise ClosingFailedExcpetion() from e
+            raise ClosingFailedException() from e
 
         if self.channel.is_open:
             LOGGER.warning("Channel remains open after connection close.")
@@ -92,7 +92,7 @@ class RabbitMQPub(RabbitMQ, Pub):
         await super().connect()
 
         if not self.channel:
-            raise ConnectingFailedExcpetion("No channel to configure connection.")
+            raise ConnectingFailedException("No channel to configure connection.")
 
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.confirm_delivery()
@@ -154,7 +154,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         await super().connect()
 
         if not self.channel:
-            raise ConnectingFailedExcpetion("No channel to configure connection.")
+            raise ConnectingFailedException("No channel to configure connection.")
 
         self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)

@@ -13,8 +13,8 @@ from ..backend_interface import (
     RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     TRY_ATTEMPTS,
-    AlreadyClosedExcpetion,
-    ClosingFailedExcpetion,
+    AlreadyClosedException,
+    ClosingFailedException,
     Message,
     Pub,
     RawQueue,
@@ -57,14 +57,14 @@ class Pulsar(RawQueue):
         """Close client."""
         await super().close()
         if not self.client:
-            raise ClosingFailedExcpetion("No client to close.")
+            raise ClosingFailedException("No client to close.")
         try:
             self.client.close()
         except Exception as e:
             # https://github.com/apache/pulsar/issues/3127
             if str(e) == "Pulsar error: AlreadyClosed":
-                raise AlreadyClosedExcpetion(str(e)) from e
-            raise ClosingFailedExcpetion(str(e)) from e
+                raise AlreadyClosedException(str(e)) from e
+            raise ClosingFailedException(str(e)) from e
 
 
 class PulsarPub(Pulsar, Pub):
@@ -104,7 +104,7 @@ class PulsarPub(Pulsar, Pub):
         LOGGER.debug(log_msgs.CLOSING_PUB)
         await super().close()
         if not self.producer:
-            raise ClosingFailedExcpetion("No producer to sub.")
+            raise ClosingFailedException("No producer to sub.")
         LOGGER.debug(log_msgs.CLOSED_PUB)
 
     async def send_message(self, msg: bytes) -> None:
@@ -163,7 +163,7 @@ class PulsarSub(Pulsar, Sub):
         """Close client and redeliver any unacknowledged messages."""
         LOGGER.debug(log_msgs.CLOSING_SUB)
         if not self.consumer:
-            raise ClosingFailedExcpetion("No consumer to close.")
+            raise ClosingFailedException("No consumer to close.")
         await asyncio.sleep(0.1)
         self.consumer.redeliver_unacknowledged_messages()
         await super().close()

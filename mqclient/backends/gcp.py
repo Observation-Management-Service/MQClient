@@ -12,7 +12,7 @@ from ..backend_interface import (
     RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     TRY_ATTEMPTS,
-    ClosingFailedExcpetion,
+    ClosingFailedException,
     Message,
     Pub,
     RawQueue,
@@ -145,7 +145,7 @@ class GCPPub(GCP, Pub):
         LOGGER.debug(log_msgs.CLOSING_PUB)
         await super().close()
         if not self.pub:
-            raise ClosingFailedExcpetion("No pub to sub.")
+            raise ClosingFailedException("No pub to sub.")
         LOGGER.debug(log_msgs.CLOSED_PUB)
 
     async def send_message(self, msg: bytes) -> None:
@@ -199,11 +199,11 @@ class GCPSub(GCP, Sub):
         LOGGER.debug(log_msgs.CLOSING_SUB)
         await super().close()
         if not self.sub:
-            raise ClosingFailedExcpetion("No consumer to sub.")
+            raise ClosingFailedException("No consumer to sub.")
         try:
             self.sub.close()
         except Exception as e:
-            raise ClosingFailedExcpetion(str(e)) from e
+            raise ClosingFailedException(str(e)) from e
         LOGGER.debug(log_msgs.CLOSED_SUB)
 
     @staticmethod

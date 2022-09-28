@@ -12,15 +12,15 @@ RETRY_DELAY = 1  # seconds
 TRY_ATTEMPTS = 3  # ex: 3 means 1 initial try and 2 retries
 
 
-class ConnectingFailedExcpetion(Exception):
+class ConnectingFailedException(Exception):
     """Raised when a `connect()` invocation fails."""
 
 
-class ClosingFailedExcpetion(Exception):
+class ClosingFailedException(Exception):
     """Raised when a `close()` invocation fails."""
 
 
-class AlreadyClosedExcpetion(ClosingFailedExcpetion):
+class AlreadyClosedException(ClosingFailedException):
     """Raised when a `close()` invocation fails on an already closed interface."""
 
 
