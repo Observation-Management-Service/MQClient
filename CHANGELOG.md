@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.0 (2022-09-28)
+### Feature
+* Merge In Child Repos ([#50](https://github.com/WIPACrepo/MQClient/issues/50)) ([`59c6480`](https://github.com/WIPACrepo/MQClient/commit/59c648066342c5c2b75c03f4fe3254d87fed3bf1))
+
 ## v0.5.1 (2022-08-05)
 
 
