@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "--------------------------------------------------------------"
+echo "starting gcp (emulator) broker..."
+
 if [ "$PUBSUB_EMULATOR_HOST" != "localhost:8085" ]; then
     echo "Don't forget to 'export PUBSUB_EMULATOR_HOST=localhost:8085'"
     exit 1
@@ -14,3 +17,7 @@ sudo apt-get install google-cloud-sdk-pubsub-emulator
 gcloud components list
 
 gcloud beta emulators pubsub start --project="i3-gcp-proj" &
+
+echo "--------------------------------------------------------------"
+echo "waiting for gcp (emulator) broker..."
+sleep 30  # gcp takes a while to launch...

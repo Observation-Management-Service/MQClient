@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo "--------------------------------------------------------------"
+echo "starting pulsar broker..."
+
 DOCKERIZE_VERSION=v0.6.1
 PULSAR_CONTAINER=local-pulsar
 
@@ -12,3 +15,7 @@ docker run -i -d --rm \
     -c "sed -i s/brokerDeleteInactiveTopicsEnabled=.*/brokerDeleteInactiveTopicsEnabled=false/ /pulsar/conf/standalone.conf && bin/pulsar standalone"
 dockerize -wait tcp://localhost:8080 -timeout 10m
 dockerize -wait tcp://localhost:6650 -timeout 10m
+
+echo "--------------------------------------------------------------"
+echo "waiting for pulsar broker..."
+sleep 30 # pulsar takes a while to launch...
