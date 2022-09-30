@@ -49,7 +49,7 @@ opentelemetry-sdk==1.13.0
     #   wipac-telemetry
 opentelemetry-semantic-conventions==0.34b0
     # via opentelemetry-sdk
-protobuf==3.20.2
+protobuf==3.20.3
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
