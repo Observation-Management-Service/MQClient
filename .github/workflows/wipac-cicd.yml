@@ -119,9 +119,6 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - name: tests
         run: |
-          echo "--------------------------------------------------------------"
-          echo "starting broker..."
-
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
             ./resources/docker-pulsar.sh
@@ -136,10 +133,6 @@ jobs:
           elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
           fi
-
-          echo "--------------------------------------------------------------"
-          echo "waiting for broker..."
-          sleep 15
 
           echo "--------------------------------------------------------------"
           echo "running tests..."
