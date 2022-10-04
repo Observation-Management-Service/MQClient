@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import time
 from typing import AsyncGenerator, Optional
 
@@ -54,7 +55,7 @@ class Pulsar(RawQueue):
         self.client = pulsar.Client(
             self.address,
             authentication=self.auth,
-            logger=logging.getLogger("apache.pulsar"),
+            logger=logging.getLogger(f"apache.pulsar.p{os.getpid()}"),
         )
 
     async def close(self) -> None:
