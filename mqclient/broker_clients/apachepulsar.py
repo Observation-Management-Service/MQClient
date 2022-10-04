@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import os
 import time
 from typing import AsyncGenerator, Optional
 
@@ -52,11 +51,7 @@ class Pulsar(RawQueue):
     async def connect(self) -> None:
         """Set up client."""
         await super().connect()
-        self.client = pulsar.Client(
-            self.address,
-            authentication=self.auth,
-            logger=logging.getLogger(f"apache.pulsar.p{os.getpid()}"),
-        )
+        self.client = pulsar.Client(self.address, authentication=self.auth)
 
     async def close(self) -> None:
         """Close client."""
