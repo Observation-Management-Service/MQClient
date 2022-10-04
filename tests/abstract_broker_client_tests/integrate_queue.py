@@ -53,6 +53,8 @@ class PubSubQueue:
 
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
+        logging.root.manager.loggerDict == None
+
     @pytest.mark.asyncio
     async def test_11(self, queue_name: str) -> None:
         """Test an individual pub and an individual sub."""
@@ -404,7 +406,8 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_60(self, queue_name: str) -> None:
-        """Test open_sub() fail and recovery, with multiple open_sub() calls."""
+        """Test open_sub() fail and recovery, with multiple open_sub()
+        calls."""
         all_recvd: List[Any] = []
 
         async with Queue(self.broker_client, name=queue_name).open_pub() as p:
@@ -485,7 +488,8 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_70_fail(self, queue_name: str) -> None:
-        """Failure-test open_sub() with reusing a 'QueueSubResource' instance."""
+        """Failure-test open_sub() with reusing a 'QueueSubResource'
+        instance."""
         async with Queue(self.broker_client, name=queue_name).open_pub() as p:
             for d in DATA_LIST:
                 await p.send(d)
