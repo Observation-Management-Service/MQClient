@@ -27,11 +27,6 @@ async def server(work_queue: Queue, result_queue: Queue) -> None:
     for i in results:
         assert results[i].strip() == str(i)
 
-    import pprint
-
-    pprint.pprint(logging.root.manager.loggerDict)
-    assert logging.root.manager.loggerDict == None
-
 
 if __name__ == "__main__":
     coloredlogs.install(level=logging.DEBUG)
