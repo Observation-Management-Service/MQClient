@@ -19,7 +19,7 @@ from ..broker_client_interface import (
     Sub,
 )
 
-LOGGER = logging.getLogger("mqclient-gcp")
+LOGGER = logging.getLogger("mqclient.gcp")
 
 _DEFAULT_RETRY = retry.Retry(
     initial=RETRY_DELAY,
@@ -63,7 +63,8 @@ class GCP(RawQueue):
     ) -> Tuple[pubsub.SubscriberClient, str]:
         """Create a subscription, then return a subscriber instance and path.
 
-        If the subscription already exists, the subscription is unaffected.
+        If the subscription already exists, the subscription is
+        unaffected.
         """
         sub = pubsub.SubscriberClient(client_options={"api_endpoint": endpoint})
         subscription_path = sub.subscription_path(  # pylint: disable=no-member

@@ -21,7 +21,7 @@ from ..broker_client_interface import (
     Sub,
 )
 
-LOGGER = logging.getLogger("mqclient-pulsar")
+LOGGER = logging.getLogger("mqclient.pulsar")
 
 
 class Pulsar(RawQueue):
@@ -54,7 +54,7 @@ class Pulsar(RawQueue):
         self.client = pulsar.Client(
             self.address,
             authentication=self.auth,
-            logger=logging.getLogger("pulsar"),
+            logger=logging.getLogger("apache.pulsar"),
         )
 
     async def close(self) -> None:
