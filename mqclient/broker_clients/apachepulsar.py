@@ -51,7 +51,11 @@ class Pulsar(RawQueue):
     async def connect(self) -> None:
         """Set up client."""
         await super().connect()
-        self.client = pulsar.Client(self.address, authentication=self.auth)
+        self.client = pulsar.Client(
+            self.address,
+            authentication=self.auth,
+            logger=logging.getLogger("pulsar"),
+        )
 
     async def close(self) -> None:
         """Close client."""
