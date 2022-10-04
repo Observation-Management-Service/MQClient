@@ -28,6 +28,9 @@ async def server(work_queue: Queue, result_queue: Queue) -> None:
         assert results[i].strip() == str(i)
 
     assert logging.root.manager.loggerDict == None
+    import pprint
+
+    pprint.pprint(logging.root.manager.loggerDict)
 
 
 if __name__ == "__main__":
