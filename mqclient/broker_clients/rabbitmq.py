@@ -21,7 +21,7 @@ from ..broker_client_interface import (
     Sub,
 )
 
-LOGGER = logging.getLogger("mqclient-rabbitmq")
+LOGGER = logging.getLogger("mqclient.rabbitmq")
 
 AMQP_ADDRESS_PREFIX = "amqp://"
 
@@ -164,7 +164,8 @@ class RabbitMQSub(RabbitMQ, Sub):
     async def close(self) -> None:
         """Close connection.
 
-        Also, channel will be canceled (rejects all pending ackable messages).
+        Also, channel will be canceled (rejects all pending ackable
+        messages).
         """
         LOGGER.debug(log_msgs.CLOSING_SUB)
         await super().close()
@@ -209,8 +210,8 @@ class RabbitMQSub(RabbitMQ, Sub):
     async def ack_message(self, msg: Message) -> None:
         """Ack a message from the queue.
 
-        Note that RabbitMQ acks messages in-order, so acking message
-        3 of 3 in-progress messages will ack them all.
+        Note that RabbitMQ acks messages in-order, so acking message 3
+        of 3 in-progress messages will ack them all.
         """
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
         if not self.channel:
@@ -222,8 +223,8 @@ class RabbitMQSub(RabbitMQ, Sub):
     async def reject_message(self, msg: Message) -> None:
         """Reject (nack) a message from the queue.
 
-        Note that RabbitMQ acks messages in-order, so nacking message
-        3 of 3 in-progress messages will nack them all.
+        Note that RabbitMQ acks messages in-order, so nacking message 3
+        of 3 in-progress messages will nack them all.
         """
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
         if not self.channel:

@@ -30,7 +30,7 @@ from ..broker_client_interface import (
     Sub,
 )
 
-LOGGER = logging.getLogger("mqclient-nats")
+LOGGER = logging.getLogger("mqclient.nats")
 
 T = TypeVar("T")  # the callable/awaitable return type
 

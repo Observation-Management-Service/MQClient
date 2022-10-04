@@ -21,7 +21,7 @@ from ..broker_client_interface import (
     Sub,
 )
 
-LOGGER = logging.getLogger("mqclient-pulsar")
+LOGGER = logging.getLogger("mqclient.pulsar")
 
 
 class Pulsar(RawQueue):
