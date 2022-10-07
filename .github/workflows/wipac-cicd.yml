@@ -94,7 +94,7 @@ jobs:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        test_type: [brokerless, pulsar, rabbitmq]
+        broker_client: [brokerless, pulsar, rabbitmq]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
@@ -102,12 +102,12 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - run: |
           pip install --upgrade pip wheel setuptools
-          if [ "${{ matrix.test_type }}" = "brokerless" ]; then
+          if [ "${{ matrix.broker_client }}" = "brokerless" ]; then
             pip install .[dev]
           else
-            pip install .[dev,${{ test_type }}]
+            pip install .[dev,${{ broker_client }}]
           fi
-          pytest -vvv tests/unit/"${{ matrix.test_type }}"
+          pytest -vvv tests/unit/"${{ matrix.broker_client }}"
 
   integration-test:
     needs: [py-versions]
