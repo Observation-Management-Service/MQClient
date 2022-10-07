@@ -4,7 +4,7 @@
 #
 #    pip-compile --extra=telemetry --output-file=requirements-telemetry.txt
 #
-backoff==2.1.2
+backoff==2.2.1
     # via opentelemetry-exporter-otlp-proto-http
 certifi==2022.9.24
     # via requests
@@ -64,14 +64,14 @@ six==1.16.0
     #   thrift
 thrift==0.16.0
     # via opentelemetry-exporter-jaeger-thrift
-typing-extensions==4.3.0
+typing-extensions==4.4.0
     # via
     #   opentelemetry-sdk
     #   wipac-dev-tools
     #   wipac-telemetry
 urllib3==1.26.12
     # via requests
-wipac-dev-tools==1.5.3
+wipac-dev-tools==1.5.6
     # via
     #   wipac-mqclient (setup.py)
     #   wipac-telemetry
