@@ -38,7 +38,7 @@ def get_broker_client(broker_client_name: str) -> BrokerClient:
         return _INSTALLED_BROKERS[broker_client_name].BrokerClient()
     except KeyError:
         raise RuntimeError(f"Unknown broker client: {broker_client_name}")
-    except TypeError:
+    except AttributeError:
         raise RuntimeError(
             f"Install 'mqclient[{broker_client_name.lower()}]' "
             f"if you want to use the '{broker_client_name}' broker client"
