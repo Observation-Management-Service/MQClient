@@ -100,7 +100,8 @@ jobs:
       - uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.py3 }}
-      - run: |
+      - name: tests
+        run: |
           pip install --upgrade pip wheel setuptools
           if [ "${{ matrix.broker_client }}" = "brokerless" ]; then
             pip install .[dev]
