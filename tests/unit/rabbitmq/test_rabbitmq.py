@@ -8,7 +8,7 @@ import pytest
 from mqclient import broker_client_manager
 from mqclient.broker_client_interface import Message
 
-from ..abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
+from ...abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
 
 
 class TestUnitRabbitMQ(BrokerClientUnitTest):
