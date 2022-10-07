@@ -15,17 +15,6 @@ except ImportError:
     from mock import AsyncMock  # use backport
 
 
-def test_init() -> None:
-    """Test constructor."""
-    q = Queue("pulsar")
-    assert q._broker_client.NAME == "pulsar"
-
-    q = Queue("pulsar", name="nnn", address="aaa", prefetch=999)
-    assert q._name == "nnn"
-    assert q._address == "aaa"
-    assert q._prefetch == 999
-
-
 @pytest.mark.asyncio
 async def test_send() -> None:
     """Test send."""

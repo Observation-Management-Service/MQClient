@@ -1,7 +1,3 @@
-# For most recent version see:
-# https://github.com/WIPACrepo/wipac-dev-tools/blob/main/.github/workflows/wipac-cicd.yml
-# Copy any updates to wipac-dev-tools.
-
 name: wipac ci/cd
 
 on: [push]
@@ -94,15 +90,21 @@ jobs:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
+        type: [brokerless, pulsar, rabbitmq]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.py3 }}
-      - run: |
+      - name: tests
+        run: |
           pip install --upgrade pip wheel setuptools
-          pip install .[dev,all]
-          pytest -vvv tests/unit
+          if [ "${{ matrix.type }}" = "brokerless" ]; then
+            pip install .[dev]
+          else
+            pip install .[dev,${{ matrix.type }}]
+          fi
+          pytest -vvv tests/unit/"${{ matrix.type }}"
 
   integration-test:
     needs: [py-versions]
