@@ -102,7 +102,7 @@ jobs:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        type: [brokerless, pulsar, rabbitmq]
+        type: [default, pulsar, rabbitmq]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v3
@@ -111,7 +111,7 @@ jobs:
       - name: tests
         run: |
           pip install --upgrade pip wheel setuptools
-          if [ "${{ matrix.type }}" = "brokerless" ]; then
+          if [ "${{ matrix.type }}" = "default" ]; then
             pip install .[dev]
           else
             pip install .[dev,${{ matrix.type }}]
