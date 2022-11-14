@@ -10,15 +10,15 @@ certifi==2022.9.24
     # via requests
 charset-normalizer==2.1.1
     # via requests
-google-api-core[grpc]==2.10.1
+google-api-core[grpc]==2.10.2
     # via
     #   google-cloud-pubsub
     #   wipac-mqclient (setup.py)
-google-auth==2.12.0
+google-auth==2.14.1
     # via
     #   google-api-core
     #   wipac-mqclient (setup.py)
-google-cloud-pubsub==2.13.7
+google-cloud-pubsub==2.13.11
     # via wipac-mqclient (setup.py)
 googleapis-common-protos[grpc]==1.56.4
     # via
@@ -28,13 +28,13 @@ googleapis-common-protos[grpc]==1.56.4
     #   wipac-mqclient (setup.py)
 grpc-google-iam-v1==0.12.4
     # via google-cloud-pubsub
-grpcio==1.49.1
+grpcio==1.50.0
     # via
     #   google-api-core
     #   google-cloud-pubsub
     #   grpc-google-iam-v1
     #   grpcio-status
-grpcio-status==1.49.1
+grpcio-status==1.50.0
     # via
     #   google-api-core
     #   google-cloud-pubsub
@@ -42,7 +42,7 @@ idna==3.4
     # via requests
 proto-plus==1.22.1
     # via google-cloud-pubsub
-protobuf==4.21.7
+protobuf==4.21.9
     # via
     #   google-api-core
     #   google-cloud-pubsub
@@ -69,5 +69,5 @@ typing-extensions==4.4.0
     # via wipac-dev-tools
 urllib3==1.26.12
     # via requests
-wipac-dev-tools==1.5.6
+wipac-dev-tools==1.6.9
     # via wipac-mqclient (setup.py)
