@@ -14,7 +14,7 @@ charset-normalizer==2.1.1
     # via requests
 coloredlogs==15.0.1
     # via wipac-mqclient (setup.py)
-exceptiongroup==1.0.3
+exceptiongroup==1.0.4
     # via pytest
 humanfriendly==10.0
     # via coloredlogs
