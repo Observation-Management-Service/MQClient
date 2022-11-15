@@ -9,6 +9,7 @@ on:
       - labeled
 
 permissions:
+  contents: read
   repository-projects: write
 
 jobs:
