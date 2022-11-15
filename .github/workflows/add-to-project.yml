@@ -15,7 +15,6 @@ permissions:
   deployments: write
   id-token: none
   issues: write
-  metadata: read
   packages: write
   pages: write
   pull-requests: write
