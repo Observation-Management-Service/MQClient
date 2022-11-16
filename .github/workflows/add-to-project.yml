@@ -19,7 +19,28 @@ env:
 
 
 jobs:
+  preconditions:
+    steps:
+      - name: Set ADD_PR
+        if: |
+          github.event_name == 'pull_request' &&
+          (
+          contains(github.event.pull_request.labels.*.name, 'dependencies') ||
+          contains(github.event.pull_request.labels.*.name, 'github_actions')
+          )
+        run: echo "ADD_PR=true" >> "$GITHUB_ENV"
+
+      - name: Set ADD_ISSUE
+        if: |
+          github.event_name == 'issue' &&
+          (
+          contains(github.event.issue.labels.*.name, 'dependencies') ||
+          contains(github.event.issue.labels.*.name, 'github_actions')
+          )
+        run: echo "ADD_ISSUE=true" >> "$GITHUB_ENV"
+
   add-to-project:
+    needs: [preconditions]
     runs-on: ubuntu-latest
     steps:
       - name: Get project data
@@ -52,7 +73,7 @@ jobs:
           echo 'PROJECT_ID='$(jq '.data.organization.projectV2.id' project_data.json) >> $GITHUB_ENV
 
       - name: Add issue to project
-        if: github.event_name == 'issue'
+        if: env.ADD_ISSUE == 'true'
         env:
           ISSUE_ID: ${{ github.event.issue.node_id }}
         run: |
@@ -66,7 +87,7 @@ jobs:
             }' -f project=$PROJECT_ID -f issue=$ISSUE_ID --jq '.data.addProjectV2ItemById.projectV2Item.id')"
 
       - name: Add PR to project
-        if: github.event_name == 'pull_request'
+        if: env.ADD_PR == 'true'
         env:
           PR_ID: ${{ github.event.pull_request.node_id }}
         run: |
