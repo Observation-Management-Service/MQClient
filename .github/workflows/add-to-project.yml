@@ -1,27 +1,81 @@
 name: Add PR/Issue to Project
 
+
 on:
-  # https://github.com/actions/add-to-project#supported-events
-  pull_request:
-    types:
-      - opened
-      - transferred
-      - labeled
   issues:
     types:
       - opened
       - labeled
+  pull_request:
+    types:
+      - opened
+      - labeled
+
+
+env:
+  GITHUB_TOKEN: ${{ secrets.ORG_PROJECT_TOKEN }}
+  ORGANIZATION: WIPACrepo
+  PROJECT_NUMBER: 6
+
 
 jobs:
   add-to-project:
-    name: Add to Project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/add-to-project@v0.3.0
-        with:
-          # You can target a repository in a different organization
-          # to the issue
-          project-url: https://github.com/orgs/WIPACrepo/projects/6
-          github-token: ${{ secrets.ORG_PROJECT_TOKEN }}
-          labeled: dependencies
-          label-operator: OR
+      - name: Get project data
+        run: |
+          gh api graphql -f query='
+            query($org: String!, $number: Int!) {
+              organization(login: $org){
+                projectV2(number: $number) {
+                  id
+                  fields(first:20) {
+                    nodes {
+                      ... on ProjectV2Field {
+                        id
+                        name
+                      }
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        options {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }' -f org=$ORGANIZATION -F number=$PROJECT_NUMBER > project_data.json
+
+          echo 'PROJECT_ID='$(jq '.data.organization.projectV2.id' project_data.json) >> $GITHUB_ENV
+
+      - name: Add issue to project
+        if: github.event_name == 'issue'
+        env:
+          ISSUE_ID: ${{ github.event.issue.node_id }}
+        run: |
+          item_id="$( gh api graphql -f query='
+            mutation($project:ID!, $issue:ID!) {
+              addProjectV2ItemById(input: {projectId: $project, contentId: $issue}) {
+                item {
+                  id
+                }
+              }
+            }' -f project=$PROJECT_ID -f issue=$ISSUE_ID --jq '.data.addProjectV2ItemById.projectV2Item.id')"
+
+      - name: Add PR to project
+        if: github.event_name == 'pull_request'
+        env:
+          PR_ID: ${{ github.event.pull_request.node_id }}
+        run: |
+          item_id="$( gh api graphql -f query='
+            mutation($project:ID!, $pr:ID!) {
+              addProjectV2ItemById(input: {projectId: $project, contentId: $pr}) {
+                item {
+                  id
+                }
+              }
+            }' -f project=$PROJECT_ID -f pr=$PR_ID --jq '.data.addProjectV2ItemById.projectV2Item.id')"
+
