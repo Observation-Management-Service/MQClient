@@ -1,11 +1,15 @@
 name: Add PR/Issue to Project
 
 on:
+  # https://github.com/actions/add-to-project#supported-events
   pull_request:
     types:
+      - opened
+      - transferred
       - labeled
   issues:
     types:
+      - opened
       - labeled
 
 jobs:
