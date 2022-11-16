@@ -24,11 +24,9 @@ jobs:
     steps:
       - name: PR Precheck
         if: |
-          github.event_name == 'pull_request' &&
-          (
-          contains(github.event.pull_request.labels.*.name, 'dependencies') ||
-          contains(github.event.pull_request.labels.*.name, 'github_actions')
-          )
+          github.event_name == 'pull_request'
+        # want labels?
+        # use contains(github.event.pull_request.labels.*.name, 'dependencies')
         run: echo "ADD_PR=true" >> "$GITHUB_ENV"
 
       - name: Issue Precheck
@@ -36,7 +34,9 @@ jobs:
           github.event_name == 'issue' &&
           (
           contains(github.event.issue.labels.*.name, 'dependencies') ||
-          contains(github.event.issue.labels.*.name, 'github_actions')
+          contains(github.event.issue.labels.*.name, 'urgent') ||
+          contains(github.event.issue.labels.*.name, 'high priority') ||
+          contains(github.event.issue.labels.*.name, 'bug') ||
           )
         run: echo "ADD_ISSUE=true" >> "$GITHUB_ENV"
 
