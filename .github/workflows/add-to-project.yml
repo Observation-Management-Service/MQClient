@@ -8,20 +8,6 @@ on:
     types:
       - labeled
 
-permissions:
-  actions: read/write
-  checks: read/write
-  contents: read/write
-  deployments: read/write
-  id-token: none
-  issues: read/write
-  packages: read/write
-  pages: read/write
-  pull-requests: read/write
-  repository-projects: read/write
-  security-events: read/write
-  statuses: read/write
-
 jobs:
   add-to-project:
     name: Add to Project
@@ -32,6 +18,6 @@ jobs:
           # You can target a repository in a different organization
           # to the issue
           project-url: https://github.com/orgs/WIPACrepo/projects/6
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.ORG_PROJECT_TOKEN }}
           labeled: dependencies
           label-operator: OR
