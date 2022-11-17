@@ -11,90 +11,12 @@ on:
       - opened
       - labeled
 
-
-env:
-  GITHUB_TOKEN: ${{ secrets.ORG_PROJECT_TOKEN }}
-  ORGANIZATION: WIPACrepo
-  PROJECT_NUMBER: 6
-
-
 jobs:
   add-to-project:
     runs-on: ubuntu-latest
     steps:
-      - name: PR Precheck
-        if: |
-          github.event_name == 'pull_request'
-        # want labels?
-        # use contains(github.event.pull_request.labels.*.name, 'dependencies')
-        run: echo "ADD_PR=true" >> "$GITHUB_ENV"
-
-      - name: Issue Precheck
-        if: |
-          github.event_name == 'issue' &&
-          (
-          contains(github.event.issue.labels.*.name, 'dependencies') ||
-          contains(github.event.issue.labels.*.name, 'urgent') ||
-          contains(github.event.issue.labels.*.name, 'high priority') ||
-          contains(github.event.issue.labels.*.name, 'bug') ||
-          )
-        run: echo "ADD_ISSUE=true" >> "$GITHUB_ENV"
-
-      - name: Get project data
-        if: env.ADD_ISSUE == 'true' || env.ADD_PR == 'true'
-        run: |
-          gh api graphql -f query='
-            query($org: String!, $number: Int!) {
-              organization(login: $org){
-                projectV2(number: $number) {
-                  id
-                  fields(first:20) {
-                    nodes {
-                      ... on ProjectV2Field {
-                        id
-                        name
-                      }
-                      ... on ProjectV2SingleSelectField {
-                        id
-                        name
-                        options {
-                          id
-                          name
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }' -f org=$ORGANIZATION -F number=$PROJECT_NUMBER > project_data.json
-
-          echo 'PROJECT_ID='$(jq '.data.organization.projectV2.id' project_data.json) >> $GITHUB_ENV
-
-      - name: Add issue to project
-        if: env.ADD_ISSUE == 'true'
-        env:
-          ISSUE_ID: ${{ github.event.issue.node_id }}
-        run: |
-          item_id="$( gh api graphql -f query='
-            mutation($project:ID!, $issue:ID!) {
-              addProjectV2ItemById(input: {projectId: $project, contentId: $issue}) {
-                item {
-                  id
-                }
-              }
-            }' -f project=$PROJECT_ID -f issue=$ISSUE_ID --jq '.data.addProjectV2ItemById.projectV2Item.id')"
-
-      - name: Add PR to project
-        if: env.ADD_PR == 'true'
-        env:
-          PR_ID: ${{ github.event.pull_request.node_id }}
-        run: |
-          item_id="$( gh api graphql -f query='
-            mutation($project:ID!, $pr:ID!) {
-              addProjectV2ItemById(input: {projectId: $project, contentId: $pr}) {
-                item {
-                  id
-                }
-              }
-            }' -f project=$PROJECT_ID -f pr=$PR_ID --jq '.data.addProjectV2ItemById.projectV2Item.id')"
-
+      - uses: WIPACrepo/wipac-dev-project-action@init
+        with:
+          github_token: ${{ secrets.ORG_PROJECT_TOKEN }}
+          organization: WIPACrepo
+          project_number: 6
