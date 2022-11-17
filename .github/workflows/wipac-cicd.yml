@@ -8,14 +8,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
       - uses: WIPACrepo/wipac-dev-flake8-action@v1
 
   mypy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
       # - uses: WIPACrepo/wipac-dev-mypy-action@v1.1
       - run: |
           # there's a dependency clash with protobuf
@@ -71,7 +71,7 @@ jobs:
         broker_client: [pulsar, rabbitmq, gcp, nats]
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py3 }}
       - name: example
@@ -109,7 +109,7 @@ jobs:
         type: [brokerless, pulsar, rabbitmq]
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py3 }}
       - name: tests
@@ -132,7 +132,7 @@ jobs:
         broker_client: [pulsar, rabbitmq, gcp, nats]
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py3 }}
       - name: tests
