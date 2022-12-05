@@ -1,4 +1,5 @@
-"""Run integration tests for given broker_client, on broker_client_interface classes.
+"""Run integration tests for given broker_client, on broker_client_interface
+classes.
 
 Verify functionality that is abstracted away from the Queue class.
 """
@@ -80,8 +81,8 @@ class PubSubBrokerClientInterface:
             _log_send(msg)
 
         # receive -- nack each message, once, and anticipate its redelivery
-        nacked_msgs = []  # type: List[Message]
-        redelivered_msgs = []  # type: List[Message]
+        nacked_msgs: List[Message] = []
+        redelivered_msgs: List[Message] = []
         for i in itertools.count():
             logging.info(i)
             assert i < len(DATA_LIST) * 10  # large enough but avoids inf loop
@@ -125,8 +126,8 @@ class PubSubBrokerClientInterface:
         sub = await self.broker_client.create_sub_queue("localhost", queue_name)
 
         data_to_send = copy.deepcopy(DATA_LIST)
-        nacked_msgs = []  # type: List[Message]
-        redelivered_msgs = []  # type: List[Message]
+        nacked_msgs: List[Message] = []
+        redelivered_msgs: List[Message] = []
         for i in itertools.count():
             logging.info(i)
             assert i < len(DATA_LIST) * 10  # large enough but avoids inf loop

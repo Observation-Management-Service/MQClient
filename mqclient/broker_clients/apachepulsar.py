@@ -44,7 +44,7 @@ class Pulsar(RawQueue):
         if not self.address.startswith("pulsar"):
             self.address = "pulsar://" + self.address
         self.topic = topic
-        self.client = None  # type: pulsar.Client
+        self.client: pulsar.Client = None
         self.auth = pulsar.AuthenticationToken(auth_token) if auth_token else None
         self._auth_token = auth_token
 
@@ -78,7 +78,7 @@ class PulsarPub(Pulsar, Pub):
     def __init__(self, address: str, topic: str, auth_token: str = "") -> None:
         LOGGER.debug(f"{log_msgs.INIT_PUB} ({address}; {topic})")
         super().__init__(address, topic, auth_token)
-        self.producer = None  # type: pulsar.Producer
+        self.producer: pulsar.Producer = None
 
     async def connect(self) -> None:
         """Connect to producer."""
@@ -130,7 +130,7 @@ class PulsarSub(Pulsar, Sub):
     ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_SUB} ({address}; {topic})")
         super().__init__(address, topic, auth_token=auth_token)
-        self.consumer = None  # type: pulsar.Consumer
+        self.consumer: pulsar.Consumer = None
         self.subscription_name = subscription_name
         self.prefetch = 1
 
