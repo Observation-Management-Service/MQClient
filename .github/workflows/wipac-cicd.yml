@@ -67,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-22.04, ubuntu-20.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         broker_client: [pulsar, rabbitmq, gcp, nats]
     steps:
@@ -106,7 +106,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-22.04, ubuntu-20.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         type: [brokerless, pulsar, rabbitmq]
     steps:
@@ -130,7 +130,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-22.04, ubuntu-20.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         broker_client: [pulsar, rabbitmq, gcp, nats]
     steps:
