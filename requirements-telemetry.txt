@@ -8,7 +8,7 @@ backoff==2.2.1
     # via opentelemetry-exporter-otlp-proto-http
 certifi==2022.9.24
     # via requests
-charset-normalizer==2.1.1
+charset-normalizer==3.0.1
     # via requests
 coloredlogs==15.0.1
     # via wipac-telemetry
