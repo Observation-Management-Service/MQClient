@@ -63,10 +63,11 @@ jobs:
 
   example:
     needs: [py-versions]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, ubuntu-22.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         broker_client: [pulsar, rabbitmq, gcp, nats]
     steps:
@@ -101,10 +102,11 @@ jobs:
 
   unit-test:
     needs: [py-versions]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, ubuntu-22.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         type: [brokerless, pulsar, rabbitmq]
     steps:
@@ -124,10 +126,11 @@ jobs:
 
   integration-test:
     needs: [py-versions]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, ubuntu-22.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         broker_client: [pulsar, rabbitmq, gcp, nats]
     steps:
