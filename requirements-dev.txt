@@ -6,15 +6,15 @@
 #
 asyncstdlib==3.10.5
     # via wipac-mqclient (setup.py)
-attrs==22.1.0
+attrs==22.2.0
     # via pytest
-certifi==2022.9.24
+certifi==2022.12.7
     # via requests
 charset-normalizer==2.1.1
     # via requests
 coloredlogs==15.0.1
     # via wipac-mqclient (setup.py)
-exceptiongroup==1.0.4
+exceptiongroup==1.1.0
     # via pytest
 humanfriendly==10.0
     # via coloredlogs
@@ -22,24 +22,22 @@ idna==3.4
     # via requests
 iniconfig==1.1.1
     # via pytest
-mock==4.0.3
+mock==5.0.0
     # via wipac-mqclient (setup.py)
 mypy==0.991
     # via wipac-mqclient (setup.py)
 mypy-extensions==0.4.3
     # via mypy
-packaging==21.3
+packaging==22.0
     # via pytest
 pluggy==1.0.0
     # via pytest
-pyparsing==3.0.9
-    # via packaging
 pytest==7.2.0
     # via
     #   pytest-asyncio
     #   pytest-mock
     #   wipac-mqclient (setup.py)
-pytest-asyncio==0.20.2
+pytest-asyncio==0.20.3
     # via wipac-mqclient (setup.py)
 pytest-mock==3.10.0
     # via wipac-mqclient (setup.py)
