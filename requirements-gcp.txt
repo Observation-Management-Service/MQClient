@@ -6,7 +6,7 @@
 #
 cachetools==5.2.0
     # via google-auth
-certifi==2022.9.24
+certifi==2022.12.7
     # via requests
 charset-normalizer==2.1.1
     # via requests
@@ -20,7 +20,7 @@ google-auth==2.15.0
     #   wipac-mqclient (setup.py)
 google-cloud-pubsub==2.13.11
     # via wipac-mqclient (setup.py)
-googleapis-common-protos[grpc]==1.57.0
+googleapis-common-protos[grpc]==1.57.1
     # via
     #   google-api-core
     #   grpc-google-iam-v1
@@ -43,7 +43,7 @@ idna==3.4
     # via requests
 proto-plus==1.22.1
     # via google-cloud-pubsub
-protobuf==4.21.10
+protobuf==4.21.12
     # via
     #   google-api-core
     #   google-cloud-pubsub
