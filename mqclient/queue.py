@@ -10,6 +10,7 @@ from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
 from . import broker_client_manager
 from . import telemetry as wtt
 from .broker_client_interface import AckException, Message, NackException, Pub, Sub
+from .config import ENV
 
 LOGGER = logging.getLogger("mqclient")
 
@@ -40,12 +41,12 @@ class Queue:
     def __init__(
         self,
         broker_client: str,
-        address: str = "localhost",
+        address: str = ENV.EWMS_MQ_ADDRESS,
         name: str = "",
-        prefetch: int = 1,
-        timeout: int = 60,
+        prefetch: int = ENV.EWMS_MQ_PREFETCH,
+        timeout: int = ENV.EWMS_MQ_TIMEOUT,
         except_errors: bool = True,
-        auth_token: str = "",
+        auth_token: str = ENV.EWMS_MQ_AUTH_TOKEN,
     ) -> None:
         self._broker_client = broker_client_manager.get_broker_client(broker_client)
         self._address = address
@@ -78,13 +79,13 @@ class Queue:
         self._timeout = val
 
     async def _create_pub_queue(self) -> Pub:
-        """Wrap `self._broker_client.create_pub_queue()` with instance's config."""
+        """Wrap `self._broker_client.create_pub_queue()` with instance vars."""
         return await self._broker_client.create_pub_queue(
             self._address, self._name, auth_token=self._auth_token
         )
 
     async def _create_sub_queue(self) -> Sub:
-        """Wrap `self._broker_client.create_sub_queue()` with instance's config."""
+        """Wrap `self._broker_client.create_sub_queue()` with instance vars."""
         return await self._broker_client.create_sub_queue(
             self._address, self._name, self._prefetch, auth_token=self._auth_token
         )

@@ -1,5 +1,6 @@
 """Public init."""
 
+from .config import ENV  # noqa: F401  # establish env vars on import
 from .queue import Queue
 
 __all__ = ["Queue"]
