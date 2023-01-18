@@ -2,11 +2,11 @@
 
 import asyncio
 import logging
-import os
 import time
 from typing import AsyncGenerator, Optional
 
 import pulsar  # type: ignore
+from wipac_dev_tools import from_environment
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
@@ -20,7 +20,6 @@ from ..broker_client_interface import (
     RawQueue,
     Sub,
 )
-from ..config import ENV
 
 LOGGER = logging.getLogger("mqclient.pulsar")
 
@@ -140,16 +139,11 @@ class PulsarSub(Pulsar, Sub):
         LOGGER.debug(log_msgs.CONNECTING_SUB)
         await super().connect()
 
-        # get unacked timeout
-        unacked_messages_timeout_sec = ENV.EWMS_MQ_UNACKED_MESSAGES_TIMEOUT_SEC
-        try:
-            unacked_messages_timeout_sec = int(
-                os.environ["PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC"]
-            )
-        except (KeyError, ValueError):
-            pass
+        env = from_environment({"PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC": 0})
+        unacked_messages_timeout_sec = int(
+            env.get("PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC", 0)
+        )
 
-        # connect
         self.consumer = self.client.subscribe(
             self.topic,
             self.subscription_name,
