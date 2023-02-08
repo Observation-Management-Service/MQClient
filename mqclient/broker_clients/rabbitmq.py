@@ -1,6 +1,7 @@
 """Back-end using RabbitMQ."""
 
 import logging
+import re
 import time
 from functools import partial
 from typing import Any, AsyncGenerator, Callable, Optional, Union
@@ -33,12 +34,20 @@ class RabbitMQ(RawQueue):
 
     def __init__(self, address: str, queue: str, auth_token: str) -> None:
         super().__init__()
+
         # set up connection parameters
+        try:
+            # HOST[:PORT][/VIRTUAL_HOST]
+            parts = re.match(
+                r"(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?", address
+            ).groupdict()  # type: ignore[union-attr]
+        except TypeError as e:
+            raise RuntimeError(
+                f"Invalid address: {address} (format: HOST[:PORT][/VIRTUAL_HOST])"
+            ) from e
         self.parameters = pika.connection.ConnectionParameters(
-            host=address,
-            # port="5672",  # use default
-            # virtual_host="/",  # use default
             credentials=pika.credentials.PlainCredentials("", auth_token),
+            **{k: v for k, v in parts.items() if v is not None},  # host=..., etc.
         )
 
         self.queue = queue
