@@ -36,17 +36,14 @@ class RabbitMQ(RawQueue):
     def __init__(self, address: str, queue: str, auth_token: str) -> None:
         super().__init__()
         # set up connection parameters
-        if auth_token:
-            self.parameters = pika.connection.ConnectionParameters(
-                host=address,
-                # port="5672",  # use default
-                # virtual_host="/",  # use default
-                credentials=pika.credentials.PlainCredentials("", auth_token),
-            )
-        else:
-            if not address.startswith(AMQP_ADDRESS_PREFIX):
-                address = AMQP_ADDRESS_PREFIX + address
-            self.parameters = pika.connection.URLParameters(address)
+        if not address.startswith(AMQP_ADDRESS_PREFIX):
+            address = AMQP_ADDRESS_PREFIX + address
+        self.parameters = pika.connection.ConnectionParameters(
+            host=address,
+            # port="5672",  # use default
+            # virtual_host="/",  # use default
+            credentials=pika.credentials.PlainCredentials("", auth_token),
+        )
 
         self.queue = queue
         self.connection: Optional[pika.BlockingConnection] = None
