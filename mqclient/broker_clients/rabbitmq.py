@@ -166,7 +166,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         """
         We need to discuss how many RabbitMQ instances we want to run
         the default is that the quorum queue is spread across 3 nodes
-        so 1 can fail without issue. Maybe we want to up this for 
+        so 1 can fail without issue. Maybe we want to up this for
         more production workloads
         """
         self.channel.queue_declare(
