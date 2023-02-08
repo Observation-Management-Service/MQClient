@@ -23,8 +23,6 @@ from ..broker_client_interface import (
 
 LOGGER = logging.getLogger("mqclient.rabbitmq")
 
-AMQP_ADDRESS_PREFIX = "amqp://"
-
 
 class RabbitMQ(RawQueue):
     """Base RabbitMQ wrapper.
@@ -36,8 +34,6 @@ class RabbitMQ(RawQueue):
     def __init__(self, address: str, queue: str, auth_token: str) -> None:
         super().__init__()
         # set up connection parameters
-        if not address.startswith(AMQP_ADDRESS_PREFIX):
-            address = AMQP_ADDRESS_PREFIX + address
         self.parameters = pika.connection.ConnectionParameters(
             host=address,
             # port="5672",  # use default
