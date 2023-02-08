@@ -58,6 +58,15 @@ class RabbitMQ(RawQueue):
         LOGGER.info(f"Connecting with parameters={self.parameters}")
         self.connection = pika.BlockingConnection(self.parameters)
         self.channel = self.connection.channel()
+        """
+        We need to discuss how many RabbitMQ instances we want to run
+        the default is that the quorum queue is spread across 3 nodes
+        so 1 can fail without issue. Maybe we want to up this for
+        more production workloads
+        """
+        self.channel.queue_declare(
+            queue=self.queue, durable=True, arguments={"x-queue-type": "quorum"}
+        )
 
     async def close(self) -> None:
         """Close connection."""
@@ -102,7 +111,6 @@ class RabbitMQPub(RabbitMQ, Pub):
         if not self.channel:
             raise ConnectingFailedException("No channel to configure connection.")
 
-        self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.confirm_delivery()
 
         LOGGER.debug(log_msgs.CONNECTED_PUB)
@@ -163,15 +171,7 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         if not self.channel:
             raise ConnectingFailedException("No channel to configure connection.")
-        """
-        We need to discuss how many RabbitMQ instances we want to run
-        the default is that the quorum queue is spread across 3 nodes
-        so 1 can fail without issue. Maybe we want to up this for
-        more production workloads
-        """
-        self.channel.queue_declare(
-            queue=self.queue, durable=True, arguments={"x-queue-type": "quorum"}
-        )
+
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
 
         LOGGER.debug(log_msgs.CONNECTED_SUB)
