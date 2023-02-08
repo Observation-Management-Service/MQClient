@@ -33,11 +33,21 @@ class RabbitMQ(RawQueue):
         RawQueue
     """
 
-    def __init__(self, address: str, queue: str) -> None:
+    def __init__(self, address: str, queue: str, auth_token: str) -> None:
         super().__init__()
-        self.address = address
-        if not self.address.startswith(AMQP_ADDRESS_PREFIX):
-            self.address = AMQP_ADDRESS_PREFIX + self.address
+        # set up connection parameters
+        if auth_token:
+            self.parameters = pika.connection.ConnectionParameters(
+                host=address,
+                # port="5672",  # use default
+                # virtual_host="/",  # use default
+                credentials=pika.credentials.PlainCredentials("", auth_token),
+            )
+        else:
+            if not address.startswith(AMQP_ADDRESS_PREFIX):
+                address = AMQP_ADDRESS_PREFIX + address
+            self.parameters = pika.connection.URLParameters(address)
+
         self.queue = queue
         self.connection: Optional[pika.BlockingConnection] = None
         self.channel: Optional[pika.adapters.blocking_connection.BlockingChannel] = None
@@ -45,10 +55,8 @@ class RabbitMQ(RawQueue):
     async def connect(self) -> None:
         """Set up connection and channel."""
         await super().connect()
-        LOGGER.info(f"Connecting with address={self.address}")
-        self.connection = pika.BlockingConnection(
-            pika.connection.URLParameters(self.address)
-        )
+        LOGGER.info(f"Connecting with parameters={self.parameters}")
+        self.connection = pika.BlockingConnection(self.parameters)
         self.channel = self.connection.channel()
 
     async def close(self) -> None:
@@ -161,7 +169,9 @@ class RabbitMQSub(RabbitMQ, Sub):
         so 1 can fail without issue. Maybe we want to up this for 
         more production workloads
         """
-        self.channel.queue_declare(queue=self.queue, durable=True, arguments={"x-queue-type": "quorum"})
+        self.channel.queue_declare(
+            queue=self.queue, durable=True, arguments={"x-queue-type": "quorum"}
+        )
         self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
 
         LOGGER.debug(log_msgs.CONNECTED_SUB)
@@ -371,8 +381,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
     ) -> RabbitMQPub:
         """Create a publishing queue.
 
-        # NOTE - `auth_token` is not used currently
-
         Args:
             address (str): address of queue
             name (str): name of queue on address
@@ -380,7 +388,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQPub(address, name)  # pylint: disable=invalid-name
+        q = RabbitMQPub(address, name, auth_token)  # pylint: disable=invalid-name
         await q.connect()
         return q
 
@@ -390,8 +398,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
     ) -> RabbitMQSub:
         """Create a subscription queue.
 
-        # NOTE - `auth_token` is not used currently
-
         Args:
             address (str): address of queue
             name (str): name of queue on address
@@ -399,7 +405,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQSub(address, name)  # pylint: disable=invalid-name
+        q = RabbitMQSub(address, name, auth_token)  # pylint: disable=invalid-name
         q.prefetch = prefetch
         await q.connect()
         return q
