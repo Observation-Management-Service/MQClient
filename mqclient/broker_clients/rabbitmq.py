@@ -34,6 +34,7 @@ class RabbitMQ(RawQueue):
 
     def __init__(self, address: str, queue: str, auth_token: str) -> None:
         super().__init__()
+        LOGGER.info(f"Requested MQClient for queue '{queue}' @ {address}")
 
         # set up connection parameters
         try:

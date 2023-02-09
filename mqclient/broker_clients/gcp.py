@@ -38,6 +38,10 @@ class GCP(RawQueue):
 
     def __init__(self, endpoint: str, project_id: str, topic_id: str) -> None:
         super().__init__()
+        LOGGER.info(
+            f"Requested MQClient for project_id/topic_id '{project_id}/{topic_id}' @ {endpoint}"
+        )
+
         self.endpoint = endpoint
         self._project_id = project_id
 
