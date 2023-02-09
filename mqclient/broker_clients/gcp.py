@@ -4,7 +4,7 @@ import logging
 import os
 from typing import AsyncGenerator, Generator, List, Optional, Tuple
 
-from google.api_core import exceptions, retry  # type: ignore[import]
+from google.api_core import exceptions, retry
 from google.cloud import pubsub  # type: ignore[import]
 
 from .. import broker_client_interface, log_msgs
