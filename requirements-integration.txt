@@ -122,7 +122,9 @@ wipac-dev-tools==1.6.10
 wipac-keycloak-rest-services==1.3.3
     # via wipac-mqclient (setup.py)
 wipac-rest-tools==1.4.8
-    # via wipac-keycloak-rest-services
+    # via
+    #   wipac-keycloak-rest-services
+    #   wipac-mqclient (setup.py)
 yarl==1.8.2
     # via
     #   aio-pika
