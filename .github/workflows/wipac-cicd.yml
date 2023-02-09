@@ -133,6 +133,19 @@ jobs:
         os: [ubuntu-22.04, ubuntu-20.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         broker_client: [pulsar, rabbitmq, gcp, nats]
+    services:
+      keycloak:
+        image: ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master
+        env:
+          KEYCLOAK_ADMIN: admin
+          KEYCLOAK_ADMIN_PASSWORD: admin
+          CMD: start-dev
+        ports:
+        - 8080:8080
+    env:
+      KEYCLOAK_URL: http://localhost:8080
+      USERNAME: admin
+      PASSWORD: admin
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
