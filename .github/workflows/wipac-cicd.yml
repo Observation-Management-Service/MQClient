@@ -172,7 +172,7 @@ jobs:
           echo "running tests..."
 
           pip install --upgrade pip wheel setuptools
-          pip install .[dev,${{ matrix.broker_client }}]
+          pip install .[dev,${{ matrix.broker_client }},integration]
           pytest -vvv tests/integrate/test_${{ matrix.broker_client }}.py
 
   release:
