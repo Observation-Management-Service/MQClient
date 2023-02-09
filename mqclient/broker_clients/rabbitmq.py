@@ -46,10 +46,11 @@ class RabbitMQ(RawQueue):
             raise RuntimeError(
                 f"Invalid address: {address} (format: HOST[:PORT][/VIRTUAL_HOST])"
             ) from e
-        self.parameters = pika.connection.ConnectionParameters(
-            credentials=pika.credentials.PlainCredentials("", auth_token),
-            **{k: v for k, v in parts.items() if v is not None},  # host=..., etc.
-        )
+        # put args into ConnectionParameters but only if each is defined, else rely on defaults
+        cp_args = {k: v for k, v in parts.items() if v is not None}  # host=..., etc.
+        if auth_token:
+            cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
+        self.parameters = pika.connection.ConnectionParameters(**cp_args)
 
         self.queue = queue
         self.connection: Optional[pika.BlockingConnection] = None
