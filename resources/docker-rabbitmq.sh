@@ -10,7 +10,7 @@ wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/d
 if [ -z $1 ]; then
     MOUNTS=""
 else
-    MOUNTS="--v $(realpath $1):/bitnami/rabbitmq/conf/custom.conf:ro"
+    MOUNTS="-v $(realpath $1):/bitnami/rabbitmq/conf/custom.conf:ro"
 fi
 
 set -x
