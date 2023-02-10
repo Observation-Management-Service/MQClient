@@ -4,6 +4,7 @@
 
 import os
 from functools import partial
+import json
 
 import pytest
 import pytest_asyncio
@@ -75,13 +76,65 @@ def keycloak_bootstrap(monkeypatch):
         if not ret:
             raise Exception("client does not exist")
         data = ret[0]
+        keycloak_client_id = data["id"]
 
+        # add mappers
+        url = f'/clients/{keycloak_client_id}/protocol-mappers/add-models'
+        args = [
+            {
+                'config': {
+                    'access.token.claim': 'true',
+                    'access.tokenResponse.claim': 'false',
+                    'claim.name': 'authorization_details',
+                    'claim.value': json.dumps([
+                        {
+                            "type":"rabbitmq",
+                            "locations": ["cluster:*/vhost:*"],
+                            "actions": ["read", "write", "configure"]
+                        }, {
+                            "type" : "rabbitmq",
+                            "locations": ["cluster:*"],
+                            "actions": ["administrator"]
+                        }
+                    ]),
+                    'id.token.claim': 'false',
+                    'jsonType.label': 'JSON',
+                    'userinfo.token.claim': 'false'
+                },
+                'consentRequired': False,
+                'name': 'rich access',
+                'protocol': 'openid-connect',
+                'protocolMapper': 'oidc-hardcoded-claim-mapper'
+            }, {
+                'config': {
+                    'access.token.claim': 'true',
+                    'id.token.claim': 'false',
+                    'included.custom.audience': 'rabbitmq_client'},
+                'consentRequired': False,
+                'name': 'aud-rabbitmq_client',
+                'protocol': 'openid-connect',
+                'protocolMapper': 'oidc-audience-mapper'
+            }, {
+                'config': {
+                    'access.token.claim': 'true',
+                    'id.token.claim': 'false',
+                    'included.custom.audience': 'rabbitmq'
+                },
+                'consentRequired': False,
+                'name': 'aud-rabbitmq',
+                'protocol': 'openid-connect',
+                'protocolMapper': 'oidc-audience-mapper'
+            }
+        ]
+        await rest_client.request("POST", url, args)
+
+        # set up return values
         args = {
             "oidc_url": f'{os.environ["KEYCLOAK_URL"]}/auth/realms/testrealm',
             "client_id": client_id,
         }
         if enable_secret:
-            url = f'/clients/{data["id"]}/client-secret'
+            url = f'/clients/{keycloak_client_id}/client-secret'
             ret = await rest_client.request("GET", url)
             if "value" in ret:
                 args["client_secret"] = ret["value"]
@@ -104,7 +157,7 @@ async def auth_token(keycloak_bootstrap) -> str:
         "mqclient-integration-test",
         enable_secret=True,
         service_accounts_enabled=True,
-        optional_client_scopes=["offline_access"],
+        optional_client_scopes=["profile", "offline_access"],
     )
 
     cc = ClientCredentialsAuth(
