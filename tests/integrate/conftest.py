@@ -94,7 +94,7 @@ def keycloak_bootstrap(monkeypatch):
 @pytest_asyncio.fixture
 async def auth_token(keycloak_bootstrap) -> str:
     """Get a valid token from Keycloak test instance."""
-    kwargs = await keycloak_bootstrap(enable_secret=False)
+    kwargs = await keycloak_bootstrap(enable_secret=True)
 
     cc = ClientCredentialsAuth(
         "",
