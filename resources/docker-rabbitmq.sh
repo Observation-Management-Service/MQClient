@@ -18,7 +18,7 @@ docker run -i -d --rm \
     -p 5672:5672 \
     -p 15672:15672 \
     $MOUNTS \
-    deadtrickster/rabbitmq_prometheus:3.7 \
+    deadtrickster/rabbitmq_prometheus:3.7
 dockerize -wait tcp://localhost:5672 -timeout 10m
 
 echo "--------------------------------------------------------------"
