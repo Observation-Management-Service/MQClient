@@ -1,10 +1,11 @@
 """Fixtures."""
 
 # type: skip-file
+# fmt:quotes-ok
 
+import json
 import os
 from functools import partial
-import json
 
 import pytest
 import pytest_asyncio
@@ -86,45 +87,51 @@ def keycloak_bootstrap(monkeypatch):
                     'access.token.claim': 'true',
                     'access.tokenResponse.claim': 'false',
                     'claim.name': 'authorization_details',
-                    'claim.value': json.dumps([
-                        {
-                            "type":"rabbitmq",
-                            "locations": ["cluster:*/vhost:*"],
-                            "actions": ["read", "write", "configure"]
-                        }, {
-                            "type" : "rabbitmq",
-                            "locations": ["cluster:*"],
-                            "actions": ["administrator"]
-                        }
-                    ]),
+                    'claim.value': json.dumps(
+                        [
+                            {
+                                "type": "rabbitmq",
+                                "locations": ["cluster:*/vhost:*"],
+                                "actions": ["read", "write", "configure"],
+                            },
+                            {
+                                "type": "rabbitmq",
+                                "locations": ["cluster:*"],
+                                "actions": ["administrator"],
+                            },
+                        ]
+                    ),
                     'id.token.claim': 'false',
                     'jsonType.label': 'JSON',
-                    'userinfo.token.claim': 'false'
+                    'userinfo.token.claim': 'false',
                 },
                 'consentRequired': False,
                 'name': 'rich access',
                 'protocol': 'openid-connect',
-                'protocolMapper': 'oidc-hardcoded-claim-mapper'
-            }, {
+                'protocolMapper': 'oidc-hardcoded-claim-mapper',
+            },
+            {
                 'config': {
                     'access.token.claim': 'true',
                     'id.token.claim': 'false',
-                    'included.custom.audience': 'rabbitmq_client'},
+                    'included.custom.audience': 'rabbitmq_client',
+                },
                 'consentRequired': False,
                 'name': 'aud-rabbitmq_client',
                 'protocol': 'openid-connect',
-                'protocolMapper': 'oidc-audience-mapper'
-            }, {
+                'protocolMapper': 'oidc-audience-mapper',
+            },
+            {
                 'config': {
                     'access.token.claim': 'true',
                     'id.token.claim': 'false',
-                    'included.custom.audience': 'rabbitmq'
+                    'included.custom.audience': 'rabbitmq',
                 },
                 'consentRequired': False,
                 'name': 'aud-rabbitmq',
                 'protocol': 'openid-connect',
-                'protocolMapper': 'oidc-audience-mapper'
-            }
+                'protocolMapper': 'oidc-audience-mapper',
+            },
         ]
         await rest_client.request("POST", url, args)
 
@@ -153,6 +160,14 @@ def keycloak_bootstrap(monkeypatch):
 @pytest_asyncio.fixture
 async def auth_token(keycloak_bootstrap) -> str:
     """Get a valid token from Keycloak test instance."""
+    if os.getenv("PYTEST_DO_AUTH_FOR_MQCLIENT", None) == "no":
+        return ""
+    elif os.getenv("PYTEST_DO_AUTH_FOR_MQCLIENT", None) != "yes":
+        raise ValueError(
+            f"PYTEST_DO_AUTH_FOR_MQCLIENT must be 'yes' or 'no' ({os.getenv('PYTEST_DO_AUTH_FOR_MQCLIENT')})"
+        )
+    # PYTEST_DO_AUTH_FOR_MQCLIENT is 'yes'
+
     kwargs = await keycloak_bootstrap(
         "mqclient-integration-test",
         enable_secret=True,

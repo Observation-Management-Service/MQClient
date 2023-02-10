@@ -160,16 +160,20 @@ jobs:
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
             ./resources/docker-pulsar.sh
+            PYTEST_DO_AUTH_FOR_MQCLIENT=no
           # RabbitMQ
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
             ./resources/docker-rabbitmq.sh ./resources/rabbitmq-custom.conf
+            PYTEST_DO_AUTH_FOR_MQCLIENT=yes
           # GCP
           elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
             export PUBSUB_EMULATOR_HOST=localhost:8085
             ./resources/local-gcp-emulator.sh
+            PYTEST_DO_AUTH_FOR_MQCLIENT=no
           # NATS
           elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
+            PYTEST_DO_AUTH_FOR_MQCLIENT=no
           fi
 
           echo "--------------------------------------------------------------"
