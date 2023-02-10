@@ -10,7 +10,7 @@ wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/d
 if [ -z $1 ]; then
     MOUNTS=""
 else
-    MOUNTS="--mount type=bind,source={$(dirname $(realpath $1))},target=/etc/rabbitmq"
+    MOUNTS="--mount type=bind,source={$(dirname $(realpath $1))},target=/bitnami/rabbitmq/conf/"
 fi
 
 set -x
