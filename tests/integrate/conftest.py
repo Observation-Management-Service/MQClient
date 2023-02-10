@@ -14,12 +14,27 @@ from krs.token import get_token
 from rest_tools.client import ClientCredentialsAuth, RestClient
 
 
+def do_skip_auth() -> bool:
+    """Return whether to skip all the auth setup."""
+    if os.getenv("PYTEST_DO_AUTH_FOR_MQCLIENT", None) == "no":
+        return True
+    elif os.getenv("PYTEST_DO_AUTH_FOR_MQCLIENT", None) != "yes":
+        raise ValueError(
+            f"PYTEST_DO_AUTH_FOR_MQCLIENT must be 'yes' or 'no' ({os.getenv('PYTEST_DO_AUTH_FOR_MQCLIENT')})"
+        )
+    # PYTEST_DO_AUTH_FOR_MQCLIENT is 'yes'
+    return False
+
+
 @pytest.fixture
 def keycloak_bootstrap(monkeypatch):
     """Tools for Keycloack auth integration.
 
     From https://github.com/WIPACrepo/http-data-transfer-client/blob/main/integration_tests/util.py
     """
+    if do_skip_auth():
+        return None
+
     monkeypatch.setenv("KEYCLOAK_REALM", "testrealm")
     monkeypatch.setenv("KEYCLOAK_CLIENT_ID", "testclient")
     # monkeypatch.setenv("USERNAME", "admin")  # set in CI job
@@ -160,13 +175,8 @@ def keycloak_bootstrap(monkeypatch):
 @pytest_asyncio.fixture
 async def auth_token(keycloak_bootstrap) -> str:
     """Get a valid token from Keycloak test instance."""
-    if os.getenv("PYTEST_DO_AUTH_FOR_MQCLIENT", None) == "no":
+    if do_skip_auth():
         return ""
-    elif os.getenv("PYTEST_DO_AUTH_FOR_MQCLIENT", None) != "yes":
-        raise ValueError(
-            f"PYTEST_DO_AUTH_FOR_MQCLIENT must be 'yes' or 'no' ({os.getenv('PYTEST_DO_AUTH_FOR_MQCLIENT')})"
-        )
-    # PYTEST_DO_AUTH_FOR_MQCLIENT is 'yes'
 
     kwargs = await keycloak_bootstrap(
         "mqclient-integration-test",
