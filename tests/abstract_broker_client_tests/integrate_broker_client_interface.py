@@ -15,7 +15,6 @@ import asyncstdlib as asl
 import pytest
 from mqclient.broker_client_interface import BrokerClient, Message
 
-from .auth_utils import auth_token  # noqa: F401
 from .utils import DATA_LIST, _log_recv, _log_send
 
 
@@ -36,7 +35,7 @@ class PubSubBrokerClientInterface:
     timeout = 1
 
     @pytest.mark.asyncio
-    async def test_00(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_00(self, queue_name: str, auth_token: str) -> None:
         """Sanity test."""
         pub = await self.broker_client.create_pub_queue(
             "localhost", queue_name, auth_token=auth_token
@@ -73,7 +72,7 @@ class PubSubBrokerClientInterface:
         await sub.close()
 
     @pytest.mark.asyncio
-    async def test_10(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_10(self, queue_name: str, auth_token: str) -> None:
         """Test nacking, front-loaded sending.
 
         Order is not guaranteed on redelivery.
@@ -128,7 +127,7 @@ class PubSubBrokerClientInterface:
         await sub.close()
 
     @pytest.mark.asyncio
-    async def test_11(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_11(self, queue_name: str, auth_token: str) -> None:
         """Test nacking, mixed sending and receiving.
 
         Order is not guaranteed on redelivery.
@@ -186,7 +185,7 @@ class PubSubBrokerClientInterface:
         await sub.close()
 
     @pytest.mark.asyncio
-    async def test_20(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_20(self, queue_name: str, auth_token: str) -> None:
         """Sanity test message generator."""
         pub = await self.broker_client.create_pub_queue(
             "localhost", queue_name, auth_token=auth_token

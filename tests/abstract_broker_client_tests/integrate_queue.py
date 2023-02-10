@@ -11,7 +11,6 @@ import asyncstdlib as asl
 import pytest
 from mqclient.queue import Queue
 
-from .auth_utils import auth_token  # noqa: F401
 from .utils import (
     DATA_LIST,
     _log_recv,
@@ -27,7 +26,7 @@ class PubSubQueue:
     broker_client: str = ""
 
     @pytest.mark.asyncio
-    async def test_10(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_10(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, one sub."""
         all_recvd: List[Any] = []
 
@@ -55,7 +54,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     @pytest.mark.asyncio
-    async def test_11(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_11(self, queue_name: str, auth_token: str) -> None:
         """Test an individual pub and an individual sub."""
         all_recvd: List[Any] = []
 
@@ -84,7 +83,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     @pytest.mark.asyncio
-    async def test_12(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_12(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, two subs (one subscribed to wrong queue)."""
         all_recvd: List[Any] = []
 
@@ -108,7 +107,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]])
 
     @pytest.mark.asyncio
-    async def test_20(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_20(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, ordered/alternatingly."""
         all_recvd: List[Any] = []
 
@@ -128,9 +127,7 @@ class PubSubQueue:
 
         assert all_were_received(all_recvd)
 
-    async def _test_21(
-        self, queue_name: str, num_subs: int, auth_token: str  # noqa: F811
-    ) -> None:  # noqa: F811
+    async def _test_21(self, queue_name: str, num_subs: int, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
 
@@ -158,9 +155,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_21_fewer(
-        self, queue_name: str, auth_token: str  # noqa: F811
-    ) -> None:  # noqa: F811
+    async def test_21_fewer(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Fewer subs than messages.
@@ -168,9 +163,7 @@ class PubSubQueue:
         await self._test_21(queue_name, len(DATA_LIST) // 2, auth_token)
 
     @pytest.mark.asyncio
-    async def test_21_same(
-        self, queue_name: str, auth_token: str  # noqa: F811
-    ) -> None:  # noqa: F811
+    async def test_21_same(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Same number of subs as messages.
@@ -178,9 +171,7 @@ class PubSubQueue:
         await self._test_21(queue_name, len(DATA_LIST), auth_token)
 
     @pytest.mark.asyncio
-    async def test_21_more(
-        self, queue_name: str, auth_token: str  # noqa: F811
-    ) -> None:  # noqa: F811
+    async def test_21_more(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         More subs than messages.
@@ -188,7 +179,7 @@ class PubSubQueue:
         await self._test_21(queue_name, len(DATA_LIST) ** 2, auth_token)
 
     @pytest.mark.asyncio
-    async def test_22(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_22(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Use the same number of subs as number of messages.
@@ -218,7 +209,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_23(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_23(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, and too many subs.
 
         More subs than messages with `open_sub_one()` will raise an
@@ -253,7 +244,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_30(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_30(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, ordered/alternatingly."""
         all_recvd: List[Any] = []
 
@@ -278,7 +269,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_31(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_31(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
 
@@ -298,7 +289,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_40(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_40(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, ordered/alternatingly.
 
         Use the same number of pubs as subs.
@@ -324,7 +315,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_41(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_41(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the same number of pubs as subs.
@@ -347,7 +338,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_42(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_42(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the more pubs than subs.
@@ -370,7 +361,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_43(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_43(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the fewer pubs than subs.
@@ -394,7 +385,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_50(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_50(self, queue_name: str, auth_token: str) -> None:
         """Test_20 with variable prefetching.
 
         One pub, multiple subs.
@@ -423,7 +414,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, DATA_LIST * ((len(DATA_LIST) * 2) - 1))
 
     @pytest.mark.asyncio
-    async def test_51(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_51(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, with prefetching.
 
         Prefetching should have no visible affect.
@@ -457,7 +448,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_60(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_60(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() fail and recovery, with multiple open_sub()
         calls."""
         all_recvd: List[Any] = []
@@ -498,7 +489,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_61(self, queue_name: str, auth_token: str) -> None:  # noqa: F811
+    async def test_61(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() fail and recovery, with error propagation."""
         all_recvd: List[Any] = []
 
@@ -543,9 +534,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_70_fail(
-        self, queue_name: str, auth_token: str  # noqa: F811
-    ) -> None:  # noqa: F811
+    async def test_70_fail(self, queue_name: str, auth_token: str) -> None:
         """Failure-test open_sub() with reusing a 'QueueSubResource'
         instance."""
         async with Queue(
@@ -571,9 +560,7 @@ class PubSubQueue:
                 assert 0  # we should never get here
 
     @pytest.mark.asyncio
-    async def test_80_break(
-        self, queue_name: str, auth_token: str  # noqa: F811
-    ) -> None:  # noqa: F811
+    async def test_80_break(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() with a `break` statement."""
         async with Queue(
             self.broker_client, name=queue_name, auth_token=auth_token

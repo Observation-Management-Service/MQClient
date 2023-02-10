@@ -1,7 +1,4 @@
-"""Tools for Keycloack auth integration.
-
-From https://github.com/WIPACrepo/http-data-transfer-client/blob/main/integration_tests/util.py
-"""
+"""Fixtures."""
 
 # type: skip-file
 
@@ -16,6 +13,10 @@ from rest_tools.client import ClientCredentialsAuth, RestClient
 
 @pytest.fixture
 def keycloak_bootstrap(monkeypatch):
+    """Tools for Keycloack auth integration.
+
+    From https://github.com/WIPACrepo/http-data-transfer-client/blob/main/integration_tests/util.py
+    """
     monkeypatch.setenv("KEYCLOAK_REALM", "testrealm")
     monkeypatch.setenv("KEYCLOAK_CLIENT_ID", "testclient")
     # monkeypatch.setenv("USERNAME", "admin")  # set in CI job
