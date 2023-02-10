@@ -111,7 +111,7 @@ jobs:
           cat ./broker.out
           if [ -d ./broker_logs ]; then
             ls ./broker_logs/
-            more examples/* | cat  # cats with filenames (delimited by :::::::)
+            more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
           fi
 
   unit-test:
@@ -200,7 +200,7 @@ jobs:
           cat ./broker.out
           if [ -d ./broker_logs ]; then
             ls ./broker_logs/
-            more examples/* | cat  # cats with filenames (delimited by :::::::)
+            more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
           fi
 
   release:
