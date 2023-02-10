@@ -21,7 +21,7 @@ docker run -i --rm \
      --env RABBITMQ_USERNAME=guest \
      --env RABBITMQ_PASSWORD=guest \
     $CUSTOM_CONF_MOUNT \
-    --mount type=bind,source=$(realpath ./broker_logs),target=/opt/bitnami/rabbitmq/var/log/rabbitmq/
+    --mount type=bind,source=$(realpath ./broker_logs),target=/opt/bitnami/rabbitmq/var/log/rabbitmq/ \
     bitnami/rabbitmq:latest \
     >> broker.out 2>&1 &
 dockerize -wait tcp://localhost:5672 -timeout 10m
