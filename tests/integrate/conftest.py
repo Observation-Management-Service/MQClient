@@ -1,16 +1,18 @@
 """Fixtures."""
 
-# type: skip-file
+# # pylint:disable=redefined-outer-name
+
 # fmt:quotes-ok
 
 import json
 import os
 from functools import partial
+from typing import Any, Callable, Generator
 
 import pytest
 import pytest_asyncio
-from krs import bootstrap
-from krs.token import get_token
+from krs import bootstrap  # type: ignore[import]
+from krs.token import get_token  # type: ignore[import]
 from rest_tools.client import ClientCredentialsAuth, RestClient
 
 
@@ -27,13 +29,20 @@ def do_skip_auth() -> bool:
 
 
 @pytest.fixture
-def keycloak_bootstrap(monkeypatch):
+def keycloak_bootstrap(
+    monkeypatch: Any,
+) -> Generator[Callable, None, None]:  # type: ignore[type-arg]
     """Tools for Keycloack auth integration.
 
     From https://github.com/WIPACrepo/http-data-transfer-client/blob/main/integration_tests/util.py
     """
+
+    async def noop(*args: Any):  # type: ignore[no-untyped-def]
+        raise NotImplementedError()
+
     if do_skip_auth():
-        return None
+        yield noop
+        return
 
     monkeypatch.setenv("KEYCLOAK_REALM", "testrealm")
     monkeypatch.setenv("KEYCLOAK_CLIENT_ID", "testclient")
@@ -56,7 +65,7 @@ def keycloak_bootstrap(monkeypatch):
         retries=0,
     )
 
-    async def make_client(
+    async def make_client(  # type: ignore[no-untyped-def]
         client_id,
         enable_secret=True,
         service_accounts_enabled=False,
@@ -173,7 +182,7 @@ def keycloak_bootstrap(monkeypatch):
 
 
 @pytest_asyncio.fixture
-async def auth_token(keycloak_bootstrap) -> str:
+async def auth_token(keycloak_bootstrap: Callable) -> str:  # type: ignore[type-arg]
     """Get a valid token from Keycloak test instance."""
     if do_skip_auth():
         return ""
