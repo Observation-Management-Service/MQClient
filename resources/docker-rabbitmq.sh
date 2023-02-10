@@ -14,13 +14,14 @@ else
 fi
 
 set -x
-docker run -i -d --rm \
+docker run -i --rm \
     -p 5672:5672 \
     -p 15672:15672 \
      --env RABBITMQ_USERNAME=guest \
      --env RABBITMQ_PASSWORD=guest \
     $MOUNTS \
-    bitnami/rabbitmq:latest
+    bitnami/rabbitmq:latest \
+    > broker.out 2>&1 &
 dockerize -wait tcp://localhost:5672 -timeout 10m
 
 echo "--------------------------------------------------------------"

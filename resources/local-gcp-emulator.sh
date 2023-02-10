@@ -16,7 +16,7 @@ sudo apt-get install google-cloud-sdk
 sudo apt-get install google-cloud-sdk-pubsub-emulator
 gcloud components list
 
-gcloud beta emulators pubsub start --project="i3-gcp-proj" &
+gcloud beta emulators pubsub start --project="i3-gcp-proj" > broker.out 2>&1 &
 
 echo "--------------------------------------------------------------"
 echo "waiting for gcp (emulator) broker..."

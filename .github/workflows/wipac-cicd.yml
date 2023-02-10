@@ -104,6 +104,11 @@ jobs:
           python examples/worker.py --broker-client ${{ matrix.broker_client }} &
           python examples/server.py --broker-client ${{ matrix.broker_client }}
 
+      - name: container output
+        if: ${{ always() }}
+        run: |
+          cat ./broker.out
+
   unit-test:
     needs: [py-versions]
     runs-on: ${{ matrix.os }}
@@ -182,6 +187,11 @@ jobs:
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }},integration]
           pytest -vvv tests/integrate/test_${{ matrix.broker_client }}.py
+
+      - name: container output
+        if: ${{ always() }}
+        run: |
+          cat ./broker.out
 
   release:
     # only run on main/master/default
