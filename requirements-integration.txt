@@ -119,7 +119,7 @@ wipac-dev-tools==1.6.10
     #   wipac-keycloak-rest-services
     #   wipac-mqclient (setup.py)
     #   wipac-rest-tools
-wipac-keycloak-rest-services==1.3.3
+wipac-keycloak-rest-services==1.3.4
     # via wipac-mqclient (setup.py)
 wipac-rest-tools==1.4.8
     # via
