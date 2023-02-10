@@ -39,8 +39,12 @@ def keycloak_bootstrap(monkeypatch):
         retries=0,
     )
 
-    async def make_client(enable_secret=True, service_accounts_enabled=False):
-        client_id = "http-data-transfer-client"
+    async def make_client(
+        client_id,
+        enable_secret=True,
+        service_accounts_enabled=False,
+        optional_client_scopes=None,
+    ):
         # now make http client
         args = {
             "authenticationFlowBindingOverrides": {},
@@ -55,7 +59,9 @@ def keycloak_bootstrap(monkeypatch):
             "fullScopeAllowed": True,
             "implicitFlowEnabled": False,
             "notBefore": 0,
-            "optionalClientScopes": [],
+            "optionalClientScopes": optional_client_scopes
+            if optional_client_scopes
+            else [],
             "protocol": "openid-connect",
             "publicClient": False,
             "redirectUris": ["http://localhost*"],
@@ -94,7 +100,12 @@ def keycloak_bootstrap(monkeypatch):
 @pytest_asyncio.fixture
 async def auth_token(keycloak_bootstrap) -> str:
     """Get a valid token from Keycloak test instance."""
-    kwargs = await keycloak_bootstrap(enable_secret=True, service_accounts_enabled=True)
+    kwargs = await keycloak_bootstrap(
+        "mqclient-integration-test",
+        enable_secret=True,
+        service_accounts_enabled=True,
+        optional_client_scopes=["offline_access"],
+    )
 
     cc = ClientCredentialsAuth(
         "",
