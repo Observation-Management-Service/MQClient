@@ -39,7 +39,7 @@ def keycloak_bootstrap(monkeypatch):
         retries=0,
     )
 
-    async def make_client(enable_secret=True):
+    async def make_client(enable_secret=True, service_accounts_enabled=False):
         client_id = "http-data-transfer-client"
         # now make http client
         args = {
@@ -59,7 +59,7 @@ def keycloak_bootstrap(monkeypatch):
             "protocol": "openid-connect",
             "publicClient": False,
             "redirectUris": ["http://localhost*"],
-            "serviceAccountsEnabled": False,
+            "serviceAccountsEnabled": service_accounts_enabled,
             "standardFlowEnabled": True,
         }
         await rest_client.request("POST", "/clients", args)
@@ -94,7 +94,7 @@ def keycloak_bootstrap(monkeypatch):
 @pytest_asyncio.fixture
 async def auth_token(keycloak_bootstrap) -> str:
     """Get a valid token from Keycloak test instance."""
-    kwargs = await keycloak_bootstrap(enable_secret=True)
+    kwargs = await keycloak_bootstrap(enable_secret=True, service_accounts_enabled=True)
 
     cc = ClientCredentialsAuth(
         "",
