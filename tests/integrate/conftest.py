@@ -6,6 +6,7 @@ import os
 from functools import partial
 
 import pytest
+import pytest_asyncio
 from krs import bootstrap
 from krs.token import get_token
 from rest_tools.client import ClientCredentialsAuth, RestClient
@@ -90,7 +91,7 @@ def keycloak_bootstrap(monkeypatch):
     bootstrap.delete_realm("testrealm", token=tok)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def auth_token(keycloak_bootstrap) -> str:
     """Get a valid token from Keycloak test instance."""
     kwargs = await keycloak_bootstrap(enable_secret=False)
