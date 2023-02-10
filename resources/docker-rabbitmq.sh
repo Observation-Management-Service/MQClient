@@ -10,7 +10,7 @@ wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/d
 if [ -z $1 ]; then
     MOUNTS=""
 else
-    MOUNTS="--mount type=bind,source={$(dirname $(realpath $1))},target=/bitnami/rabbitmq/conf/"
+    MOUNTS="--v $(realpath $1):/bitnami/rabbitmq/conf/custom.conf:ro"
 fi
 
 set -x
@@ -18,7 +18,7 @@ docker run -i -d --rm \
     -p 5672:5672 \
     -p 15672:15672 \
     $MOUNTS \
-    bitnami/rabbitmq:3.11.8
+    bitnami/rabbitmq:latest
 dockerize -wait tcp://localhost:5672 -timeout 10m
 
 echo "--------------------------------------------------------------"
