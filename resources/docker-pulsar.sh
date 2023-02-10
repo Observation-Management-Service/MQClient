@@ -13,7 +13,7 @@ docker run -i --rm \
     -p 8080:8080 \
     --name $PULSAR_CONTAINER apachepulsar/pulsar:2.6.0 /bin/bash \
     -c "sed -i s/brokerDeleteInactiveTopicsEnabled=.*/brokerDeleteInactiveTopicsEnabled=false/ /pulsar/conf/standalone.conf && bin/pulsar standalone" \
-    > broker.out 2>&1 &
+    >> broker.out 2>&1 &
 dockerize -wait tcp://localhost:8080 -timeout 10m
 dockerize -wait tcp://localhost:6650 -timeout 10m
 

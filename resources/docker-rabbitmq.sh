@@ -21,7 +21,7 @@ docker run -i --rm \
      --env RABBITMQ_PASSWORD=guest \
     $MOUNTS \
     bitnami/rabbitmq:latest \
-    > broker.out 2>&1 &
+    >> broker.out 2>&1 &
 dockerize -wait tcp://localhost:5672 -timeout 10m
 
 echo "--------------------------------------------------------------"
