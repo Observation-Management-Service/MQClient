@@ -158,7 +158,7 @@ jobs:
             ./resources/docker-pulsar.sh
           # RabbitMQ
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
-            ./resources/docker-rabbitmq.sh ./resources/rabbitmq.conf
+            ./resources/docker-rabbitmq.sh ./resources/rabbitmq-custom.conf
           # GCP
           elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
             export PUBSUB_EMULATOR_HOST=localhost:8085
