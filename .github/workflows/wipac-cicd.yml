@@ -107,9 +107,11 @@ jobs:
       - name: broker output
         if: ${{ always() }}
         run: |
+          set -x
           cat ./broker.out
           if [ -d ./broker_logs ]; then
-            cat ./broker_logs/*
+            ls ./broker_logs/
+            more examples/* | cat  # cats with filenames (delimited by :::::::)
           fi
 
   unit-test:
@@ -194,9 +196,11 @@ jobs:
       - name: broker output
         if: ${{ always() }}
         run: |
+          set -x
           cat ./broker.out
           if [ -d ./broker_logs ]; then
-            cat ./broker_logs/*
+            ls ./broker_logs/
+            more examples/* | cat  # cats with filenames (delimited by :::::::)
           fi
 
   release:
