@@ -109,8 +109,8 @@ jobs:
         run: |
           set -x
           cat ./broker.out
-          if [ -d ./broker_logs ]; then
-            ls ./broker_logs/
+          ls ./broker_logs/
+          if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
             more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
           fi
 
@@ -198,8 +198,8 @@ jobs:
         run: |
           set -x
           cat ./broker.out
-          if [ -d ./broker_logs ]; then
-            ls ./broker_logs/
+          ls ./broker_logs/
+          if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
             more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
           fi
 
