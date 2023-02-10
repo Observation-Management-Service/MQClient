@@ -108,6 +108,9 @@ jobs:
         if: ${{ always() }}
         run: |
           cat ./broker.out
+          if [ -d ./broker_logs ]; then
+            cat ./broker_logs/*
+          fi
 
   unit-test:
     needs: [py-versions]
@@ -192,6 +195,9 @@ jobs:
         if: ${{ always() }}
         run: |
           cat ./broker.out
+          if [ -d ./broker_logs ]; then
+            cat ./broker_logs/*
+          fi
 
   release:
     # only run on main/master/default
