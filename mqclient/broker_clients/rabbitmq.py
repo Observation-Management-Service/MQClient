@@ -177,6 +177,8 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise ConnectingFailedException("No channel to configure connection.")
 
         self.channel.basic_qos(prefetch_count=self.prefetch)
+        # global_qos=False b/c using quorum queues
+        # https://www.rabbitmq.com/quorum-queues.html#global-qos
 
         LOGGER.debug(log_msgs.CONNECTED_SUB)
 
