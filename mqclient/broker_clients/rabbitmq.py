@@ -62,7 +62,6 @@ class RabbitMQ(RawQueue):
         LOGGER.info(f"Connecting with parameters={self.parameters}")
         self.connection = pika.BlockingConnection(self.parameters)
         self.channel = self.connection.channel()
-        self.channel.basic_qos(global_qos=True)
         """
         We need to discuss how many RabbitMQ instances we want to run
         the default is that the quorum queue is spread across 3 nodes
@@ -177,7 +176,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channel:
             raise ConnectingFailedException("No channel to configure connection.")
 
-        self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
+        self.channel.basic_qos(prefetch_count=self.prefetch)
 
         LOGGER.debug(log_msgs.CONNECTED_SUB)
 
