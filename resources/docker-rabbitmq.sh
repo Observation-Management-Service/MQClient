@@ -8,7 +8,8 @@ DOCKERIZE_VERSION=v0.6.1
 wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
 if [ -z $1 ]; then
-    echo -e "log.console.level = debug\n" > "./rabbitmq-custom.conf"
+    echo -e "log.console.level = debug\n" >> "./rabbitmq-custom.conf"
+    echo -e "loopback_users = none\n" >> "./rabbitmq-custom.conf"
     CUSTOM_CONF_MOUNT="-v $(realpath './rabbitmq-custom.conf'):/bitnami/rabbitmq/conf/custom.conf:ro"
 else
     CUSTOM_CONF_MOUNT="-v $(realpath $1):/bitnami/rabbitmq/conf/custom.conf:ro"

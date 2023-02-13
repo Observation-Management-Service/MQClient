@@ -176,9 +176,9 @@ def keycloak_bootstrap(
 
     yield make_client
 
-    tok = bootstrap.get_token()
-    bootstrap.delete_service_role("testclient", token=tok)
-    bootstrap.delete_realm("testrealm", token=tok)
+    # tok = bootstrap.get_token()
+    # bootstrap.delete_service_role("testclient", token=tok)
+    # bootstrap.delete_realm("testrealm", token=tok)
 
 
 @pytest_asyncio.fixture
