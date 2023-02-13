@@ -3,21 +3,26 @@
 echo "--------------------------------------------------------------"
 echo "starting rabbitmq broker..."
 
+if [ -z $1 ]; then
+    echo "MISSING ARG: docker-rabbitmq.sh CONTAINER_NAME [CUSTOM_CONF_FILEPATH]"
+    exit 1
+fi
+
 DOCKERIZE_VERSION=v0.6.1
 
 wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && sudo tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
-if [ -z $1 ]; then
+if [ -z $2 ]; then
     echo -e "log.console.level = debug\n" >> "./rabbitmq-custom.conf"
     echo -e "loopback_users = none\n" >> "./rabbitmq-custom.conf"
     CUSTOM_CONF_MOUNT="-v $(realpath './rabbitmq-custom.conf'):/bitnami/rabbitmq/conf/custom.conf:ro"
 else
-    CUSTOM_CONF_MOUNT="-v $(realpath $1):/bitnami/rabbitmq/conf/custom.conf:ro"
+    CUSTOM_CONF_MOUNT="-v $(realpath $2):/bitnami/rabbitmq/conf/custom.conf:ro"
 fi
 
 set -x
 mkdir ./broker_logs
-docker run -i --rm --name rabbitmq \
+docker run -i --rm --name $1 \
     -p 5672:5672 \
     -p 15672:15672 \
      --env RABBITMQ_USERNAME=guest \

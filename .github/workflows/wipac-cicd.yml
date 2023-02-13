@@ -83,10 +83,10 @@ jobs:
         run: |
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
-            ./resources/docker-pulsar.sh
+            ./resources/docker-pulsar.sh "${{ matrix.broker_client }}"
           # RabbitMQ
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
-            ./resources/docker-rabbitmq.sh
+            ./resources/docker-rabbitmq.sh "${{ matrix.broker_client }}"
           # GCP
           elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
             export PUBSUB_EMULATOR_HOST=localhost:8085
@@ -114,12 +114,12 @@ jobs:
             more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
           fi
 
-      - name: rabbitmq logs
-        if: ${{ always() }}
+      - name: broker docker logs
+        if: |
+          ${{ always() }} &&
+          ( ${{ matrix.broker_client == 'rabbitmq' }} || ${{ matrix.broker_client == 'pulsar' }} )
         run: |
-          if [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
-            docker logs rabbitmq
-          fi
+          docker logs "${{ matrix.broker_client }}"
 
   unit-test:
     needs: [py-versions]
@@ -176,11 +176,11 @@ jobs:
         run: |
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
-            ./resources/docker-pulsar.sh
+            ./resources/docker-pulsar.sh "${{ matrix.broker_client }}"
             export PYTEST_DO_AUTH_FOR_MQCLIENT=no
           # RabbitMQ
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
-            ./resources/docker-rabbitmq.sh ./resources/rabbitmq-custom.conf
+            ./resources/docker-rabbitmq.sh "${{ matrix.broker_client }}" ./resources/rabbitmq-custom.conf
             export PYTEST_DO_AUTH_FOR_MQCLIENT=yes
           # GCP
           elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
@@ -210,12 +210,12 @@ jobs:
             more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
           fi
 
-      - name: rabbitmq logs
-        if: ${{ always() }}
+      - name: broker docker logs
+        if: |
+          ${{ always() }} &&
+          ( ${{ matrix.broker_client == 'rabbitmq' }} || ${{ matrix.broker_client == 'pulsar' }} )
         run: |
-          if [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
-            docker logs rabbitmq
-          fi
+          docker logs "${{ matrix.broker_client }}"
 
   release:
     # only run on main/master/default
