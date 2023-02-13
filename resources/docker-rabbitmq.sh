@@ -15,7 +15,7 @@ fi
 
 set -x
 mkdir ./broker_logs
-docker run -i --rm \
+docker run -i --rm --name rabbitmq \
     -p 5672:5672 \
     -p 15672:15672 \
      --env RABBITMQ_USERNAME=guest \
