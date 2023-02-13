@@ -177,17 +177,18 @@ jobs:
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }},integration]
           python ./resources/keycloak_bootstrap.py
-
-          export KEYCLOAK_OIDC_URL=$(cat KEYCLOAK_OIDC_URL.txt)
-          echo $KEYCLOAK_OIDC_URL
-
-          export KEYCLOAK_CLIENT_ID=$(cat KEYCLOAK_CLIENT_ID.txt)
-          echo $KEYCLOAK_CLIENT_ID
-
-          export KEYCLOAK_CLIENT_SECRET=$(cat KEYCLOAK_CLIENT_SECRET.txt)
-          echo $KEYCLOAK_CLIENT_SECRET
+          cat KEYCLOAK_OIDC_URL.txt
+          cat KEYCLOAK_CLIENT_ID.txt
+          cat KEYCLOAK_CLIENT_SECRET.txt
       - name: tests
         run: |
+          export KEYCLOAK_OIDC_URL=$(cat KEYCLOAK_OIDC_URL.txt)
+          echo $KEYCLOAK_OIDC_URL
+          export KEYCLOAK_CLIENT_ID=$(cat KEYCLOAK_CLIENT_ID.txt)
+          echo $KEYCLOAK_CLIENT_ID
+          export KEYCLOAK_CLIENT_SECRET=$(cat KEYCLOAK_CLIENT_SECRET.txt)
+          echo $KEYCLOAK_CLIENT_SECRET
+
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
             ./resources/docker-pulsar.sh "${{ matrix.broker_client }}"
