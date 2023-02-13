@@ -51,11 +51,11 @@ def keycloak_bootstrap() -> Generator[Callable, None, None]:  # type: ignore[typ
     token = partial(
         get_token,
         os.environ["KEYCLOAK_URL"],
-        client_id="testclient",
-        client_secret=os.environ.get('KEYCLOAK_CLIENT_SECRET'),
+        client_id=os.environ['KEYCLOAK_CLIENT_ID'],
+        client_secret=os.environ['KEYCLOAK_CLIENT_SECRET'],
     )
     rest_client = RestClient(
-        f'{os.environ["KEYCLOAK_URL"]}/auth/admin/realms/testrealm',
+        f'{os.environ["KEYCLOAK_URL"]}/auth/admin/realms/{os.environ["KEYCLOAK_REALM"]}',
         token=token,
         retries=0,
     )
@@ -156,7 +156,7 @@ def keycloak_bootstrap() -> Generator[Callable, None, None]:  # type: ignore[typ
 
         # set up return values
         args = {
-            "oidc_url": f'{os.environ["KEYCLOAK_URL"]}/auth/realms/testrealm',
+            "oidc_url": f'{os.environ["KEYCLOAK_URL"]}/auth/realms/{os.environ["KEYCLOAK_REALM"]}',
             "client_id": client_id,
         }
         if enable_secret:
@@ -172,8 +172,8 @@ def keycloak_bootstrap() -> Generator[Callable, None, None]:  # type: ignore[typ
     yield make_client
 
     # tok = bootstrap.get_token()
-    # bootstrap.delete_service_role("testclient", token=tok)
-    # bootstrap.delete_realm("testrealm", token=tok)
+    # bootstrap.delete_service_role(os.environ["KEYCLOAK_CLIENT_ID"], token=tok)
+    # bootstrap.delete_realm(os.environ["KEYCLOAK_REALM"], token=tok)
 
 
 @pytest_asyncio.fixture
