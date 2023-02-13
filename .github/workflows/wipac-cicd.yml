@@ -105,7 +105,7 @@ jobs:
           python examples/server.py --broker-client ${{ matrix.broker_client }}
 
       - name: broker output
-        if: ${{ always() }}
+        if: always()
         run: |
           set -x
           cat ./broker.out
@@ -115,11 +115,9 @@ jobs:
           fi
 
       - name: broker docker logs
-        if: |
-          ${{ always() }} &&
-          ( ${{ matrix.broker_client == 'rabbitmq' }} || ${{ matrix.broker_client == 'pulsar' }} )
+        if: always()
         run: |
-          docker logs "${{ matrix.broker_client }}"
+          docker logs "${{ matrix.broker_client }}" || true
 
   unit-test:
     needs: [py-versions]
@@ -201,7 +199,7 @@ jobs:
           pytest -vvv tests/integrate/test_${{ matrix.broker_client }}.py
 
       - name: broker output
-        if: ${{ always() }}
+        if: always()
         run: |
           set -x
           cat ./broker.out
@@ -211,11 +209,9 @@ jobs:
           fi
 
       - name: broker docker logs
-        if: |
-          ${{ always() }} &&
-          ( ${{ matrix.broker_client == 'rabbitmq' }} || ${{ matrix.broker_client == 'pulsar' }} )
+        if: always()
         run: |
-          docker logs "${{ matrix.broker_client }}"
+          docker logs "${{ matrix.broker_client }}" || true
 
   release:
     # only run on main/master/default
