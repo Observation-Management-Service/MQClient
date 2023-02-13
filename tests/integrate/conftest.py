@@ -44,10 +44,10 @@ def keycloak_bootstrap(
         yield noop
         return
 
-    monkeypatch.setenv("KEYCLOAK_REALM", "testrealm")
+    # monkeypatch.setenv("KEYCLOAK_REALM", "testrealm")  # set env by CI job
     monkeypatch.setenv("KEYCLOAK_CLIENT_ID", "testclient")
-    # monkeypatch.setenv("USERNAME", "admin")  # set in CI job
-    # monkeypatch.setenv("PASSWORD", "admin")  # set in CI job
+    # monkeypatch.setenv("USERNAME", "admin")  # set env by CI job
+    # monkeypatch.setenv("PASSWORD", "admin")  # set env by CI job
 
     secret = bootstrap.bootstrap()  # this is also done before the broker starts up
     monkeypatch.setenv("KEYCLOAK_CLIENT_SECRET", secret)
