@@ -174,7 +174,7 @@ jobs:
       - name: bootstrap keycloak
         run: |
           pip install --upgrade pip wheel setuptools
-          pip install wipac-keycloak-rest-services
+          pip install .[dev,${{ matrix.broker_client }},integration]
           python ./resources/keycloak_bootstrap.py
       - name: tests
         run: |
