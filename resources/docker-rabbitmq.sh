@@ -23,15 +23,16 @@ fi
 set -x
 mkdir ./broker_logs
 docker run -i --rm --name $1 \
-     --network=host \
-     --env RABBITMQ_USERNAME=guest \
-     --env RABBITMQ_PASSWORD=guest \
+    --network=host \
+    --env RABBITMQ_USERNAME=guest \
+    --env RABBITMQ_PASSWORD=guest \
+    --env BITNAMI_DEBUG=true \
     $CUSTOM_CONF_MOUNT \
     --mount type=bind,source=$(realpath ./broker_logs),target=/opt/bitnami/rabbitmq/var/log/rabbitmq/ \
     bitnami/rabbitmq:latest \
     >> broker.out 2>&1 &
-dockerize -wait tcp://localhost:5672 -timeout 10m
-dockerize -wait tcp://localhost:15672 -timeout 10m
+dockerize -wait tcp://localhost:5672 -timeout 1m
+dockerize -wait tcp://localhost:15672 -timeout 1m
 
 echo "--------------------------------------------------------------"
 echo "waiting for rabbitmq broker..."
