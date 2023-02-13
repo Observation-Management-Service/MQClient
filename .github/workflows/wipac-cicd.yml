@@ -170,6 +170,11 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py3 }}
+      - name: bootstrap keycloak
+        run: |
+          pip install --upgrade pip wheel setuptools
+          pip install wipac-keycloak-rest-services
+          python ./resources/keycloak_bootstrap.py
       - name: tests
         run: |
           # Pulsar
