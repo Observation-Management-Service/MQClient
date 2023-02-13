@@ -176,7 +176,7 @@ jobs:
           pip install .[dev,${{ matrix.broker_client }},integration]
       - name: bootstrap keycloak
         run: |
-          ./resources/keycloak_bootstrap.py
+          python ./resources/keycloak_bootstrap.py
       - name: stand up broker
         run: |
           # Pulsar
