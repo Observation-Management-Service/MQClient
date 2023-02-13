@@ -114,6 +114,13 @@ jobs:
             more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
           fi
 
+      - name: rabbitmq logs
+        if: ${{ always() }}
+        run: |
+          if [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
+            docker logs rabbitmq
+          fi
+
   unit-test:
     needs: [py-versions]
     runs-on: ${{ matrix.os }}
