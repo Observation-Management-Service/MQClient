@@ -32,6 +32,7 @@ docker run -i --rm --name $1 \
     bitnami/rabbitmq:latest \
     >> broker.out 2>&1 &
 dockerize -wait tcp://localhost:5672 -timeout 10m
+dockerize -wait tcp://localhost:15672 -timeout 10m
 
 echo "--------------------------------------------------------------"
 echo "waiting for rabbitmq broker..."
