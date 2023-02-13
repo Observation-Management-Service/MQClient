@@ -79,7 +79,11 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py3 }}
-      - name: example
+      - name: pip
+        run: |
+          pip install --upgrade pip wheel setuptools
+          pip install .[dev,${{ matrix.broker_client }},integration]
+      - name: stand up broker
         run: |
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
@@ -95,15 +99,12 @@ jobs:
           elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
           fi
-
+      - name: example
+        run: |
           echo "--------------------------------------------------------------"
           echo "running examples..."
-
-          pip install --upgrade pip wheel setuptools
-          pip install .[dev,${{ matrix.broker_client }}]
           python examples/worker.py --broker-client ${{ matrix.broker_client }} &
           python examples/server.py --broker-client ${{ matrix.broker_client }}
-
       - name: broker output
         if: always()
         run: |
@@ -113,7 +114,6 @@ jobs:
             ls ./broker_logs/
             more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
           fi
-
       - name: broker docker logs
         if: always()
         run: |
@@ -170,7 +170,14 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py3 }}
-      - name: tests
+      - name: pip
+        run: |
+          pip install --upgrade pip wheel setuptools
+          pip install .[dev,${{ matrix.broker_client }},integration]
+      - name: bootstrap keycloak
+        run: |
+          ./resources/keycloak_bootstrap.py
+      - name: stand up broker
         run: |
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
@@ -190,14 +197,11 @@ jobs:
             ./resources/local-nats-js.sh
             export PYTEST_DO_AUTH_FOR_MQCLIENT=no
           fi
-
+      - name: tests
+        run: |
           echo "--------------------------------------------------------------"
           echo "running tests..."
-
-          pip install --upgrade pip wheel setuptools
-          pip install .[dev,${{ matrix.broker_client }},integration]
           pytest -vvv tests/integrate/test_${{ matrix.broker_client }}.py
-
       - name: broker output
         if: always()
         run: |
@@ -207,7 +211,6 @@ jobs:
             ls ./broker_logs/
             more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
           fi
-
       - name: broker docker logs
         if: always()
         run: |

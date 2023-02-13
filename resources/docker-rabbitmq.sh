@@ -14,7 +14,7 @@ wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/d
 
 if [ -z $2 ]; then
     echo -e "log.console.level = debug\n" >> "./rabbitmq-custom.conf"
-    echo -e "loopback_users = none\n" >> "./rabbitmq-custom.conf"
+    echo -e "loopback_users = none\n" >> "./rabbitmq-custom.conf"  # allows guest/guest from non-localhost
     CUSTOM_CONF_MOUNT="-v $(realpath './rabbitmq-custom.conf'):/bitnami/rabbitmq/conf/custom.conf:ro"
 else
     CUSTOM_CONF_MOUNT="-v $(realpath $2):/bitnami/rabbitmq/conf/custom.conf:ro"

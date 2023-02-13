@@ -49,7 +49,7 @@ def keycloak_bootstrap(
     # monkeypatch.setenv("USERNAME", "admin")  # set in CI job
     # monkeypatch.setenv("PASSWORD", "admin")  # set in CI job
 
-    secret = bootstrap.bootstrap()
+    secret = bootstrap.bootstrap()  # this is also done before the broker starts up
     monkeypatch.setenv("KEYCLOAK_CLIENT_SECRET", secret)
 
     # get admin rest client
