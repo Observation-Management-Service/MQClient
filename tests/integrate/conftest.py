@@ -11,7 +11,6 @@ from typing import Any, Callable, Generator
 
 import pytest
 import pytest_asyncio
-from krs import bootstrap  # type: ignore[import]
 from krs.token import get_token  # type: ignore[import]
 from rest_tools.client import ClientCredentialsAuth, RestClient
 
@@ -29,9 +28,7 @@ def do_skip_auth() -> bool:
 
 
 @pytest.fixture
-def keycloak_bootstrap(
-    monkeypatch: Any,
-) -> Generator[Callable, None, None]:  # type: ignore[type-arg]
+def keycloak_bootstrap() -> Generator[Callable, None, None]:  # type: ignore[type-arg]
     """Tools for Keycloack auth integration.
 
     From https://github.com/WIPACrepo/http-data-transfer-client/blob/main/integration_tests/util.py
@@ -45,19 +42,17 @@ def keycloak_bootstrap(
         return
 
     # monkeypatch.setenv("KEYCLOAK_REALM", "testrealm")  # set env by CI job
-    monkeypatch.setenv("KEYCLOAK_CLIENT_ID", "testclient")
+    # monkeypatch.setenv("KEYCLOAK_CLIENT_ID", "testclient")  # set env by CI job
     # monkeypatch.setenv("USERNAME", "admin")  # set env by CI job
     # monkeypatch.setenv("PASSWORD", "admin")  # set env by CI job
-
-    secret = bootstrap.bootstrap()  # this is also done before the broker starts up
-    monkeypatch.setenv("KEYCLOAK_CLIENT_SECRET", secret)
+    assert os.environ.get('KEYCLOAK_CLIENT_SECRET')
 
     # get admin rest client
     token = partial(
         get_token,
         os.environ["KEYCLOAK_URL"],
         client_id="testclient",
-        client_secret=secret,
+        client_secret=os.environ.get('KEYCLOAK_CLIENT_SECRET'),
     )
     rest_client = RestClient(
         f'{os.environ["KEYCLOAK_URL"]}/auth/admin/realms/testrealm',

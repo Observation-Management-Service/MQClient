@@ -164,6 +164,7 @@ jobs:
     env:
       KEYCLOAK_URL: http://localhost:8081
       KEYCLOAK_REALM: testrealm
+      KEYCLOAK_CLIENT_ID: testclient
       USERNAME: admin
       PASSWORD: admin
     steps:
@@ -176,6 +177,8 @@ jobs:
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }},integration]
           python ./resources/keycloak_bootstrap.py
+          export KEYCLOAK_CLIENT_SECRET=$(cat KEYCLOAK_CLIENT_SECRET.txt)
+          echo $KEYCLOAK_CLIENT_SECRET
       - name: tests
         run: |
           # Pulsar
