@@ -175,7 +175,7 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - name: get keycloak cert
         run: |
-          docker run --rm -it -v $PWD:/mnt -u root --entrypoint=/usr/bin/keytool ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master -export -alias server -keystore /opt/keycloak/conf/server.keystore -rfc -file /mnt/public.cert -storepass password
+          docker run --rm -v $PWD:/mnt -u root --entrypoint=/usr/bin/keytool ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master -export -alias server -keystore /opt/keycloak/conf/server.keystore -rfc -file /mnt/public.cert -storepass password
           echo "REQUESTS_CA_BUNDLE=$PWD/public.cert" >> $GITHUB_ENV
       - name: bootstrap keycloak
         run: |
