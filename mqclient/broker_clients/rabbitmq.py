@@ -38,9 +38,10 @@ class RabbitMQ(RawQueue):
 
         # set up connection parameters
         try:
-            # HOST[:PORT][/VIRTUAL_HOST]
+            # [abc://]HOST[:PORT][/VIRTUAL_HOST]
             parts = re.match(
-                r"(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?", address
+                r"([^:/]+://)?(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?",
+                address,
             ).groupdict()  # type: ignore[union-attr]
         except TypeError as e:
             raise RuntimeError(
