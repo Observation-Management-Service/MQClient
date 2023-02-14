@@ -91,6 +91,7 @@ jobs:
           elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
             export PUBSUB_EMULATOR_HOST=localhost:8085
             ./resources/local-gcp-emulator.sh
+            sleep 15
           # NATS
           elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
@@ -102,7 +103,6 @@ jobs:
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }}]
           python examples/worker.py --broker-client ${{ matrix.broker_client }} &
-          sleep 3  # really this could be ~1 sec
           python examples/server.py --broker-client ${{ matrix.broker_client }}
 
       - name: broker output
