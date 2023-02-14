@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.7.1 (2023-02-14)
+
+
 ## v0.7.0 (2023-02-14)
 ### Feature
 * RabbitMQ Auth ([#75](https://github.com/WIPACrepo/MQClient/issues/75)) ([`3626566`](https://github.com/WIPACrepo/MQClient/commit/36265663f74d0984562a57ba27cd681b06bd13f5))
