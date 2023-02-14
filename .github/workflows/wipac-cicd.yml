@@ -2,6 +2,10 @@ name: wipac ci/cd
 
 on: [push]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   flake8:
@@ -47,7 +51,7 @@ jobs:
           github.ref_type == 'branch' &&
           format('refs/heads/{0}', github.event.repository.default_branch) != github.ref
         name: wipac-dev-py-setup-action (only for non-dependabot non-default branches)
-        uses: WIPACrepo/wipac-dev-py-setup-action@v1.9
+        uses: WIPACrepo/wipac-dev-py-setup-action@v1.10
         with:
           base-keywords: WIPAC IceCube
 
@@ -67,9 +71,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        broker_client: [pulsar, rabbitmq, gcp, nats]
+        broker_client: [gcp, nats, pulsar, rabbitmq]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -79,10 +83,10 @@ jobs:
         run: |
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
-            ./resources/docker-pulsar.sh
+            ./resources/docker-pulsar.sh "${{ matrix.broker_client }}"
           # RabbitMQ
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
-            ./resources/docker-rabbitmq.sh
+            ./resources/docker-rabbitmq.sh "${{ matrix.broker_client }}"
           # GCP
           elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
             export PUBSUB_EMULATOR_HOST=localhost:8085
@@ -100,13 +104,28 @@ jobs:
           python examples/worker.py --broker-client ${{ matrix.broker_client }} &
           python examples/server.py --broker-client ${{ matrix.broker_client }}
 
+      - name: broker output
+        if: always()
+        run: |
+          set -x
+          cat ./broker.out
+          if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
+            ls ./broker_logs/
+            more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
+          fi
+
+      - name: broker docker logs
+        if: always()
+        run: |
+          docker logs "${{ matrix.broker_client }}" || true
+
   unit-test:
     needs: [py-versions]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         type: [brokerless, pulsar, rabbitmq]
     steps:
@@ -130,37 +149,93 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        broker_client: [pulsar, rabbitmq, gcp, nats]
+        broker_client: [gcp, nats, pulsar, rabbitmq]
+    services:
+      keycloak:
+        image: ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master
+        env:
+          KEYCLOAK_ADMIN: admin
+          KEYCLOAK_ADMIN_PASSWORD: admin
+          CMD: "start --hostname-url=https://localhost:8443/auth"
+        ports:
+        #- 8081:8080 # host 8080 is used by pulsar
+        - 8443:8443
+    env:
+      KEYCLOAK_URL: https://localhost:8443
+      KEYCLOAK_REALM: testrealm
+      KEYCLOAK_CLIENT_ID: testclient
+      USERNAME: admin
+      PASSWORD: admin
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py3 }}
+      - name: install deps
+        run: |
+          pip install --upgrade pip wheel setuptools
+          pip install .[dev,${{ matrix.broker_client }},integration]
+      - name: get keycloak cert
+        run: |
+          docker run --rm -v $PWD:/mnt -u root --entrypoint=/usr/bin/keytool ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master -export -alias server -keystore /opt/keycloak/conf/server.keystore -rfc -file /mnt/public.cert -storepass password
+          echo "REQUESTS_CA_BUNDLE=$PWD/public.cert" >> $GITHUB_ENV
+      - name: bootstrap keycloak
+        run: |
+          python ./resources/keycloak_bootstrap.py
+          cat KEYCLOAK_OIDC_URL.txt
+          cat KEYCLOAK_CLIENT_ID.txt
+          cat KEYCLOAK_CLIENT_SECRET.txt
       - name: tests
         run: |
+          export KEYCLOAK_OIDC_URL=$(cat KEYCLOAK_OIDC_URL.txt)
+          echo $KEYCLOAK_OIDC_URL
+          export KEYCLOAK_CLIENT_ID=$(cat KEYCLOAK_CLIENT_ID.txt)
+          echo $KEYCLOAK_CLIENT_ID
+          export KEYCLOAK_CLIENT_SECRET=$(cat KEYCLOAK_CLIENT_SECRET.txt)
+          echo $KEYCLOAK_CLIENT_SECRET
+
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
-            ./resources/docker-pulsar.sh
+            ./resources/docker-pulsar.sh "${{ matrix.broker_client }}"
+            export PYTEST_DO_AUTH_FOR_MQCLIENT=no
           # RabbitMQ
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
-            ./resources/docker-rabbitmq.sh
+            ./resources/docker-rabbitmq.sh "${{ matrix.broker_client }}" ./resources/rabbitmq-custom.conf
+            export PYTEST_DO_AUTH_FOR_MQCLIENT=yes
           # GCP
           elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
             export PUBSUB_EMULATOR_HOST=localhost:8085
             ./resources/local-gcp-emulator.sh
+            export PYTEST_DO_AUTH_FOR_MQCLIENT=no
           # NATS
           elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
+            export PYTEST_DO_AUTH_FOR_MQCLIENT=no
           fi
 
           echo "--------------------------------------------------------------"
           echo "running tests..."
 
           pip install --upgrade pip wheel setuptools
-          pip install .[dev,${{ matrix.broker_client }}]
+          pip install .[dev,${{ matrix.broker_client }},integration]
           pytest -vvv tests/integrate/test_${{ matrix.broker_client }}.py
+
+      - name: broker output
+        if: always()
+        run: |
+          set -x
+          cat ./broker.out
+          if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
+            ls ./broker_logs/
+            more ./broker_logs/* | cat  # cats with filenames (delimited by :::::::)
+          fi
+
+      - name: broker docker logs
+        if: always()
+        run: |
+          docker logs "${{ matrix.broker_client }}" || true
 
   release:
     # only run on main/master/default

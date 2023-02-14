@@ -4,7 +4,7 @@ import logging
 import os
 from typing import AsyncGenerator, Generator, List, Optional, Tuple
 
-from google.api_core import exceptions, retry  # type: ignore[import]
+from google.api_core import exceptions, retry
 from google.cloud import pubsub  # type: ignore[import]
 
 from .. import broker_client_interface, log_msgs
@@ -38,6 +38,10 @@ class GCP(RawQueue):
 
     def __init__(self, endpoint: str, project_id: str, topic_id: str) -> None:
         super().__init__()
+        LOGGER.info(
+            f"Requested MQClient for project_id/topic_id '{project_id}/{topic_id}' @ {endpoint}"
+        )
+
         self.endpoint = endpoint
         self._project_id = project_id
 

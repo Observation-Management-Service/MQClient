@@ -1,6 +1,7 @@
 """Back-end using RabbitMQ."""
 
 import logging
+import re
 import time
 from functools import partial
 from typing import Any, AsyncGenerator, Callable, Optional, Union
@@ -23,8 +24,6 @@ from ..broker_client_interface import (
 
 LOGGER = logging.getLogger("mqclient.rabbitmq")
 
-AMQP_ADDRESS_PREFIX = "amqp://"
-
 
 class RabbitMQ(RawQueue):
     """Base RabbitMQ wrapper.
@@ -33,11 +32,26 @@ class RabbitMQ(RawQueue):
         RawQueue
     """
 
-    def __init__(self, address: str, queue: str) -> None:
+    def __init__(self, address: str, queue: str, auth_token: str) -> None:
         super().__init__()
-        self.address = address
-        if not self.address.startswith(AMQP_ADDRESS_PREFIX):
-            self.address = AMQP_ADDRESS_PREFIX + self.address
+        LOGGER.info(f"Requested MQClient for queue '{queue}' @ {address}")
+
+        # set up connection parameters
+        try:
+            # HOST[:PORT][/VIRTUAL_HOST]
+            parts = re.match(
+                r"(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?", address
+            ).groupdict()  # type: ignore[union-attr]
+        except TypeError as e:
+            raise RuntimeError(
+                f"Invalid address: {address} (format: HOST[:PORT][/VIRTUAL_HOST])"
+            ) from e
+        # put args into ConnectionParameters but only if each is defined, else rely on defaults
+        cp_args = {k: v for k, v in parts.items() if v is not None}  # host=..., etc.
+        if auth_token:
+            cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
+        self.parameters = pika.connection.ConnectionParameters(**cp_args)
+
         self.queue = queue
         self.connection: Optional[pika.BlockingConnection] = None
         self.channel: Optional[pika.adapters.blocking_connection.BlockingChannel] = None
@@ -45,11 +59,18 @@ class RabbitMQ(RawQueue):
     async def connect(self) -> None:
         """Set up connection and channel."""
         await super().connect()
-        LOGGER.info(f"Connecting with address={self.address}")
-        self.connection = pika.BlockingConnection(
-            pika.connection.URLParameters(self.address)
-        )
+        LOGGER.info(f"Connecting with parameters={self.parameters}")
+        self.connection = pika.BlockingConnection(self.parameters)
         self.channel = self.connection.channel()
+        """
+        We need to discuss how many RabbitMQ instances we want to run
+        the default is that the quorum queue is spread across 3 nodes
+        so 1 can fail without issue. Maybe we want to up this for
+        more production workloads
+        """
+        self.channel.queue_declare(
+            queue=self.queue, durable=True, arguments={"x-queue-type": "quorum"}
+        )
 
     async def close(self) -> None:
         """Close connection."""
@@ -94,7 +115,6 @@ class RabbitMQPub(RabbitMQ, Pub):
         if not self.channel:
             raise ConnectingFailedException("No channel to configure connection.")
 
-        self.channel.queue_declare(queue=self.queue, durable=False)
         self.channel.confirm_delivery()
 
         LOGGER.debug(log_msgs.CONNECTED_PUB)
@@ -155,14 +175,10 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         if not self.channel:
             raise ConnectingFailedException("No channel to configure connection.")
-        """
-        We need to discuss how many RabbitMQ instances we want to run
-        the default is that the quorum queue is spread across 3 nodes
-        so 1 can fail without issue. Maybe we want to up this for 
-        more production workloads
-        """
-        self.channel.queue_declare(queue=self.queue, durable=True, arguments={"x-queue-type": "quorum"})
-        self.channel.basic_qos(prefetch_count=self.prefetch, global_qos=True)
+
+        self.channel.basic_qos(prefetch_count=self.prefetch)
+        # global_qos=False b/c using quorum queues
+        # https://www.rabbitmq.com/quorum-queues.html#global-qos
 
         LOGGER.debug(log_msgs.CONNECTED_SUB)
 
@@ -371,8 +387,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
     ) -> RabbitMQPub:
         """Create a publishing queue.
 
-        # NOTE - `auth_token` is not used currently
-
         Args:
             address (str): address of queue
             name (str): name of queue on address
@@ -380,7 +394,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQPub(address, name)  # pylint: disable=invalid-name
+        q = RabbitMQPub(address, name, auth_token)  # pylint: disable=invalid-name
         await q.connect()
         return q
 
@@ -390,8 +404,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
     ) -> RabbitMQSub:
         """Create a subscription queue.
 
-        # NOTE - `auth_token` is not used currently
-
         Args:
             address (str): address of queue
             name (str): name of queue on address
@@ -399,7 +411,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQSub(address, name)  # pylint: disable=invalid-name
+        q = RabbitMQSub(address, name, auth_token)  # pylint: disable=invalid-name
         q.prefetch = prefetch
         await q.connect()
         return q

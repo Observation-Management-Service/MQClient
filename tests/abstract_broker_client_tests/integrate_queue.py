@@ -1,6 +1,6 @@
 """Run integration tests for given broker_client, on Queue class."""
 
-# pylint:disable=invalid-name,too-many-public-methods
+# pylint:disable=invalid-name,too-many-public-methods,redefined-outer-name,unused-import
 
 import asyncio
 import logging
@@ -26,11 +26,11 @@ class PubSubQueue:
     broker_client: str = ""
 
     @pytest.mark.asyncio
-    async def test_10(self, queue_name: str) -> None:
+    async def test_10(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, one sub."""
         all_recvd: List[Any] = []
 
-        pub_sub = Queue(self.broker_client, name=queue_name)
+        pub_sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         async with pub_sub.open_pub() as p:
             await p.send(DATA_LIST[0])
             _log_send(DATA_LIST[0])
@@ -54,16 +54,16 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     @pytest.mark.asyncio
-    async def test_11(self, queue_name: str) -> None:
+    async def test_11(self, queue_name: str, auth_token: str) -> None:
         """Test an individual pub and an individual sub."""
         all_recvd: List[Any] = []
 
-        pub = Queue(self.broker_client, name=queue_name)
+        pub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         async with pub.open_pub() as p:
             await p.send(DATA_LIST[0])
             _log_send(DATA_LIST[0])
 
-        sub = Queue(self.broker_client, name=queue_name)
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         async with sub.open_sub_one() as d:
             all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
@@ -83,11 +83,13 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     @pytest.mark.asyncio
-    async def test_12(self, queue_name: str) -> None:
+    async def test_12(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, two subs (one subscribed to wrong queue)."""
         all_recvd: List[Any] = []
 
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             await p.send(DATA_LIST[0])
             _log_send(DATA_LIST[0])
 
@@ -96,42 +98,48 @@ class PubSubQueue:
             async with Queue(self.broker_client, name=name).open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
 
-        async with Queue(self.broker_client, name=queue_name).open_sub_one() as d:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_sub_one() as d:
             all_recvd.append(_log_recv(d))
             assert d == DATA_LIST[0]
 
         assert all_were_received(all_recvd, [DATA_LIST[0]])
 
     @pytest.mark.asyncio
-    async def test_20(self, queue_name: str) -> None:
+    async def test_20(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, ordered/alternatingly."""
         all_recvd: List[Any] = []
 
         # for each send, create and receive message via a new sub
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             for data in DATA_LIST:
                 await p.send(data)
                 _log_send(data)
 
                 async with Queue(
-                    self.broker_client, name=queue_name
+                    self.broker_client, name=queue_name, auth_token=auth_token
                 ).open_sub_one() as d:
                     all_recvd.append(_log_recv(d))
                     assert d == data
 
         assert all_were_received(all_recvd)
 
-    async def _test_21(self, queue_name: str, num_subs: int) -> None:
+    async def _test_21(self, queue_name: str, num_subs: int, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
 
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             for data in DATA_LIST:
                 await p.send(data)
                 _log_send(data)
 
         async def recv_thread(_: int) -> List[Any]:
-            sub = Queue(self.broker_client, name=queue_name)
+            sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
             sub.timeout = 1
             async with sub.open_sub() as gen:
                 recv_data_list = [m async for m in gen]
@@ -147,44 +155,48 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_21_fewer(self, queue_name: str) -> None:
+    async def test_21_fewer(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Fewer subs than messages.
         """
-        await self._test_21(queue_name, len(DATA_LIST) // 2)
+        await self._test_21(queue_name, len(DATA_LIST) // 2, auth_token)
 
     @pytest.mark.asyncio
-    async def test_21_same(self, queue_name: str) -> None:
+    async def test_21_same(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Same number of subs as messages.
         """
-        await self._test_21(queue_name, len(DATA_LIST))
+        await self._test_21(queue_name, len(DATA_LIST), auth_token)
 
     @pytest.mark.asyncio
-    async def test_21_more(self, queue_name: str) -> None:
+    async def test_21_more(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         More subs than messages.
         """
-        await self._test_21(queue_name, len(DATA_LIST) ** 2)
+        await self._test_21(queue_name, len(DATA_LIST) ** 2, auth_token)
 
     @pytest.mark.asyncio
-    async def test_22(self, queue_name: str) -> None:
+    async def test_22(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Use the same number of subs as number of messages.
         """
         all_recvd: List[Any] = []
 
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             for data in DATA_LIST:
                 await p.send(data)
                 _log_send(data)
 
         async def recv_thread(_: int) -> Any:
-            async with Queue(self.broker_client, name=queue_name).open_sub_one() as d:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_sub_one() as d:
                 recv_data = d
             return _log_recv(recv_data)
 
@@ -197,7 +209,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_23(self, queue_name: str) -> None:
+    async def test_23(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, and too many subs.
 
         More subs than messages with `open_sub_one()` will raise an
@@ -205,13 +217,17 @@ class PubSubQueue:
         """
         all_recvd: List[Any] = []
 
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             for data in DATA_LIST:
                 await p.send(data)
                 _log_send(data)
 
         async def recv_thread(_: int) -> Any:
-            async with Queue(self.broker_client, name=queue_name).open_sub_one() as d:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_sub_one() as d:
                 recv_data = d
             return _log_recv(recv_data)
 
@@ -228,14 +244,16 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_30(self, queue_name: str) -> None:
+    async def test_30(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, ordered/alternatingly."""
         all_recvd: List[Any] = []
 
-        sub = Queue(self.broker_client, name=queue_name)
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
 
         for data in DATA_LIST:
-            async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_pub() as p:
                 await p.send(data)
                 _log_send(data)
 
@@ -251,16 +269,18 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_31(self, queue_name: str) -> None:
+    async def test_31(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
 
         for data in DATA_LIST:
-            async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_pub() as p:
                 await p.send(data)
                 _log_send(data)
 
-        sub = Queue(self.broker_client, name=queue_name)
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
         async with sub.open_sub() as gen:
             received_data = [m async for m in gen]
@@ -269,7 +289,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_40(self, queue_name: str) -> None:
+    async def test_40(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, ordered/alternatingly.
 
         Use the same number of pubs as subs.
@@ -277,11 +297,13 @@ class PubSubQueue:
         all_recvd: List[Any] = []
 
         for data in DATA_LIST:
-            async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_pub() as p:
                 await p.send(data)
                 _log_send(data)
 
-            sub = Queue(self.broker_client, name=queue_name)
+            sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
             sub.timeout = 1
             async with sub.open_sub() as gen:
                 received_data = [m async for m in gen]
@@ -293,7 +315,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_41(self, queue_name: str) -> None:
+    async def test_41(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the same number of pubs as subs.
@@ -301,18 +323,22 @@ class PubSubQueue:
         all_recvd: List[Any] = []
 
         for data in DATA_LIST:
-            async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_pub() as p:
                 await p.send(data)
                 _log_send(data)
 
         for _ in range(len(DATA_LIST)):
-            async with Queue(self.broker_client, name=queue_name).open_sub_one() as d:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
 
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_42(self, queue_name: str) -> None:
+    async def test_42(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the more pubs than subs.
@@ -320,20 +346,22 @@ class PubSubQueue:
         all_recvd: List[Any] = []
 
         for data in DATA_LIST:
-            async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_pub() as p:
                 await p.send(data)
                 _log_send(data)
 
         for i in range(len(DATA_LIST)):
             if i % 2 == 0:  # each sub receives 2 messages back-to-back
-                sub = Queue(self.broker_client, name=queue_name)
+                sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
             async with sub.open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
 
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_43(self, queue_name: str) -> None:
+    async def test_43(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the fewer pubs than subs.
@@ -342,32 +370,43 @@ class PubSubQueue:
 
         for data_pairs in [DATA_LIST[i : i + 2] for i in range(0, len(DATA_LIST), 2)]:
             for data in data_pairs:
-                async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+                async with Queue(
+                    self.broker_client, name=queue_name, auth_token=auth_token
+                ).open_pub() as p:
                     await p.send(data)
                     _log_send(data)
 
         for _ in range(len(DATA_LIST)):
-            async with Queue(self.broker_client, name=queue_name).open_sub_one() as d:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_sub_one() as d:
                 all_recvd.append(_log_recv(d))
 
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_50(self, queue_name: str) -> None:
+    async def test_50(self, queue_name: str, auth_token: str) -> None:
         """Test_20 with variable prefetching.
 
         One pub, multiple subs.
         """
         all_recvd: List[Any] = []
 
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             for i in range(1, len(DATA_LIST) * 2):
                 # for each send, create and receive message via a new sub
                 for data in DATA_LIST:
                     await p.send(data)
                     _log_send(data)
 
-                    sub = Queue(self.broker_client, name=queue_name, prefetch=i)
+                    sub = Queue(
+                        self.broker_client,
+                        name=queue_name,
+                        auth_token=auth_token,
+                        prefetch=i,
+                    )
                     async with sub.open_sub_one() as d:
                         all_recvd.append(_log_recv(d))
                         assert d == data
@@ -375,7 +414,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, DATA_LIST * ((len(DATA_LIST) * 2) - 1))
 
     @pytest.mark.asyncio
-    async def test_51(self, queue_name: str) -> None:
+    async def test_51(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, with prefetching.
 
         Prefetching should have no visible affect.
@@ -383,18 +422,24 @@ class PubSubQueue:
         all_recvd: List[Any] = []
 
         for data in DATA_LIST:
-            async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+            async with Queue(
+                self.broker_client, name=queue_name, auth_token=auth_token
+            ).open_pub() as p:
                 await p.send(data)
                 _log_send(data)
 
         # this should not eat up the whole queue
-        sub = Queue(self.broker_client, name=queue_name, prefetch=20)
+        sub = Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token, prefetch=20
+        )
         async with sub.open_sub_one() as d:
             all_recvd.append(_log_recv(d))
         async with sub.open_sub_one() as d:
             all_recvd.append(_log_recv(d))
 
-        sub2 = Queue(self.broker_client, name=queue_name, prefetch=2)
+        sub2 = Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token, prefetch=2
+        )
         sub2.timeout = 1
         async with sub2.open_sub() as gen:
             async for _, d in asl.enumerate(gen):
@@ -403,11 +448,14 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_60(self, queue_name: str) -> None:
-        """Test open_sub() fail and recovery, with multiple open_sub() calls."""
+    async def test_60(self, queue_name: str, auth_token: str) -> None:
+        """Test open_sub() fail and recovery, with multiple open_sub()
+        calls."""
         all_recvd: List[Any] = []
 
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             for d in DATA_LIST:
                 await p.send(d)
                 _log_send(d)
@@ -415,7 +463,7 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        sub = Queue(self.broker_client, name=queue_name)
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
         async with sub.open_sub() as gen:
             async for i, d in asl.enumerate(gen):
@@ -441,11 +489,13 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_61(self, queue_name: str) -> None:
+    async def test_61(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() fail and recovery, with error propagation."""
         all_recvd: List[Any] = []
 
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             for d in DATA_LIST:
                 await p.send(d)
                 _log_send(d)
@@ -453,7 +503,7 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        sub = Queue(self.broker_client, name=queue_name)
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         excepted = False
         try:
             sub.timeout = 1
@@ -484,14 +534,17 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_70_fail(self, queue_name: str) -> None:
-        """Failure-test open_sub() with reusing a 'QueueSubResource' instance."""
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+    async def test_70_fail(self, queue_name: str, auth_token: str) -> None:
+        """Failure-test open_sub() with reusing a 'QueueSubResource'
+        instance."""
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             for d in DATA_LIST:
                 await p.send(d)
                 _log_send(d)
 
-        sub = Queue(self.broker_client, name=queue_name)
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
         recv_gen = sub.open_sub()
         async with recv_gen as gen:
@@ -507,14 +560,16 @@ class PubSubQueue:
                 assert 0  # we should never get here
 
     @pytest.mark.asyncio
-    async def test_80_break(self, queue_name: str) -> None:
+    async def test_80_break(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() with a `break` statement."""
-        async with Queue(self.broker_client, name=queue_name).open_pub() as p:
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
             for d in DATA_LIST:
                 await p.send(d)
                 _log_send(d)
 
-        sub = Queue(self.broker_client, name=queue_name)
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
         all_recvd = []
         async with sub.open_sub() as gen:
