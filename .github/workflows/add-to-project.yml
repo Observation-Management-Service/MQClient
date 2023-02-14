@@ -17,6 +17,6 @@ jobs:
     steps:
       - uses: WIPACrepo/wipac-dev-project-action@v1
         with:
-          github_token: ${{ secrets.ORG_PROJECT_TOKEN }}
+          github_token: ${{ secrets.WIPAC_DEVBOT_ORG_PROJECT_TOKEN }}
           organization: WIPACrepo
           project_number: 6
