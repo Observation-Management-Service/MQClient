@@ -3,7 +3,6 @@
 import asyncio
 import json
 import os
-import time
 from functools import partial
 
 from krs import bootstrap  # type: ignore[import]
