@@ -154,16 +154,16 @@ jobs:
         broker_client: [gcp, nats, pulsar, rabbitmq]
     services:
       keycloak:
-        image: ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-tls-test-image
+        image: ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master
         env:
           KEYCLOAK_ADMIN: admin
           KEYCLOAK_ADMIN_PASSWORD: admin
           CMD: "start --hostname=localhost"
         ports:
-        #- 8081:8080 # host 8080 is used by pulsar
+        - 8081:8080 # host 8080 is used by pulsar
         - 8443:8443
     env:
-      KEYCLOAK_URL: https://localhost:8443
+      KEYCLOAK_URL: https://localhost:8081
       KEYCLOAK_REALM: testrealm
       KEYCLOAK_CLIENT_ID: testclient
       USERNAME: admin
