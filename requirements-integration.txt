@@ -25,7 +25,7 @@ dnspython==2.3.0
     # via pymongo
 google-api-core==2.11.0
     # via google-api-python-client
-google-api-python-client==2.77.0
+google-api-python-client==2.78.0
     # via wipac-keycloak-rest-services
 google-auth==2.16.0
     # via
