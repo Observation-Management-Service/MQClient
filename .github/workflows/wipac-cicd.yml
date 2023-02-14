@@ -102,6 +102,7 @@ jobs:
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }}]
           python examples/worker.py --broker-client ${{ matrix.broker_client }} &
+          sleep 3  # really this could be ~1 sec
           python examples/server.py --broker-client ${{ matrix.broker_client }}
 
       - name: broker output
