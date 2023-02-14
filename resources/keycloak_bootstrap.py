@@ -10,20 +10,6 @@ from krs import bootstrap  # type: ignore[import]
 from krs.token import get_token  # type: ignore[import]
 from rest_tools.client import RestClient
 
-TRIES = 5
-
-
-def _bootstrap() -> str:
-    # may fail if server isn't set up yet
-    for i in range(TRIES):
-        try:
-            return bootstrap.bootstrap()  # type: ignore[no-any-return]
-        except:  # noqa: E722
-            if i == TRIES - 1:
-                raise
-        time.sleep(i + 1)  # increasing/forgiving back-off
-    raise RuntimeError("Too many failures")
-
 
 async def keycloak_bootstrap(
     client_id,
@@ -35,7 +21,7 @@ async def keycloak_bootstrap(
 
     From https://github.com/WIPACrepo/http-data-transfer-client/blob/main/integration_tests/util.py
     """
-    client_secret = _bootstrap()
+    client_secret = bootstrap.bootstrap()  # type: ignore[no-any-return]
 
     # monkeypatch.setenv("KEYCLOAK_REALM", "testrealm")  # set env by CI job
     # monkeypatch.setenv("KEYCLOAK_CLIENT_ID", "testclient")  # set env by CI job
