@@ -158,12 +158,12 @@ jobs:
         env:
           KEYCLOAK_ADMIN: admin
           KEYCLOAK_ADMIN_PASSWORD: admin
-          CMD: "start --optimized"
+          CMD: "start --hostname=localhost --verbose"
         ports:
         - 8081:8080 # host 8080 is used by pulsar
         - 8443:8443
     env:
-      KEYCLOAK_URL: http://localhost:8081
+      KEYCLOAK_URL: https://localhost:8443
       KEYCLOAK_REALM: testrealm
       KEYCLOAK_CLIENT_ID: testclient
       USERNAME: admin
