@@ -4,7 +4,7 @@
 #
 #    pip-compile --extra=integration --output-file=requirements-integration.txt
 #
-aio-pika==9.0.1
+aio-pika==9.0.2
     # via wipac-keycloak-rest-services
 aiormq==6.7.1
     # via aio-pika
