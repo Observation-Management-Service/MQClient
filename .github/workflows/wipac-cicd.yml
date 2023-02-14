@@ -160,10 +160,10 @@ jobs:
           KEYCLOAK_ADMIN_PASSWORD: admin
           CMD: "start --hostname=localhost"
         ports:
-        - 8081:8080 # host 8080 is used by pulsar
+        #- 8081:8080 # host 8080 is used by pulsar
         - 8443:8443
     env:
-      KEYCLOAK_URL: http://localhost:8081
+      KEYCLOAK_URL: http://localhost:8443
       KEYCLOAK_REALM: testrealm
       KEYCLOAK_CLIENT_ID: testclient
       USERNAME: admin
@@ -173,6 +173,10 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.py3 }}
+      - name: get keycloak cert
+        run: |
+          docker run --rm -it -v $PWD:/mnt -u root --entrypoint=/usr/bin/keytool ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master -export -alias server -keystore /opt/keycloak/conf/server.keystore -rfc -file /mnt/public.cert -storepass password
+          echo "REQUESTS_CA_BUNDLE=$PWD/public.cert" >> $GITHUB_ENV
       - name: bootstrap keycloak
         run: |
           pip install --upgrade pip wheel setuptools
