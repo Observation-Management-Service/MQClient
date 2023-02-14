@@ -1,6 +1,7 @@
 """Back-end using RabbitMQ."""
 
 import logging
+import os
 import re
 import time
 from functools import partial
@@ -38,9 +39,10 @@ class RabbitMQ(RawQueue):
 
         # set up connection parameters
         try:
-            # HOST[:PORT][/VIRTUAL_HOST]
+            # [abc://]HOST[:PORT][/VIRTUAL_HOST]
             parts = re.match(
-                r"(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?", address
+                r"([^:/]+://)?(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?",
+                address,
             ).groupdict()  # type: ignore[union-attr]
         except TypeError as e:
             raise RuntimeError(
@@ -50,6 +52,8 @@ class RabbitMQ(RawQueue):
         cp_args = {k: v for k, v in parts.items() if v is not None}  # host=..., etc.
         if auth_token:
             cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
+        if os.getenv("RABBITMQ_HEARTBEAT"):
+            cp_args["heartbeat"] = os.getenv("RABBITMQ_HEARTBEAT")
         self.parameters = pika.connection.ConnectionParameters(**cp_args)
 
         self.queue = queue
