@@ -53,7 +53,7 @@ jobs:
         name: wipac-dev-py-setup-action (only for non-dependabot non-default branches)
         uses: WIPACrepo/wipac-dev-py-setup-action@v1.10
         with:
-          base-keywords: WIPAC IceCube
+          base-keywords: WIPAC IceCube EWMS "Observation Management Service" "Event Workflow Managment Service"
 
   py-versions:
     needs: [py-setup]
