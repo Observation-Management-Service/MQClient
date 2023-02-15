@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.2 (2023-02-15)
+### Other
+* `RABBITMQ_HEARTBEAT` Fix ([#82](https://github.com/Observation-Management-Service/MQClient/issues/82)) ([`3e6d9d9`](https://github.com/Observation-Management-Service/MQClient/commit/3e6d9d997deacb4457505ceda4c38a5a8fcc7311))
+
 ## v1.0.1 (2023-02-15)
 ### Other
 * RabbitMQ Connection Fixes ([#81](https://github.com/Observation-Management-Service/MQClient/issues/81)) ([`0553141`](https://github.com/Observation-Management-Service/MQClient/commit/05531417e714512d59cfda0d8e1609a83de81847))
