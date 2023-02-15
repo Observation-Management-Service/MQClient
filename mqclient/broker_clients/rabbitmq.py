@@ -53,7 +53,7 @@ class RabbitMQ(RawQueue):
         if auth_token:
             cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
         if os.getenv("RABBITMQ_HEARTBEAT"):
-            cp_args["heartbeat"] = os.getenv("RABBITMQ_HEARTBEAT")
+            cp_args["heartbeat"] = int(os.getenv("RABBITMQ_HEARTBEAT"))  # type: ignore[arg-type]
         self.parameters = pika.connection.ConnectionParameters(**cp_args)
 
         self.queue = queue
