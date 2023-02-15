@@ -62,7 +62,7 @@ six==1.16.0
     # via thrift
 thrift==0.16.0
     # via opentelemetry-exporter-jaeger-thrift
-typing-extensions==4.4.0
+typing-extensions==4.5.0
     # via
     #   opentelemetry-sdk
     #   wipac-dev-tools
