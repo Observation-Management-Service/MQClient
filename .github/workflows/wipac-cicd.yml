@@ -106,9 +106,18 @@ jobs:
           pip install .[dev,${{ matrix.broker_client }}]
 
           while true; do  # auto-retry for GCP (it fails to start up in time, often & undeterministically)
-            python examples/worker.py --broker-client ${{ matrix.broker_client }} >> worker.out 2>&1 &
+            id=$(date +%s)
+            python examples/worker.py \
+                --broker-client ${{ matrix.broker_client }} \
+                --in-queue "queue1-$id" \
+                --out-queue "queue2-$id" \
+                >> worker.out 2>&1 &
             failed=no
-            python examples/server.py --broker-client ${{ matrix.broker_client }} || failed=yes
+            python examples/server.py \
+                --broker-client ${{ matrix.broker_client }} \
+                --work-queue "queue1-$id" \
+                --result-queue "queue2-$id" \
+                || failed=yes
             if [ "$failed" = "yes" ] && [ "${{ matrix.broker_client }}" = "gcp" ]; then
               sleep 15
               continue
