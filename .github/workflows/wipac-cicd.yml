@@ -81,6 +81,9 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - name: example
         run: |
+          # NOTE: these examples are intended to be the most basic in terms of config:
+          #   no auth, no unnecessary env vars, etc.
+
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
             ./resources/docker-pulsar.sh "${{ matrix.broker_client }}"
@@ -210,6 +213,7 @@ jobs:
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
             ./resources/docker-rabbitmq.sh "${{ matrix.broker_client }}" ./resources/rabbitmq-custom.conf
             export PYTEST_DO_AUTH_FOR_MQCLIENT=yes
+            export RABBITMQ_HEARTBEAT=60
           # GCP
           elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
             export PUBSUB_EMULATOR_HOST=localhost:8085
