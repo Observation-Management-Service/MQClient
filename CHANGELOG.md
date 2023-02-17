@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.4 (2023-02-17)
+### Other
+* CI Updates ([#83](https://github.com/Observation-Management-Service/MQClient/issues/83)) ([`e38ddda`](https://github.com/Observation-Management-Service/MQClient/commit/e38dddaf605617da67e8b27629560b3fdfc91eae))
+
 ## v1.0.3 (2023-02-17)
 ### Other
 * Add CodeQL workflow for GitHub code scanning ([#59](https://github.com/Observation-Management-Service/MQClient/issues/59)) ([`fe88926`](https://github.com/Observation-Management-Service/MQClient/commit/fe889268c3dfbb6d59ff931dc27bd53faf610936))
