@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.3 (2023-02-17)
+### Other
+* Add CodeQL workflow for GitHub code scanning ([#59](https://github.com/Observation-Management-Service/MQClient/issues/59)) ([`fe88926`](https://github.com/Observation-Management-Service/MQClient/commit/fe889268c3dfbb6d59ff931dc27bd53faf610936))
+
 ## v1.0.2 (2023-02-15)
 ### Other
 * `RABBITMQ_HEARTBEAT` Fix ([#82](https://github.com/Observation-Management-Service/MQClient/issues/82)) ([`3e6d9d9`](https://github.com/Observation-Management-Service/MQClient/commit/3e6d9d997deacb4457505ceda4c38a5a8fcc7311))
