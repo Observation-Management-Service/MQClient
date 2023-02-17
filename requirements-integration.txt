@@ -57,7 +57,7 @@ oauthlib==3.2.2
     # via requests-oauthlib
 pamqp==3.2.1
     # via aiormq
-protobuf==4.21.12
+protobuf==4.22.0
     # via
     #   google-api-core
     #   googleapis-common-protos
