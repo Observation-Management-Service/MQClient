@@ -80,6 +80,10 @@ class NATS(RawQueue):
 
     def __init__(self, endpoint: str, stream_id: str, subject: str) -> None:
         super().__init__()
+        LOGGER.info(
+            f"Requested MQClient for stream_id/subject '{stream_id}/{subject}' @ {endpoint}"
+        )
+
         self.endpoint = endpoint
         self.subject = subject
         self.stream_id = stream_id

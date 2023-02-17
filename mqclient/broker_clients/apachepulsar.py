@@ -40,6 +40,8 @@ class Pulsar(RawQueue):
             auth_token {str} -- the (jwt) authentication token
         """
         super().__init__()
+        LOGGER.info(f"Requested MQClient for topic '{topic}' @ {address}")
+
         self.address = address
         if not self.address.startswith("pulsar"):
             self.address = "pulsar://" + self.address

@@ -2,6 +2,29 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.3 (2023-02-17)
+### Other
+* Add CodeQL workflow for GitHub code scanning ([#59](https://github.com/Observation-Management-Service/MQClient/issues/59)) ([`fe88926`](https://github.com/Observation-Management-Service/MQClient/commit/fe889268c3dfbb6d59ff931dc27bd53faf610936))
+
+## v1.0.2 (2023-02-15)
+### Other
+* `RABBITMQ_HEARTBEAT` Fix ([#82](https://github.com/Observation-Management-Service/MQClient/issues/82)) ([`3e6d9d9`](https://github.com/Observation-Management-Service/MQClient/commit/3e6d9d997deacb4457505ceda4c38a5a8fcc7311))
+
+## v1.0.1 (2023-02-15)
+### Other
+* RabbitMQ Connection Fixes ([#81](https://github.com/Observation-Management-Service/MQClient/issues/81)) ([`0553141`](https://github.com/Observation-Management-Service/MQClient/commit/05531417e714512d59cfda0d8e1609a83de81847))
+
+## v1.0.0 (2023-02-14)
+### Breaking
+* Co-authored-by: github-actions <github-actions@github.com> ([`d6fee3b`](https://github.com/Observation-Management-Service/MQClient/commit/d6fee3b0f6c22636d90af3ccf0fcda7d8f74d9e0))
+
+## v0.7.1 (2023-02-14)
+
+
+## v0.7.0 (2023-02-14)
+### Feature
+* RabbitMQ Auth ([#75](https://github.com/WIPACrepo/MQClient/issues/75)) ([`3626566`](https://github.com/WIPACrepo/MQClient/commit/36265663f74d0984562a57ba27cd681b06bd13f5))
+
 ## v0.6.8 (2022-12-05)
 
 

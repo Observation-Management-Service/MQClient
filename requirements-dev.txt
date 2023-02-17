@@ -5,53 +5,53 @@
 #    pip-compile --extra=dev --output-file=requirements-dev.txt
 #
 asyncstdlib==3.10.5
-    # via wipac-mqclient (setup.py)
+    # via oms-mqclient (setup.py)
 attrs==22.2.0
     # via pytest
 certifi==2022.12.7
     # via requests
-charset-normalizer==2.1.1
+charset-normalizer==3.0.1
     # via requests
 coloredlogs==15.0.1
-    # via wipac-mqclient (setup.py)
+    # via oms-mqclient (setup.py)
 exceptiongroup==1.1.0
     # via pytest
 humanfriendly==10.0
     # via coloredlogs
 idna==3.4
     # via requests
-iniconfig==1.1.1
+iniconfig==2.0.0
     # via pytest
-mock==5.0.0
-    # via wipac-mqclient (setup.py)
-mypy==0.991
-    # via wipac-mqclient (setup.py)
-mypy-extensions==0.4.3
+mock==5.0.1
+    # via oms-mqclient (setup.py)
+mypy==1.0.0
+    # via oms-mqclient (setup.py)
+mypy-extensions==1.0.0
     # via mypy
-packaging==22.0
+packaging==23.0
     # via pytest
 pluggy==1.0.0
     # via pytest
-pytest==7.2.0
+pytest==7.2.1
     # via
+    #   oms-mqclient (setup.py)
     #   pytest-asyncio
     #   pytest-mock
-    #   wipac-mqclient (setup.py)
 pytest-asyncio==0.20.3
-    # via wipac-mqclient (setup.py)
+    # via oms-mqclient (setup.py)
 pytest-mock==3.10.0
-    # via wipac-mqclient (setup.py)
-requests==2.28.1
+    # via oms-mqclient (setup.py)
+requests==2.28.2
     # via wipac-dev-tools
 tomli==2.0.1
     # via
     #   mypy
     #   pytest
-typing-extensions==4.4.0
+typing-extensions==4.5.0
     # via
     #   mypy
     #   wipac-dev-tools
-urllib3==1.26.13
+urllib3==1.26.14
     # via requests
 wipac-dev-tools==1.6.10
-    # via wipac-mqclient (setup.py)
+    # via oms-mqclient (setup.py)
