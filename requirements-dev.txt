@@ -24,7 +24,7 @@ iniconfig==2.0.0
     # via pytest
 mock==5.0.1
     # via oms-mqclient (setup.py)
-mypy==1.0.0
+mypy==1.0.1
     # via oms-mqclient (setup.py)
 mypy-extensions==1.0.0
     # via mypy
@@ -53,5 +53,5 @@ typing-extensions==4.5.0
     #   wipac-dev-tools
 urllib3==1.26.14
     # via requests
-wipac-dev-tools==1.6.10
+wipac-dev-tools==1.6.12
     # via oms-mqclient (setup.py)
