@@ -21,13 +21,16 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "thursday"
       time: "09:00"
       timezone: "America/Chicago"
     commit-message:
       prefix: "dependabot: "
       # include: ""  # currently only "scope" is allowed
     allow:
-      - dependency-type: "direct"
+      - dependency-type: "direct"  # all explicitly defined dependencies
     versioning-strategy: increase-if-necessary  # this allows not-exactly-equals pip notations (~=, ==v1.2.*, etc.)
     open-pull-requests-limit: 1  # this is per ecosystem
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
