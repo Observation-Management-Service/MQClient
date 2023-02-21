@@ -147,7 +147,7 @@ class TestUnitRabbitMQURLParsing:
                 # special optional tokens
                 if user:  # password can only be given alongside username
                     givens["password"] = "secret"
-                    pwd = f":{givens['password']}"
+                    pwd_host = f"{givens['username']}:{givens['password']}@"
                     # fmt:off
-                    assert _parse_url(f"{skm}{user}{pwd}{host}{port}{vhost}") == givens
+                    assert _parse_url(f"{skm}{user}{pwd_host}{port}{vhost}") == givens
                     # fmt: on
