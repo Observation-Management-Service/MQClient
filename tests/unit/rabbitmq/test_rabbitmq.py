@@ -130,22 +130,26 @@ class TestUnitRabbitMQURLParsing:
             for _subset in itertools.combinations(stuff.items(), rlength):
                 subdict = dict(_subset)
 
+                # host is mandatory
+                host = "localhost"
+                subdict["host"] = host
+
+                # optional tokens
                 if user := subdict.get("username", ""):
                     user = f"{user}@"
-
                 if port := subdict.get("port", ""):
                     port = f":{port}"
-
                 if vhost := subdict.get("virtual_host", ""):
                     vhost = f"/{vhost}"
 
-                assert _parse_url(f"{user}localhost{port}{vhost}") == subdict
-                assert _parse_url(f"wxyz://{user}localhost{port}{vhost}") == subdict
+                assert _parse_url(f"{user}{host}{port}{vhost}") == subdict
+                assert _parse_url(f"wxyz://{user}{host}{port}{vhost}") == subdict
 
+                # special optional tokens
                 if user:  # password can only be given alongside username
                     subdict["password"] = "secret"
                     pwd = f":{subdict['password']}"
                     # fmt:off
-                    assert _parse_url(f"{user}{pwd}localhost{port}{vhost}") == subdict
-                    assert _parse_url(f"wxyz://{user}{pwd}localhost{port}{vhost}") == subdict
+                    assert _parse_url(f"{user}{pwd}{host}{port}{vhost}") == subdict
+                    assert _parse_url(f"wxyz://{user}{pwd}{host}{port}{vhost}") == subdict
                     # fmt: on
