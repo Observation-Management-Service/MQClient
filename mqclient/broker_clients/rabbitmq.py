@@ -28,8 +28,8 @@ StrDict = Dict[str, Any]
 LOGGER = logging.getLogger("mqclient.rabbitmq")
 
 # url parsing constants
-HUMAN_PATTERN = "[abc://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]"
-REGEX_PATTERN = r"([^:/]+://)?(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?"
+HUMAN_PATTERN = "[SCHEME://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]"
+REGEX_PATTERN = r"([^:/@]+://)?((?P<username>[^:/@]+)@)?(?P<host>[^:/]+)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?"
 REGEX_PATTERN_COMPILED = re.compile(REGEX_PATTERN)
 
 
