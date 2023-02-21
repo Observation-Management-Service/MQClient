@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 from mqclient import broker_client_manager
 from mqclient.broker_client_interface import Message
-from mqclient.broker_clients.rabbitmq import HUMAN_PATTERN, REGEX_PATTERN, _parse_url
+from mqclient.broker_clients.rabbitmq import HUMAN_PATTERN, _parse_url
 
 from ...abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
 
@@ -116,9 +116,13 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
 class TestUnitRabbitMQURLParsing:
     """Unit test the URL-parsing by rabbitmq."""
 
+    def test_000(self) -> None:
+        """Sanity check the constants."""
+        assert HUMAN_PATTERN == ("[SCHEME://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]")
+
     def test_100(self) -> None:
         """Test normal (successful) parsing."""
-        tokens = dict(port=1234, virtual_host="foo", username="hank")
+        tokens = dict(scheme="wxyz", port=1234, virtual_host="foo", username="hank")
         # test with every number of combinations of `tokens`
         for rlength in range(len(tokens) + 1):
             for _subset in itertools.combinations(tokens.items(), rlength):
@@ -135,15 +139,15 @@ class TestUnitRabbitMQURLParsing:
                     port = f":{port}"
                 if vhost := givens.get("virtual_host", ""):
                     vhost = f"/{vhost}"
+                if skm := givens.get("scheme", ""):
+                    skm = f":{skm}"
 
-                assert _parse_url(f"{user}{host}{port}{vhost}") == givens
-                assert _parse_url(f"wxyz://{user}{host}{port}{vhost}") == givens
+                assert _parse_url(f"{skm}{user}{host}{port}{vhost}") == givens
 
                 # special optional tokens
-                # if user:  # password can only be given alongside username
-                #     givens["password"] = "secret"
-                #     pwd = f":{givens['password']}"
-                #     # fmt:off
-                #     assert _parse_url(f"{user}{pwd}{host}{port}{vhost}") == givens
-                #     assert _parse_url(f"wxyz://{user}{pwd}{host}{port}{vhost}") == givens
-                #     # fmt: on
+                if user:  # password can only be given alongside username
+                    givens["password"] = "secret"
+                    pwd = f":{givens['password']}"
+                    # fmt:off
+                    assert _parse_url(f"{skm}{user}{pwd}{host}{port}{vhost}") == givens
+                    # fmt: on
