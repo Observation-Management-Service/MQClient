@@ -67,22 +67,7 @@ class RabbitMQ(RawQueue):
         # set up connection parameters
         cp_args = _parse_url(address)
         if auth_token:
-            cp_args["password"] = auth_token
-
-        username, password = cp_args.pop("hostname"), cp_args.pop("password")
-        # Case 1: no username/password
-        if username and password:
-            cp_args["credentials"] = pika.credentials.PlainCredentials(
-                username, password
-            )
-        elif (not username) and password:  # ex: keycloak
-            cp_args["credentials"] = pika.credentials.PlainCredentials("", password)
-        elif username and (not password):
-            raise RuntimeError("username given but no password or token")
-        else:  # not username and not password
-            pass
-
-            # cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
+            cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
         if os.getenv("RABBITMQ_HEARTBEAT"):
             cp_args["heartbeat"] = int(os.getenv("RABBITMQ_HEARTBEAT"))  # type: ignore[arg-type]
         self.parameters = pika.connection.ConnectionParameters(**cp_args)
