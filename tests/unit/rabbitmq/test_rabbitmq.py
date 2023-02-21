@@ -140,7 +140,7 @@ class TestUnitRabbitMQURLParsing:
                 if vhost := givens.get("virtual_host", ""):
                     vhost = f"/{vhost}"
                 if skm := givens.get("scheme", ""):
-                    skm = f":{skm}"
+                    skm = f"{skm}://"
 
                 assert _parse_url(f"{skm}{user}{host}{port}{vhost}") == givens
 
