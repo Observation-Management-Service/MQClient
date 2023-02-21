@@ -42,9 +42,10 @@ def _parse_url(url: str) -> Tuple[StrDict, Optional[str], Optional[str]]:
         port=result.port,
         virtual_host=result.path.lstrip("/"),
     )
-
     # for putting into ConnectionParameters filter ""/None (will rely on defaults)
     parts = {k: v for k, v in parts.items() if v}  # host=..., etc.
+
+    # check validity
     if not parts or "hostname" not in parts:
         raise RuntimeError(f"Invalid address: {url} (format: {HUMAN_PATTERN})")
     parts["host"] = parts.pop("hostname")

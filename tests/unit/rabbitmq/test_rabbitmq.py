@@ -126,13 +126,10 @@ class TestUnitRabbitMQURLParsing:
         def _get_return_tuple(
             subdict: dict, password: Optional[str] = ""
         ) -> Tuple[dict, Optional[str], Optional[str]]:
-            cp_args = {
-                v: k for v, k in subdict.items() if k not in ["username", "password"]
-            }
             return (
-                cp_args,
-                cp_args.get("username", None),
-                cp_args.get("password", password),
+                {k: v for k, v in subdict.items() if k not in ["username", "password"]},
+                subdict.get("username", None),
+                subdict.get("password", password),
             )
 
         tokens = dict(scheme="wxyz", port=1234, virtual_host="foo", username="hank")
