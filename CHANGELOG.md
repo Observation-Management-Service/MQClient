@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.5 (2023-02-21)
+### Other
+* RabbitMQ Username via URL ([#85](https://github.com/Observation-Management-Service/MQClient/issues/85)) ([`98ad338`](https://github.com/Observation-Management-Service/MQClient/commit/98ad3389cf877de006ddf2460941e4b5fb136aa0))
+
 ## v1.0.4 (2023-02-17)
 ### Other
 * CI Updates ([#83](https://github.com/Observation-Management-Service/MQClient/issues/83)) ([`e38ddda`](https://github.com/Observation-Management-Service/MQClient/commit/e38dddaf605617da67e8b27629560b3fdfc91eae))
