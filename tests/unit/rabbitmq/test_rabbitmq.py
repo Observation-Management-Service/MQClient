@@ -131,7 +131,7 @@ class TestUnitRabbitMQURLParsing:
             }
             return (
                 cp_args,
-                cp_args.get("username", ""),
+                cp_args.get("username", None),
                 cp_args.get("password", password),
             )
 
