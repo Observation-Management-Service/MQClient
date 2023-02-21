@@ -41,6 +41,9 @@ def _parse_url(url: str) -> StrDict:
 
     # for putting into ConnectionParameters filter Nones (will rely on defaults)
     parts = {k: v for k, v in parts.items() if v is not None}  # host=..., etc.
+
+    if "port" in parts:
+        parts["port"] = int(parts["port"])
     return parts
 
 
