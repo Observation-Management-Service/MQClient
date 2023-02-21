@@ -5,7 +5,7 @@ import os
 import time
 import urllib
 from functools import partial
-from typing import Any, AsyncGenerator, Callable, Dict, Optional, Union
+from typing import Any, AsyncGenerator, Callable, Dict, Optional, Tuple, Union
 
 import pika  # type: ignore
 
@@ -31,15 +31,13 @@ LOGGER = logging.getLogger("mqclient.rabbitmq")
 HUMAN_PATTERN = "[SCHEME://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]"
 
 
-def _parse_url(url: str) -> StrDict:
+def _parse_url(url: str) -> Tuple[StrDict, Optional[str], Optional[str]]:
     if "://" not in url:
         url = "//" + url
     result = urllib.parse.urlparse(url)
 
     parts = dict(
         scheme=result.scheme,
-        username=result.username,
-        password=result.password,
         hostname=result.hostname,
         port=result.port,
         virtual_host=result.path.lstrip("/"),
@@ -50,7 +48,28 @@ def _parse_url(url: str) -> StrDict:
     if not parts or "hostname" not in parts:
         raise RuntimeError(f"Invalid address: {url} (format: {HUMAN_PATTERN})")
     parts["host"] = parts.pop("hostname")
-    return parts
+
+    return parts, result.username, result.password
+
+
+def _get_credentials(
+    username: Optional[str], password: Optional[str], auth_token: str
+) -> Optional[pika.credentials.PlainCredentials]:
+    if auth_token:
+        password = auth_token
+
+    # Case 1: username/password
+    if username and password:
+        return pika.credentials.PlainCredentials(username, password)
+    # Case 2: Only password/token -- Ex: keycloak
+    elif (not username) and password:
+        return pika.credentials.PlainCredentials("", password)
+    # Error: no password for user
+    elif username and (not password):
+        raise RuntimeError("username given but no password or token")
+    # Case 3: no auth -- rabbitmq uses guest/guest
+    else:  # not username and not password
+        return None
 
 
 class RabbitMQ(RawQueue):
@@ -63,13 +82,13 @@ class RabbitMQ(RawQueue):
     def __init__(self, address: str, queue: str, auth_token: str) -> None:
         super().__init__()
         LOGGER.info(f"Requested MQClient for queue '{queue}' @ {address}")
+        cp_args, username, password = _parse_url(address)
 
         # set up connection parameters
-        cp_args = _parse_url(address)
-        if auth_token:
-            cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
-        if os.getenv("RABBITMQ_HEARTBEAT"):
-            cp_args["heartbeat"] = int(os.getenv("RABBITMQ_HEARTBEAT"))  # type: ignore[arg-type]
+        if creds := _get_credentials(username, password, auth_token):
+            cp_args["credentials"] = creds
+        if hbeat := os.getenv("RABBITMQ_HEARTBEAT"):
+            cp_args["heartbeat"] = int(hbeat)
         self.parameters = pika.connection.ConnectionParameters(**cp_args)
 
         self.queue = queue

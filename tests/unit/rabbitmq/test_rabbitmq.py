@@ -2,7 +2,7 @@
 
 import itertools
 import unittest
-from typing import Any, List
+from typing import Any, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -122,30 +122,46 @@ class TestUnitRabbitMQURLParsing:
 
     def test_100(self) -> None:
         """Test normal (successful) parsing."""
+
+        def _get_return_tuple(
+            subdict: dict, password: Optional[str] = ""
+        ) -> Tuple[dict, Optional[str], Optional[str]]:
+            cp_args = {
+                v: k for v, k in subdict.items() if k not in ["username", "password"]
+            }
+            return (
+                cp_args,
+                cp_args.get("username", ""),
+                cp_args.get("password", password),
+            )
+
         tokens = dict(scheme="wxyz", port=1234, virtual_host="foo", username="hank")
         # test with every number of combinations of `tokens`
         for rlength in range(len(tokens) + 1):
             for _subset in itertools.combinations(tokens.items(), rlength):
-                givens = dict(_subset)
+                subdict = dict(_subset)
 
                 # host is mandatory
                 host = "localhost"
-                givens["host"] = host
+                subdict["host"] = host
 
                 # optional tokens
-                if user := givens.get("username", ""):
+                if user := subdict.get("username", ""):
                     user = f"{user}@"
-                if port := givens.get("port", ""):
+                if port := subdict.get("port", ""):
                     port = f":{port}"
-                if vhost := givens.get("virtual_host", ""):
+                if vhost := subdict.get("virtual_host", ""):
                     vhost = f"/{vhost}"
-                if skm := givens.get("scheme", ""):
+                if skm := subdict.get("scheme", ""):
                     skm = f"{skm}://"
 
-                assert _parse_url(f"{skm}{user}{host}{port}{vhost}") == givens
+                address = f"{skm}{user}{host}{port}{vhost}"
+                print(address)
+                assert _parse_url(address) == _get_return_tuple(subdict, password=None)
 
                 # special optional tokens
                 if user:  # password can only be given alongside username
-                    givens["password"] = "secret"
-                    user_pwd = f"{givens['username']}:{givens['password']}@"
-                    assert _parse_url(f"{skm}{user_pwd}{host}{port}{vhost}") == givens
+                    subdict["password"] = "secret"
+                    address = f"{skm}{subdict['username']}:{subdict['password']}@{host}{port}{vhost}"
+                    print(address)
+                    assert _parse_url(address) == _get_return_tuple(subdict)
