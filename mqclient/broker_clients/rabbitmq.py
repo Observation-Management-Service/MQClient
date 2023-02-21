@@ -5,7 +5,7 @@ import os
 import re
 import time
 from functools import partial
-from typing import Any, AsyncGenerator, Callable, Optional, Union
+from typing import Any, AsyncGenerator, Callable, Dict, Optional, Union
 
 import pika  # type: ignore
 
@@ -23,7 +23,25 @@ from ..broker_client_interface import (
     Sub,
 )
 
+StrDict = Dict[str, Any]
+
 LOGGER = logging.getLogger("mqclient.rabbitmq")
+
+
+def _parse_url(url: str) -> StrDict:
+    human_pattern = "[abc://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]"
+    regex_pattern = (
+        r"([^:/]+://)?(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?"
+    )
+
+    try:
+        parts = re.match(regex_pattern, url).groupdict()  # type: ignore[union-attr]
+    except TypeError as e:
+        raise RuntimeError(f"Invalid address: {url} (format: {human_pattern})") from e
+
+    # for putting into ConnectionParameters filter Nones (will rely on defaults)
+    parts = {k: v for k, v in parts.items() if v is not None}  # host=..., etc.
+    return parts
 
 
 class RabbitMQ(RawQueue):
@@ -38,18 +56,7 @@ class RabbitMQ(RawQueue):
         LOGGER.info(f"Requested MQClient for queue '{queue}' @ {address}")
 
         # set up connection parameters
-        try:
-            # [abc://]HOST[:PORT][/VIRTUAL_HOST]
-            parts = re.match(
-                r"([^:/]+://)?(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?",
-                address,
-            ).groupdict()  # type: ignore[union-attr]
-        except TypeError as e:
-            raise RuntimeError(
-                f"Invalid address: {address} (format: HOST[:PORT][/VIRTUAL_HOST])"
-            ) from e
-        # put args into ConnectionParameters but only if each is defined, else rely on defaults
-        cp_args = {k: v for k, v in parts.items() if v is not None}  # host=..., etc.
+        cp_args = _parse_url(address)
         if auth_token:
             cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
         if os.getenv("RABBITMQ_HEARTBEAT"):
