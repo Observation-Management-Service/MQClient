@@ -38,7 +38,7 @@ def _parse_url(url: str) -> Tuple[StrDict, Optional[str], Optional[str]]:
 
     parts = dict(
         scheme=result.scheme,
-        hostname=result.hostname,
+        host=result.hostname,
         port=result.port,
         virtual_host=result.path.lstrip("/"),
     )
@@ -46,9 +46,8 @@ def _parse_url(url: str) -> Tuple[StrDict, Optional[str], Optional[str]]:
     parts = {k: v for k, v in parts.items() if v}  # host=..., etc.
 
     # check validity
-    if not parts or "hostname" not in parts:
+    if not parts or "host" not in parts:
         raise RuntimeError(f"Invalid address: {url} (format: {HUMAN_PATTERN})")
-    parts["host"] = parts.pop("hostname")
 
     return parts, result.username, result.password
 
