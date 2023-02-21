@@ -125,31 +125,32 @@ class TestUnitRabbitMQURLParsing:
 
     def test_100(self) -> None:
         """Test normal (successful) parsing."""
-        stuff = dict(port=1234, virtual_host="foo")  # , username="hank")
-        for rlength in range(len(stuff) + 1):
-            for _subset in itertools.combinations(stuff.items(), rlength):
-                subdict = dict(_subset)
+        tokens = dict(port=1234, virtual_host="foo")  # , username="hank")
+        # test with every number of combinations of `tokens`
+        for rlength in range(len(tokens) + 1):
+            for _subset in itertools.combinations(tokens.items(), rlength):
+                givens = dict(_subset)
 
                 # host is mandatory
                 host = "localhost"
-                subdict["host"] = host
+                givens["host"] = host
 
                 # optional tokens
-                if user := subdict.get("username", ""):
+                if user := givens.get("username", ""):
                     user = f"{user}@"
-                if port := subdict.get("port", ""):
+                if port := givens.get("port", ""):
                     port = f":{port}"
-                if vhost := subdict.get("virtual_host", ""):
+                if vhost := givens.get("virtual_host", ""):
                     vhost = f"/{vhost}"
 
-                assert _parse_url(f"{user}{host}{port}{vhost}") == subdict
-                assert _parse_url(f"wxyz://{user}{host}{port}{vhost}") == subdict
+                assert _parse_url(f"{user}{host}{port}{vhost}") == givens
+                assert _parse_url(f"wxyz://{user}{host}{port}{vhost}") == givens
 
                 # special optional tokens
                 if user:  # password can only be given alongside username
-                    subdict["password"] = "secret"
-                    pwd = f":{subdict['password']}"
+                    givens["password"] = "secret"
+                    pwd = f":{givens['password']}"
                     # fmt:off
-                    assert _parse_url(f"{user}{pwd}{host}{port}{vhost}") == subdict
-                    assert _parse_url(f"wxyz://{user}{pwd}{host}{port}{vhost}") == subdict
+                    assert _parse_url(f"{user}{pwd}{host}{port}{vhost}") == givens
+                    assert _parse_url(f"wxyz://{user}{pwd}{host}{port}{vhost}") == givens
                     # fmt: on
