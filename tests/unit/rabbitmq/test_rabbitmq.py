@@ -5,10 +5,11 @@ import unittest
 from typing import Any, List, Optional, Tuple
 from unittest.mock import MagicMock
 
+import pika
 import pytest
 from mqclient import broker_client_manager
 from mqclient.broker_client_interface import Message
-from mqclient.broker_clients.rabbitmq import HUMAN_PATTERN, _parse_url
+from mqclient.broker_clients.rabbitmq import HUMAN_PATTERN, _get_credentials, _parse_url
 
 from ...abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
 
@@ -113,15 +114,15 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         self._get_close_mock_fn(mock_con).assert_not_called()
 
 
-class TestUnitRabbitMQURLParsing:
-    """Unit test the URL-parsing by rabbitmq."""
+class TestUnitRabbitMQHelpers:
+    """Unit test rabbitmq-specific helper functions."""
 
     def test_000(self) -> None:
         """Sanity check the constants."""
         assert HUMAN_PATTERN == ("[SCHEME://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]")
 
     def test_100(self) -> None:
-        """Test normal (successful) parsing."""
+        """Test normal (successful) parsing of `_parse_url()`."""
 
         def _get_return_tuple(
             subdict: dict, password: Optional[str] = ""
@@ -162,3 +163,28 @@ class TestUnitRabbitMQURLParsing:
                     address = f"{skm}{subdict['username']}:{subdict['password']}@{host}{port}{vhost}"
                     print(address)
                     assert _parse_url(address) == _get_return_tuple(subdict)
+
+    def test_200(self) -> None:
+        """Test `_get_credentials()`."""
+
+        # Case 1: username/password
+        cred = pika.credentials.PlainCredentials("username", "password")
+        assert _get_credentials("username", "password", "") == cred
+        # Sub-case: username/auth_token (override)
+        cred = pika.credentials.PlainCredentials("username", "auth_token")
+        assert _get_credentials("username", "password", "auth_token") == cred
+        assert _get_credentials("username", None, "auth_token") == cred
+
+        # Error: no password for user
+        with pytest.raises(RuntimeError):
+            _get_credentials("username", None, "")
+
+        # Case 2: Only password/token -- Ex: keycloak
+        cred = pika.credentials.PlainCredentials("", "password")
+        assert _get_credentials(None, "password", "") == cred
+        #
+        cred = pika.credentials.PlainCredentials("", "auth_token")
+        assert _get_credentials(None, "password", "auth_token") == cred
+
+        # Case 3: no auth -- rabbitmq uses guest/guest
+        assert _get_credentials(None, None, "") is None
