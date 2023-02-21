@@ -2,7 +2,6 @@
 
 import logging
 import os
-import re
 import time
 import urllib
 from functools import partial
@@ -65,7 +64,7 @@ class RabbitMQ(RawQueue):
         LOGGER.info(f"Requested MQClient for queue '{queue}' @ {address}")
 
         # set up connection parameters
-
+        cp_args = _parse_url(address)
         if auth_token:
             cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
         if os.getenv("RABBITMQ_HEARTBEAT"):
