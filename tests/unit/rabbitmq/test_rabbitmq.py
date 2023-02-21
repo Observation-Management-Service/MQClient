@@ -1,5 +1,6 @@
 """Unit Tests for RabbitMQ/Pika BrokerClient."""
 
+import itertools
 import unittest
 from typing import Any, List
 from unittest.mock import MagicMock
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 from mqclient import broker_client_manager
 from mqclient.broker_client_interface import Message
+from mqclient.broker_clients.rabbitmq import HUMAN_PATTERN, REGEX_PATTERN, _parse_url
 
 from ...abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
 
@@ -109,3 +111,41 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
             _ = [m async for m in sub.message_generator(propagate_error=False)]
         # would be called by Queue
         self._get_close_mock_fn(mock_con).assert_not_called()
+
+
+class TestUnitRabbitMQURLParsing:
+    """Unit test the URL-parsing by rabbitmq."""
+
+    def test_000(self) -> None:
+        """Sanity check the constants."""
+        assert HUMAN_PATTERN == ("[abc://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]")
+        assert REGEX_PATTERN == (
+            r"([^:/]+://)?(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?"
+        )
+
+    def test_100(self) -> None:
+        """Test normal (successful) parsing."""
+        stuff = dict(port=1234, virtual_host="foo")  # , username="hank")
+        for rlength in range(len(stuff) + 1):
+            for _subset in itertools.combinations(stuff.items(), rlength):
+                subdict = dict(_subset)
+
+                if user := subdict.get("username", ""):
+                    user = f"{user}@"
+
+                if port := subdict.get("port", ""):
+                    port = f":{port}"
+
+                if vhost := subdict.get("virtual_host", ""):
+                    vhost = f"/{vhost}"
+
+                assert _parse_url(f"{user}localhost{port}{vhost}") == subdict
+                assert _parse_url(f"wxyz://{user}localhost{port}{vhost}") == subdict
+
+                if user:  # password can only be given alongside username
+                    subdict["password"] = "secret"
+                    pwd = f":{subdict['password']}"
+                    # fmt:off
+                    assert _parse_url(f"{user}{pwd}localhost{port}{vhost}") == subdict
+                    assert _parse_url(f"wxyz://{user}{pwd}localhost{port}{vhost}") == subdict
+                    # fmt: on

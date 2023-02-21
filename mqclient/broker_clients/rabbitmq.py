@@ -27,17 +27,17 @@ StrDict = Dict[str, Any]
 
 LOGGER = logging.getLogger("mqclient.rabbitmq")
 
+# url parsing constants
+HUMAN_PATTERN = "[abc://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]"
+REGEX_PATTERN = r"([^:/]+://)?(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?"
+REGEX_PATTERN_COMPILED = re.compile(REGEX_PATTERN)
+
 
 def _parse_url(url: str) -> StrDict:
-    human_pattern = "[abc://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]"
-    regex_pattern = (
-        r"([^:/]+://)?(?P<host>[^:/]*)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?"
-    )
-
     try:
-        parts = re.match(regex_pattern, url).groupdict()  # type: ignore[union-attr]
+        parts = REGEX_PATTERN_COMPILED.match(url).groupdict()  # type: ignore[union-attr]
     except TypeError as e:
-        raise RuntimeError(f"Invalid address: {url} (format: {human_pattern})") from e
+        raise RuntimeError(f"Invalid address: {url} (format: {HUMAN_PATTERN})") from e
 
     # for putting into ConnectionParameters filter Nones (will rely on defaults)
     parts = {k: v for k, v in parts.items() if v is not None}  # host=..., etc.
