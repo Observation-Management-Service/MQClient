@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import time
+import urllib
 from functools import partial
 from typing import Any, AsyncGenerator, Callable, Dict, Optional, Union
 
@@ -27,23 +28,28 @@ StrDict = Dict[str, Any]
 
 LOGGER = logging.getLogger("mqclient.rabbitmq")
 
-# url parsing constants
+
 HUMAN_PATTERN = "[SCHEME://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]"
-REGEX_PATTERN = r"([^:/@]+://)?((?P<username>[^:/@]+)@)?(?P<host>[^:/]+)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?"
-REGEX_PATTERN_COMPILED = re.compile(REGEX_PATTERN)
 
 
 def _parse_url(url: str) -> StrDict:
-    try:
-        parts = REGEX_PATTERN_COMPILED.match(url).groupdict()  # type: ignore[union-attr]
-    except TypeError as e:
-        raise RuntimeError(f"Invalid address: {url} (format: {HUMAN_PATTERN})") from e
+    if "://" not in url:
+        url = "//" + url
+    result = urllib.parse.urlparse(url)
 
-    # for putting into ConnectionParameters filter Nones (will rely on defaults)
-    parts = {k: v for k, v in parts.items() if v is not None}  # host=..., etc.
+    parts = dict(
+        scheme=result.scheme,
+        username=result.username,
+        password=result.password,
+        hostname=result.hostname,
+        port=result.port,
+        virtual_host=result.path.lstrip("/"),
+    )
 
-    if "port" in parts:
-        parts["port"] = int(parts["port"])
+    # for putting into ConnectionParameters filter ""/None (will rely on defaults)
+    parts = {k: v for k, v in parts.items() if v}  # host=..., etc.
+    if not parts or "hostname" not in parts:
+        raise RuntimeError(f"Invalid address: {url} (format: {HUMAN_PATTERN})")
     return parts
 
 
@@ -59,7 +65,7 @@ class RabbitMQ(RawQueue):
         LOGGER.info(f"Requested MQClient for queue '{queue}' @ {address}")
 
         # set up connection parameters
-        cp_args = _parse_url(address)
+
         if auth_token:
             cp_args["credentials"] = pika.credentials.PlainCredentials("", auth_token)
         if os.getenv("RABBITMQ_HEARTBEAT"):

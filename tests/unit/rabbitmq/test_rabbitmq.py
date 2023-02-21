@@ -116,13 +116,6 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
 class TestUnitRabbitMQURLParsing:
     """Unit test the URL-parsing by rabbitmq."""
 
-    def test_000(self) -> None:
-        """Sanity check the constants."""
-        assert HUMAN_PATTERN == ("[SCHEME://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]")
-        assert REGEX_PATTERN == (
-            r"([^:/@]+://)?((?P<username>[^:/@]+)@)?(?P<host>[^:/]+)(:(?P<port>\d+))?(/(?P<virtual_host>.+))?"
-        )
-
     def test_100(self) -> None:
         """Test normal (successful) parsing."""
         tokens = dict(port=1234, virtual_host="foo", username="hank")
