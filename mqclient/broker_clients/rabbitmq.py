@@ -123,6 +123,7 @@ class RabbitMQ(RawQueue):
             raise AlreadyClosedException()
 
         try:
+            self.channel.cancel()
             self.connection.close()
         except Exception as e:
             raise ClosingFailedException() from e
