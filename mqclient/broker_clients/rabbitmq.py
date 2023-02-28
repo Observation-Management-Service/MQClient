@@ -261,6 +261,8 @@ class RabbitMQSub(RabbitMQ, Sub):
             msg = RabbitMQSub._to_message(method_frame, body)  # None -> timeout
             break  # get just one message
 
+        # self.channel.cancel()  # this is done by `open_sub_one()` *after* ack/nack via `close()`
+
         if msg:
             LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
             return msg
@@ -341,9 +343,12 @@ class RabbitMQSub(RabbitMQ, Sub):
                 else:
                     pass
 
+            self.channel.cancel()
+
         # Garbage Collection (or explicit generator close(), or break in consumer's loop)
         except GeneratorExit:
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
+            self.channel.cancel()
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
 
