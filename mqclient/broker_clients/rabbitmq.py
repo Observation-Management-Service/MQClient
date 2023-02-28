@@ -341,7 +341,7 @@ class RabbitMQSub(RabbitMQ, Sub):
                 else:
                     pass
 
-        # Garbage Collection (or explicit close(), or break in consumer's loop)
+        # Garbage Collection (or explicit generator close(), or break in consumer's loop)
         except GeneratorExit:
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
