@@ -80,7 +80,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         mock_con.return_value.is_closed = False  # HACK - manually set attr
 
         fake_message = (MagicMock(delivery_tag=12), None, Message.serialize("foo, bar"))
-        mock_con.return_value.channel.return_value.basic_get.return_value = fake_message
+        mock_con.return_value.channel.return_value.consume.return_value = [fake_message]
         m = await sub.get_message()
         assert m is not None
         assert m.msg_id == 12
