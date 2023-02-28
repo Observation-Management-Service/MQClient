@@ -73,18 +73,21 @@ class Queue:
 
     @timeout.setter
     def timeout(self, val: int) -> None:
+        LOGGER.debug(f"Setting timeout to {val}")
         if val < 1:
             raise Exception("prefetch must be positive")
         self._timeout = val
 
     async def _create_pub_queue(self) -> Pub:
-        """Wrap `self._broker_client.create_pub_queue()` with instance's config."""
+        """Wrap `self._broker_client.create_pub_queue()` with instance's
+        config."""
         return await self._broker_client.create_pub_queue(
             self._address, self._name, auth_token=self._auth_token
         )
 
     async def _create_sub_queue(self) -> Sub:
-        """Wrap `self._broker_client.create_sub_queue()` with instance's config."""
+        """Wrap `self._broker_client.create_sub_queue()` with instance's
+        config."""
         return await self._broker_client.create_sub_queue(
             self._address, self._name, self._prefetch, auth_token=self._auth_token
         )
@@ -132,7 +135,7 @@ class Queue:
             "self.timeout",
             "msg.msg_id",
         ]
-    )  # pylint:disable=no-self-use
+    )
     async def _safe_ack(self, sub: Sub, msg: Message) -> None:
         """Acknowledge the message."""
         # pylint:disable=protected-access
@@ -161,7 +164,7 @@ class Queue:
             "self.timeout",
             "msg.msg_id",
         ]
-    )  # pylint:disable=no-self-use
+    )
     async def _safe_nack(self, sub: Sub, msg: Message) -> None:
         """Reject/nack the message."""
         # pylint:disable=protected-access

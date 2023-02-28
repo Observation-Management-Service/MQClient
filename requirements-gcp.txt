@@ -18,7 +18,7 @@ google-auth==2.16.1
     # via
     #   google-api-core
     #   oms-mqclient (setup.py)
-google-cloud-pubsub==2.14.1
+google-cloud-pubsub==2.15.0
     # via oms-mqclient (setup.py)
 googleapis-common-protos[grpc]==1.58.0
     # via

@@ -306,7 +306,7 @@ class PulsarSub(Pulsar, Sub):
                 else:
                     pass
 
-        # generator exit (explicit close(), or break in consumer's loop)
+        # garbage collection (or explicit generator close(), or break in consumer's loop)
         except GeneratorExit:
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)

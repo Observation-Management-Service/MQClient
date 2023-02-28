@@ -123,6 +123,7 @@ class RabbitMQ(RawQueue):
             raise AlreadyClosedException()
 
         try:
+            self.channel.cancel()
             self.connection.close()
         except Exception as e:
             raise ClosingFailedException() from e
@@ -247,18 +248,21 @@ class RabbitMQSub(RabbitMQ, Sub):
     async def get_message(
         self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
     ) -> Optional[Message]:
-        """Get a message from a queue.
-
-        NOTE - `timeout_millis` is not used.
-        """
+        """Get a message from a queue."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        method_frame, _, body = await try_call(
-            self, partial(self.channel.basic_get, self.queue)
+        gen = partial(
+            self.channel.consume,
+            self.queue,
+            inactivity_timeout=timeout_millis / 1000.0 if timeout_millis else None,
         )
-        msg = RabbitMQSub._to_message(method_frame, body)
+        async for method_frame, _, body in try_yield(self, gen):
+            msg = RabbitMQSub._to_message(method_frame, body)  # None -> timeout
+            break  # get just one message
+
+        # self.channel.cancel()  # this is done by `open_sub_one()` *after* ack/nack via `close()`
 
         if msg:
             LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
@@ -340,10 +344,14 @@ class RabbitMQSub(RabbitMQ, Sub):
                 else:
                     pass
 
-        # Garbage Collection (or explicit close(), or break in consumer's loop)
+        # Garbage Collection (or explicit generator close(), or break in consumer's loop)
         except GeneratorExit:
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
+
+        # Done with generator, one way or another
+        finally:
+            self.channel.cancel()
 
 
 async def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
