@@ -36,7 +36,7 @@ pyasn1==0.4.8
     # via ldap3
 pycparser==2.21
     # via cffi
-pyjwt[crypto]==2.5.0
+pyjwt[crypto]==2.6.0
     # via
     #   wipac-keycloak-rest-services
     #   wipac-rest-tools
