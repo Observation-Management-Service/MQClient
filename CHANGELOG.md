@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.6 (2023-02-28)
+### Other
+* Fix RabbitMQ `open_sub_one()` Timeout ([#87](https://github.com/Observation-Management-Service/MQClient/issues/87)) ([`062dd54`](https://github.com/Observation-Management-Service/MQClient/commit/062dd54e2b447fd7a84707df49eaf68643295c7b))
+
 ## v1.0.5 (2023-02-21)
 ### Other
 * RabbitMQ Username via URL ([#85](https://github.com/Observation-Management-Service/MQClient/issues/85)) ([`98ad338`](https://github.com/Observation-Management-Service/MQClient/commit/98ad3389cf877de006ddf2460941e4b5fb136aa0))
