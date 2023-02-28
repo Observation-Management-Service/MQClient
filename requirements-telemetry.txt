@@ -75,7 +75,7 @@ wipac-dev-tools==1.6.12
     #   wipac-telemetry
 wipac-telemetry==0.2.5
     # via oms-mqclient (setup.py)
-wrapt==1.14.1
+wrapt==1.15.0
     # via deprecated
 
 # The following packages are considered to be unsafe in a requirements file:
