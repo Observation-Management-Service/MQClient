@@ -344,13 +344,14 @@ class RabbitMQSub(RabbitMQ, Sub):
                 else:
                     pass
 
-            self.channel.cancel()
-
         # Garbage Collection (or explicit generator close(), or break in consumer's loop)
         except GeneratorExit:
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
-            self.channel.cancel()
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
+
+        # Done with generator, one way or another
+        finally:
+            self.channel.cancel()
 
 
 async def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
