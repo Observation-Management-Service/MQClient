@@ -1,7 +1,6 @@
 """Back-end using RabbitMQ."""
 
 import logging
-import os
 import time
 import urllib
 from functools import partial
