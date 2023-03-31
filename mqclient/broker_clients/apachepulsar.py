@@ -31,7 +31,13 @@ class Pulsar(RawQueue):
         RawQueue
     """
 
-    def __init__(self, address: str, topic: str, auth_token: str) -> None:
+    def __init__(
+        self,
+        address: str,
+        topic: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
+    ) -> None:
         """Set address, topic, and client.
 
         Arguments:
@@ -49,6 +55,7 @@ class Pulsar(RawQueue):
         self.client: pulsar.Client = None
         self.auth = pulsar.AuthenticationToken(auth_token) if auth_token else None
         self._auth_token = auth_token
+        self.ack_timeout = ack_timeout
 
     async def connect(self) -> None:
         """Set up client."""
@@ -77,9 +84,15 @@ class PulsarPub(Pulsar, Pub):
         Pub
     """
 
-    def __init__(self, address: str, topic: str, auth_token: str = "") -> None:
+    def __init__(
+        self,
+        address: str,
+        topic: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
+    ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_PUB} ({address}; {topic})")
-        super().__init__(address, topic, auth_token)
+        super().__init__(address, topic, auth_token, ack_timeout)
         self.producer: pulsar.Producer = None
 
     async def connect(self) -> None:
@@ -93,7 +106,8 @@ class PulsarPub(Pulsar, Pub):
             self.address,
             self.topic,
             BrokerClient.SUBSCRIPTION_NAME,
-            auth_token=self._auth_token,
+            self._auth_token,
+            self.ack_timeout,
         )
         await inner_sub.connect()
         await inner_sub.close()
@@ -136,11 +150,10 @@ class PulsarSub(Pulsar, Sub):
         ack_timeout: Optional[int],
     ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_SUB} ({address}; {topic})")
-        super().__init__(address, topic, auth_token)
+        super().__init__(address, topic, auth_token, ack_timeout)
         self.consumer: pulsar.Consumer = None
         self.subscription_name = subscription_name
         self.prefetch = 1
-        self.ack_timeout = ack_timeout
 
     async def connect(self) -> None:
         """Connect to subscriber."""
@@ -338,6 +351,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
             address,
             name,
             auth_token,
+            ack_timeout,
         )
         await q.connect()
         return q
