@@ -330,6 +330,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         address: str,
         name: str,
         auth_token: str,
+        ack_timeout: Optional[int],
     ) -> PulsarPub:
         """Create a publishing queue."""
         q = PulsarPub(  # pylint: disable=invalid-name
@@ -344,6 +345,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         name: str,
         prefetch: int,
         auth_token: str,
+        ack_timeout: Optional[int],
     ) -> PulsarSub:
         """Create a subscription queue."""
         # pylint: disable=invalid-name

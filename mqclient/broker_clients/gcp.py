@@ -394,6 +394,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         address: str,
         name: str,
         auth_token: str,
+        ack_timeout: Optional[int],
     ) -> GCPPub:
         """Create a publishing queue.
 
@@ -414,6 +415,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         name: str,
         prefetch: int,
         auth_token: str,
+        ack_timeout: Optional[int],
     ) -> GCPSub:
         """Create a subscription queue.
 
