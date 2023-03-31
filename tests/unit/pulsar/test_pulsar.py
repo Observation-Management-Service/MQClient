@@ -96,7 +96,7 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
         Generator should raise Exception originating upstream (a.k.a.
         from pulsar-package code).
         """
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, "")
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
 
         mock_con.return_value.subscribe.return_value.receive.side_effect = Exception()
         with pytest.raises(Exception):
