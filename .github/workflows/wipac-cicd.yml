@@ -21,16 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
-      # - uses: WIPACrepo/wipac-dev-mypy-action@v1.1
-      - run: |
-          # there's a dependency clash with protobuf
-          # google wants protobuf>=4.21.3
-          # telemetry wants protobuf<4
-          # so let's set a timer for six months from now:
-          echo "How's https://github.com/WIPACrepo/MQClient/issues/51 coming along?"
-          if [ $(echo "1664320371+(60*60*24*30*6) - $(date +%s)" | bc) -lt 0 ]; then
-            exit 1
-          fi
+      - uses: WIPACrepo/wipac-dev-mypy-action@v1.1
 
   py-setup:
     runs-on: ubuntu-latest
