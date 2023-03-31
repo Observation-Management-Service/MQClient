@@ -79,7 +79,13 @@ class RabbitMQ(RawQueue):
         RawQueue
     """
 
-    def __init__(self, address: str, queue: str, auth_token: str) -> None:
+    def __init__(
+        self,
+        address: str,
+        queue: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
+    ) -> None:
         super().__init__()
         LOGGER.info(f"Requested MQClient for queue '{queue}' @ {address}")
         cp_args, username, password = _parse_url(address)
@@ -87,8 +93,8 @@ class RabbitMQ(RawQueue):
         # set up connection parameters
         if creds := _get_credentials(username, password, auth_token):
             cp_args["credentials"] = creds
-        if hbeat := os.getenv("RABBITMQ_HEARTBEAT"):
-            cp_args["heartbeat"] = int(hbeat)
+        if ack_timeout:
+            cp_args["heartbeat"] = ack_timeout
         self.parameters = pika.connection.ConnectionParameters(**cp_args)
 
         self.queue = queue
@@ -444,7 +450,8 @@ class BrokerClient(broker_client_interface.BrokerClient):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQPub(address, name, auth_token)  # pylint: disable=invalid-name
+        # pylint: disable=invalid-name
+        q = RabbitMQPub(address, name, auth_token, ack_timeout)
         await q.connect()
         return q
 
@@ -465,7 +472,8 @@ class BrokerClient(broker_client_interface.BrokerClient):
         Returns:
             RawQueue: queue
         """
-        q = RabbitMQSub(address, name, auth_token)  # pylint: disable=invalid-name
+        # pylint: disable=invalid-name
+        q = RabbitMQSub(address, name, auth_token, ack_timeout)
         q.prefetch = prefetch
         await q.connect()
         return q

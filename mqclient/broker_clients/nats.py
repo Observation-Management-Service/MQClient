@@ -357,7 +357,9 @@ class BrokerClient(broker_client_interface.BrokerClient):
         # NOTE - `auth_token` is not used currently
         """
         q = NATSPub(  # pylint: disable=invalid-name
-            address, name + "-stream", name + "-subject"
+            address,
+            name + "-stream",
+            name + "-subject",
         )
         await q.connect()
         return q
@@ -375,7 +377,9 @@ class BrokerClient(broker_client_interface.BrokerClient):
         # NOTE - `auth_token` is not used currently
         """
         q = NATSSub(  # pylint: disable=invalid-name
-            address, name + "-stream", name + "-subject"
+            address,
+            name + "-stream",
+            name + "-subject",
         )
         q.prefetch = prefetch
         await q.connect()

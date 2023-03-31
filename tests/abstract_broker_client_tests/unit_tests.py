@@ -78,7 +78,9 @@ class BrokerClientUnitTest:
     @pytest.mark.asyncio
     async def test_ack_message(self, mock_con: Any, queue_name: str) -> None:
         """Test acking message."""
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, "", None
+        )
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
@@ -89,7 +91,9 @@ class BrokerClientUnitTest:
     @pytest.mark.asyncio
     async def test_reject_message(self, mock_con: Any, queue_name: str) -> None:
         """Test rejecting message."""
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, "", None
+        )
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
@@ -100,7 +104,9 @@ class BrokerClientUnitTest:
     @pytest.mark.asyncio
     async def test_message_generator_00(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, "", None
+        )
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
@@ -131,7 +137,9 @@ class BrokerClientUnitTest:
     @pytest.mark.asyncio
     async def test_message_generator_01(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, "", None
+        )
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
@@ -160,7 +168,9 @@ class BrokerClientUnitTest:
     @pytest.mark.asyncio
     async def test_message_generator_02(self, mock_con: Any, queue_name: str) -> None:
         """Test message generator."""
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, "", None
+        )
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
@@ -199,7 +209,9 @@ class BrokerClientUnitTest:
 
         Generator should not ack messages.
         """
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, "", None
+        )
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
@@ -232,7 +244,9 @@ class BrokerClientUnitTest:
         Generator should raise Exception, nack, and close. Unlike in an
         integration test, nacked messages are not put back on the queue.
         """
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, "", None
+        )
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
@@ -276,7 +290,9 @@ class BrokerClientUnitTest:
         Generator should not raise Exception. Unlike in an integration
         test, nacked messages are not put back on the queue.
         """
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, "", None
+        )
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
@@ -318,7 +334,9 @@ class BrokerClientUnitTest:
         Not so much a test, as an example of why QueueSubResource is
         needed.
         """
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, "", None
+        )
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
