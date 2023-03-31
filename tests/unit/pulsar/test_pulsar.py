@@ -56,7 +56,7 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
     async def test_create_sub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating sub queue."""
         sub = await self.broker_client.create_sub_queue(
-            "localhost", queue_name, prefetch=213
+            "localhost", queue_name, 213, ""
         )
         assert sub.topic == queue_name  # type: ignore
         assert sub.prefetch == 213  # type: ignore
@@ -74,7 +74,7 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
     @pytest.mark.asyncio
     async def test_get_message(self, mock_con: Any, queue_name: str) -> None:
         """Test getting message."""
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name, "")
         mock_con.return_value.subscribe.return_value.receive.return_value.data.return_value = Message.serialize(
             "foo, bar"
         )
@@ -96,7 +96,7 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
         Generator should raise Exception originating upstream (a.k.a.
         from pulsar-package code).
         """
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name, "")
 
         mock_con.return_value.subscribe.return_value.receive.side_effect = Exception()
         with pytest.raises(Exception):

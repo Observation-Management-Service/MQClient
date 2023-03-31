@@ -5,7 +5,7 @@ import unittest
 from typing import Any, List, Optional, Tuple
 from unittest.mock import MagicMock
 
-import pika
+import pika  # type: ignore[import]
 import pytest
 from mqclient import broker_client_manager
 from mqclient.broker_client_interface import Message
@@ -76,7 +76,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
     @pytest.mark.asyncio
     async def test_get_message(self, mock_con: Any, queue_name: str) -> None:
         """Test getting message."""
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, "")
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
         mock_con.return_value.is_closed = False  # HACK - manually set attr
 
         fake_message = (MagicMock(delivery_tag=12), None, Message.serialize("foo, bar"))
@@ -95,7 +95,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         Generator should raise Exception originating upstream (a.k.a.
         from pika-package code).
         """
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name, "")
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
         mock_con.return_value.is_closed = False  # HACK - manually set attr
 
         err_msg = (unittest.mock.ANY, None, b"foo, bar")
