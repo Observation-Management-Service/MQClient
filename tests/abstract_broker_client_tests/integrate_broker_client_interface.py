@@ -38,10 +38,10 @@ class PubSubBrokerClientInterface:
     async def test_00(self, queue_name: str, auth_token: str) -> None:
         """Sanity test."""
         pub = await self.broker_client.create_pub_queue(
-            "localhost", queue_name, auth_token=auth_token
+            "localhost", queue_name, auth_token
         )
         sub = await self.broker_client.create_sub_queue(
-            "localhost", queue_name, auth_token=auth_token
+            "localhost", queue_name, 1, auth_token
         )
 
         # send
@@ -78,10 +78,10 @@ class PubSubBrokerClientInterface:
         Order is not guaranteed on redelivery.
         """
         pub = await self.broker_client.create_pub_queue(
-            "localhost", queue_name, auth_token=auth_token
+            "localhost", queue_name, auth_token
         )
         sub = await self.broker_client.create_sub_queue(
-            "localhost", queue_name, auth_token=auth_token
+            "localhost", queue_name, 1, auth_token
         )
 
         # send
@@ -133,10 +133,10 @@ class PubSubBrokerClientInterface:
         Order is not guaranteed on redelivery.
         """
         pub = await self.broker_client.create_pub_queue(
-            "localhost", queue_name, auth_token=auth_token
+            "localhost", queue_name, auth_token
         )
         sub = await self.broker_client.create_sub_queue(
-            "localhost", queue_name, auth_token=auth_token
+            "localhost", queue_name, 1, auth_token
         )
 
         data_to_send = copy.deepcopy(DATA_LIST)
@@ -188,10 +188,10 @@ class PubSubBrokerClientInterface:
     async def test_20(self, queue_name: str, auth_token: str) -> None:
         """Sanity test message generator."""
         pub = await self.broker_client.create_pub_queue(
-            "localhost", queue_name, auth_token=auth_token
+            "localhost", queue_name, auth_token
         )
         sub = await self.broker_client.create_sub_queue(
-            "localhost", queue_name, auth_token=auth_token
+            "localhost", queue_name, 1, auth_token
         )
 
         # send

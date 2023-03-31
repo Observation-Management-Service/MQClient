@@ -48,7 +48,7 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
     @pytest.mark.asyncio
     async def test_create_pub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating pub queue."""
-        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name, "")
         assert pub.topic == queue_name  # type: ignore
         mock_con.return_value.create_producer.assert_called()
 
@@ -65,7 +65,7 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
     @pytest.mark.asyncio
     async def test_send_message(self, mock_con: Any, queue_name: str) -> None:
         """Test sending message."""
-        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name, "")
         await pub.send_message(b"foo, bar, baz")
         mock_con.return_value.create_producer.return_value.send.assert_called_with(
             b"foo, bar, baz"

@@ -50,7 +50,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
     @pytest.mark.asyncio
     async def test_create_pub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating pub queue."""
-        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name, "")
         assert pub.queue == queue_name  # type: ignore
         mock_con.return_value.channel.assert_called()
 
@@ -58,7 +58,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
     async def test_create_sub_queue(self, mock_con: Any, queue_name: str) -> None:
         """Test creating sub queue."""
         sub = await self.broker_client.create_sub_queue(
-            "localhost", queue_name, prefetch=213
+            "localhost", queue_name, 213, ""
         )
         assert sub.queue == queue_name  # type: ignore
         assert sub.prefetch == 213  # type: ignore
@@ -67,7 +67,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
     @pytest.mark.asyncio
     async def test_send_message(self, mock_con: Any, queue_name: str) -> None:
         """Test sending message."""
-        pub = await self.broker_client.create_pub_queue("localhost", queue_name)
+        pub = await self.broker_client.create_pub_queue("localhost", queue_name, "")
         await pub.send_message(b"foo, bar, baz")
         mock_con.return_value.channel.return_value.basic_publish.assert_called_with(
             exchange="", routing_key=queue_name, body=b"foo, bar, baz"
@@ -76,7 +76,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
     @pytest.mark.asyncio
     async def test_get_message(self, mock_con: Any, queue_name: str) -> None:
         """Test getting message."""
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name, "")
         mock_con.return_value.is_closed = False  # HACK - manually set attr
 
         fake_message = (MagicMock(delivery_tag=12), None, Message.serialize("foo, bar"))
@@ -95,7 +95,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         Generator should raise Exception originating upstream (a.k.a.
         from pika-package code).
         """
-        sub = await self.broker_client.create_sub_queue("localhost", queue_name)
+        sub = await self.broker_client.create_sub_queue("localhost", queue_name, "")
         mock_con.return_value.is_closed = False  # HACK - manually set attr
 
         err_msg = (unittest.mock.ANY, None, b"foo, bar")
