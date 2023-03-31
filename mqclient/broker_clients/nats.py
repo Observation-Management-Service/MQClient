@@ -347,7 +347,9 @@ class BrokerClient(broker_client_interface.BrokerClient):
 
     @staticmethod
     async def create_pub_queue(
-        address: str, name: str, auth_token: str = ""
+        address: str,
+        name: str,
+        auth_token: str,
     ) -> NATSPub:
         """Create a publishing queue.
 
@@ -361,7 +363,10 @@ class BrokerClient(broker_client_interface.BrokerClient):
 
     @staticmethod
     async def create_sub_queue(
-        address: str, name: str, prefetch: int = 1, auth_token: str = ""
+        address: str,
+        name: str,
+        prefetch: int,
+        auth_token: str,
     ) -> NATSSub:
         """Create a subscription queue.
 

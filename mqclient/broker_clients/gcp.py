@@ -390,7 +390,11 @@ class BrokerClient(broker_client_interface.BrokerClient):
             return address
 
     @staticmethod
-    async def create_pub_queue(address: str, name: str, auth_token: str = "") -> GCPPub:
+    async def create_pub_queue(
+        address: str,
+        name: str,
+        auth_token: str,
+    ) -> GCPPub:
         """Create a publishing queue.
 
         # NOTE - `auth_token` is not used currently
@@ -406,7 +410,10 @@ class BrokerClient(broker_client_interface.BrokerClient):
 
     @staticmethod
     async def create_sub_queue(
-        address: str, name: str, prefetch: int = 1, auth_token: str = ""
+        address: str,
+        name: str,
+        prefetch: int,
+        auth_token: str,
     ) -> GCPSub:
         """Create a subscription queue.
 
