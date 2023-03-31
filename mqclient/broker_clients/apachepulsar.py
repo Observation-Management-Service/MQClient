@@ -6,7 +6,6 @@ import time
 from typing import AsyncGenerator, Optional
 
 import pulsar  # type: ignore
-from wipac_dev_tools import from_environment
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
