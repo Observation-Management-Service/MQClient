@@ -64,7 +64,7 @@ typing-extensions==4.5.0
     #   wipac-dev-tools
 urllib3==1.26.15
     # via requests
-wipac-dev-tools==1.6.13
+wipac-dev-tools==1.6.14
     # via
     #   oms-mqclient (setup.py)
     #   wipac-keycloak-rest-services
