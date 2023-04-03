@@ -34,10 +34,11 @@ grpcio==1.53.0
     #   google-cloud-pubsub
     #   grpc-google-iam-v1
     #   grpcio-status
-grpcio-status==1.53.0
+grpcio-status==1.48.2
     # via
     #   google-api-core
     #   google-cloud-pubsub
+    #   oms-mqclient (setup.py)
 idna==3.4
     # via requests
 proto-plus==1.22.2
