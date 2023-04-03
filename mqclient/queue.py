@@ -31,6 +31,8 @@ class Queue:
         name: name of queue
         prefetch: size of prefetch buffer for receiving messages
         timeout: seconds to wait for a message to be delivered
+        ack_timeout: max time (seconds) to acknowledge a message
+                     before broker considers it lost (and re-queues)
         except_errors: whether to suppress interior context errors for
                         the consumer (when `True`, the context manager
                         will act like a `try-except` block)
@@ -44,6 +46,7 @@ class Queue:
         name: str = "",
         prefetch: int = 1,
         timeout: int = 60,
+        ack_timeout: Optional[int] = None,
         except_errors: bool = True,
         auth_token: str = "",
     ) -> None:
@@ -52,6 +55,10 @@ class Queue:
         self._name = name if name else Queue.make_name()
         self._prefetch = prefetch
         self._auth_token = auth_token
+
+        if ack_timeout is not None and ack_timeout <= 0:
+            raise ValueError("timeout must be positive")
+        self._ack_timeout = ack_timeout
 
         # publics
         self._timeout = 0
@@ -75,21 +82,28 @@ class Queue:
     def timeout(self, val: int) -> None:
         LOGGER.debug(f"Setting timeout to {val}")
         if val < 1:
-            raise Exception("prefetch must be positive")
+            raise ValueError("timeout must be positive")
         self._timeout = val
 
     async def _create_pub_queue(self) -> Pub:
         """Wrap `self._broker_client.create_pub_queue()` with instance's
         config."""
         return await self._broker_client.create_pub_queue(
-            self._address, self._name, auth_token=self._auth_token
+            self._address,
+            self._name,
+            self._auth_token,
+            self._ack_timeout,
         )
 
     async def _create_sub_queue(self) -> Sub:
         """Wrap `self._broker_client.create_sub_queue()` with instance's
         config."""
         return await self._broker_client.create_sub_queue(
-            self._address, self._name, self._prefetch, auth_token=self._auth_token
+            self._address,
+            self._name,
+            self._prefetch,
+            self._auth_token,
+            self._ack_timeout,
         )
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly

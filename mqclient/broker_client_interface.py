@@ -169,13 +169,22 @@ class BrokerClient:
     NAME = "abstract-broker_client"
 
     @staticmethod
-    async def create_pub_queue(address: str, name: str, auth_token: str = "") -> Pub:
+    async def create_pub_queue(
+        address: str,
+        name: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
+    ) -> Pub:
         """Create a publishing queue."""
         raise NotImplementedError()
 
     @staticmethod
     async def create_sub_queue(
-        address: str, name: str, prefetch: int = 1, auth_token: str = ""
+        address: str,
+        name: str,
+        prefetch: int,
+        auth_token: str,
+        ack_timeout: Optional[int],
     ) -> Sub:
         """Create a subscription queue."""
         raise NotImplementedError()

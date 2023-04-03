@@ -6,7 +6,6 @@ import time
 from typing import AsyncGenerator, Optional
 
 import pulsar  # type: ignore
-from wipac_dev_tools import from_environment
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
@@ -31,7 +30,13 @@ class Pulsar(RawQueue):
         RawQueue
     """
 
-    def __init__(self, address: str, topic: str, auth_token: str = "") -> None:
+    def __init__(
+        self,
+        address: str,
+        topic: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
+    ) -> None:
         """Set address, topic, and client.
 
         Arguments:
@@ -49,6 +54,7 @@ class Pulsar(RawQueue):
         self.client: pulsar.Client = None
         self.auth = pulsar.AuthenticationToken(auth_token) if auth_token else None
         self._auth_token = auth_token
+        self.ack_timeout = ack_timeout
 
     async def connect(self) -> None:
         """Set up client."""
@@ -77,9 +83,15 @@ class PulsarPub(Pulsar, Pub):
         Pub
     """
 
-    def __init__(self, address: str, topic: str, auth_token: str = "") -> None:
+    def __init__(
+        self,
+        address: str,
+        topic: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
+    ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_PUB} ({address}; {topic})")
-        super().__init__(address, topic, auth_token)
+        super().__init__(address, topic, auth_token, ack_timeout)
         self.producer: pulsar.Producer = None
 
     async def connect(self) -> None:
@@ -93,7 +105,8 @@ class PulsarPub(Pulsar, Pub):
             self.address,
             self.topic,
             BrokerClient.SUBSCRIPTION_NAME,
-            auth_token=self._auth_token,
+            self._auth_token,
+            self.ack_timeout,
         )
         await inner_sub.connect()
         await inner_sub.close()
@@ -128,10 +141,15 @@ class PulsarSub(Pulsar, Sub):
     """
 
     def __init__(
-        self, address: str, topic: str, subscription_name: str, auth_token: str = ""
+        self,
+        address: str,
+        topic: str,
+        subscription_name: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
     ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_SUB} ({address}; {topic})")
-        super().__init__(address, topic, auth_token=auth_token)
+        super().__init__(address, topic, auth_token, ack_timeout)
         self.consumer: pulsar.Consumer = None
         self.subscription_name = subscription_name
         self.prefetch = 1
@@ -141,18 +159,13 @@ class PulsarSub(Pulsar, Sub):
         LOGGER.debug(log_msgs.CONNECTING_SUB)
         await super().connect()
 
-        env = from_environment({"PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC": 0})
-        unacked_messages_timeout_sec = int(
-            env.get("PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC", 0)
-        )
-
         self.consumer = self.client.subscribe(
             self.topic,
             self.subscription_name,
             receiver_queue_size=self.prefetch,
             unacked_messages_timeout_ms=(
-                unacked_messages_timeout_sec * 1000
-                if unacked_messages_timeout_sec and unacked_messages_timeout_sec > 10
+                self.ack_timeout * 1000
+                if self.ack_timeout and self.ack_timeout > 10
                 else None
             ),
             consumer_type=pulsar.ConsumerType.Shared,
@@ -327,23 +340,36 @@ class BrokerClient(broker_client_interface.BrokerClient):
 
     @staticmethod
     async def create_pub_queue(
-        address: str, name: str, auth_token: str = ""
+        address: str,
+        name: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
     ) -> PulsarPub:
         """Create a publishing queue."""
         q = PulsarPub(  # pylint: disable=invalid-name
-            address, name, auth_token=auth_token
+            address,
+            name,
+            auth_token,
+            ack_timeout,
         )
         await q.connect()
         return q
 
     @staticmethod
     async def create_sub_queue(
-        address: str, name: str, prefetch: int = 1, auth_token: str = ""
+        address: str,
+        name: str,
+        prefetch: int,
+        auth_token: str,
+        ack_timeout: Optional[int],
     ) -> PulsarSub:
         """Create a subscription queue."""
-        # pylint: disable=invalid-name
-        q = PulsarSub(
-            address, name, BrokerClient.SUBSCRIPTION_NAME, auth_token=auth_token
+        q = PulsarSub(  # pylint: disable=invalid-name
+            address,
+            name,
+            BrokerClient.SUBSCRIPTION_NAME,
+            auth_token,
+            ack_timeout,
         )
         q.prefetch = prefetch
         await q.connect()

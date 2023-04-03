@@ -347,28 +347,39 @@ class BrokerClient(broker_client_interface.BrokerClient):
 
     @staticmethod
     async def create_pub_queue(
-        address: str, name: str, auth_token: str = ""
+        address: str,
+        name: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
     ) -> NATSPub:
         """Create a publishing queue.
 
         # NOTE - `auth_token` is not used currently
         """
         q = NATSPub(  # pylint: disable=invalid-name
-            address, name + "-stream", name + "-subject"
+            address,
+            name + "-stream",
+            name + "-subject",
         )
         await q.connect()
         return q
 
     @staticmethod
     async def create_sub_queue(
-        address: str, name: str, prefetch: int = 1, auth_token: str = ""
+        address: str,
+        name: str,
+        prefetch: int,
+        auth_token: str,
+        ack_timeout: Optional[int],
     ) -> NATSSub:
         """Create a subscription queue.
 
         # NOTE - `auth_token` is not used currently
         """
         q = NATSSub(  # pylint: disable=invalid-name
-            address, name + "-stream", name + "-subject"
+            address,
+            name + "-stream",
+            name + "-subject",
         )
         q.prefetch = prefetch
         await q.connect()
