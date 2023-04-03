@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v1.1.0 (2023-04-03)
+
+
 ## v1.0.6 (2023-02-28)
 ### Other
 * Fix RabbitMQ `open_sub_one()` Timeout ([#87](https://github.com/Observation-Management-Service/MQClient/issues/87)) ([`062dd54`](https://github.com/Observation-Management-Service/MQClient/commit/062dd54e2b447fd7a84707df49eaf68643295c7b))
