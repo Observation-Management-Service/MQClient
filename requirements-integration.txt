@@ -71,7 +71,7 @@ wipac-dev-tools==1.6.14
     #   wipac-rest-tools
 wipac-keycloak-rest-services==1.3.6
     # via oms-mqclient (setup.py)
-wipac-rest-tools==1.4.16
+wipac-rest-tools==1.4.17
     # via
     #   oms-mqclient (setup.py)
     #   wipac-keycloak-rest-services
