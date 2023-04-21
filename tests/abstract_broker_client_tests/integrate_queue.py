@@ -864,7 +864,12 @@ class PubSubQueue:
                 await p.send(d)
                 _log_send(d)
 
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub = Queue(
+            self.broker_client,
+            name=queue_name,
+            auth_token=auth_token,
+            prefetch=len(DATA_LIST) * 2,
+        )
         sub.timeout = 1
         async with sub.open_sub_manual_acking() as gen:
             messages = []
@@ -898,7 +903,12 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub = Queue(
+            self.broker_client,
+            name=queue_name,
+            auth_token=auth_token,
+            prefetch=len(DATA_LIST) * 2,
+        )
         sub.timeout = 1
         async with sub.open_sub_manual_acking() as gen:
             messages = []

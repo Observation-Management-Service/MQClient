@@ -264,6 +264,8 @@ class Queue:
                 async for msg in sub.iter_messages():
                     print(msg.data)
                     sub.ack(msg)
+                    # if you choose not to nack on an error,
+                    # the broker will take longer to redeliver
 
             async with queue.open_sub_manual_acking() as sub:
                 async for msg in sub.iter_messages():
