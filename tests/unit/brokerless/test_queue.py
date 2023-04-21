@@ -61,7 +61,9 @@ async def test_open_sub() -> None:
     async with q.open_sub() as stream:
         recv_data = [d async for d in stream]
         assert data == recv_data
-        stream._sub.ack_message.assert_has_calls(
+        if not stream._sub:
+            raise RuntimeError("_sub not instantiated")
+        stream._sub.ack_message.assert_has_calls(  # type: ignore[attr-defined]
             [call(Message(i, Message.serialize(d))) for i, d in enumerate(recv_data)]
         )
 
@@ -213,22 +215,24 @@ async def test_nack_current() -> None:
 
     async with q.open_sub() as stream:
         i = 0
+        if not stream._sub:
+            raise RuntimeError("_sub not instantiated")
         # manual nacking won't actually place the message for redelivery b/c of mocking
         async for _ in stream:
             if i == 0:  # nack it
                 await stream.nack_current()
-                stream._sub.reject_message.assert_has_calls([call(msgs[0])])
+                stream._sub.reject_message.assert_has_calls([call(msgs[0])])  # type: ignore[attr-defined]
             elif i == 1:  # DON'T nack it
-                stream._sub.ack_message.assert_not_called()  # from i=0
+                stream._sub.ack_message.assert_not_called()  # type: ignore[attr-defined]  # from i=0
             elif i == 2:  # nack it
-                stream._sub.reject_message.assert_has_calls([call(msgs[0])])
-                stream._sub.ack_message.assert_has_calls([call(msgs[1])])
+                stream._sub.reject_message.assert_has_calls([call(msgs[0])])  # type: ignore[attr-defined]
+                stream._sub.ack_message.assert_has_calls([call(msgs[1])])  # type: ignore[attr-defined]
                 await stream.nack_current()
-                stream._sub.reject_message.assert_has_calls(
+                stream._sub.reject_message.assert_has_calls(  # type: ignore[attr-defined]
                     [call(msgs[0]), call(msgs[2])]
                 )
             else:
                 assert 0
             i += 1
-        stream._sub.ack_message.assert_has_calls([call(msgs[1])])
-        stream._sub.reject_message.assert_has_calls([call(msgs[0]), call(msgs[2])])
+        stream._sub.ack_message.assert_has_calls([call(msgs[1])])  # type: ignore[attr-defined]
+        stream._sub.reject_message.assert_has_calls([call(msgs[0]), call(msgs[2])])  # type: ignore[attr-defined]
