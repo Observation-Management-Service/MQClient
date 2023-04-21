@@ -104,13 +104,13 @@ class Queue:
             self._ack_timeout,
         )
 
-    async def _create_sub_queue(self) -> Sub:
+    async def _create_sub_queue(self, override_prefetch: Optional[int] = None) -> Sub:
         """Wrap `self._broker_client.create_sub_queue()` with instance's
         config."""
         return await self._broker_client.create_sub_queue(
             self._address,
             self._name,
-            self._prefetch,
+            override_prefetch if override_prefetch else self._prefetch,
             self._auth_token,
             self._ack_timeout,
         )
@@ -291,7 +291,9 @@ class Queue:
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
-        sub = await self._create_sub_queue()
+        sub = await self._create_sub_queue(
+            override_prefetch=100  # TODO: could be var / env var
+        )
 
         try:
             yield ManualQueueSubResource(
