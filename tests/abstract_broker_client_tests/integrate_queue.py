@@ -601,3 +601,152 @@ class PubSubQueue:
                 all_recvd.append(_log_recv(d))
 
         assert all_were_received(all_recvd)
+
+    ###########################################################################
+    # tests 200 - 299:
+    #
+    # Tests for open_sub_manual_acking()
+    ###########################################################################
+
+    @pytest.mark.asyncio
+    async def test_200(self, queue_name: str, auth_token: str) -> None:
+        """Test open_sub_manual_acking() fail and recovery, with multiple
+        open_sub_manual_acking() calls."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.next()):
+                print(f"{i}: `{msg}`")
+                if i == 2:
+                    raise TestException()
+                all_recvd.append(_log_recv(msg.data))
+                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+
+        logging.warning("Round 2!")
+
+        # continue where we left off
+        reused = False
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.next()):
+                print(f"{i}: `{msg}`")
+                reused = True
+                all_recvd.append(_log_recv(msg.data))
+                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+        assert reused
+        print(all_recvd)
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    async def test_201(self, queue_name: str, auth_token: str) -> None:
+        """Test open_sub_manual_acking() fail and recovery, with error
+        propagation."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        excepted = False
+        try:
+            sub.timeout = 1
+            sub.except_errors = False
+            async with sub.open_sub_manual_acking() as gen:
+                async for i, msg in asl.enumerate(gen.next()):
+                    if i == 2:
+                        raise TestException()
+                    all_recvd.append(_log_recv(msg.data))
+                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+        except TestException:
+            excepted = True
+        assert excepted
+
+        logging.warning("Round 2!")
+
+        # continue where we left off
+        reused = False
+        sub.timeout = 1
+        sub.except_errors = False
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.next()):
+                reused = True
+                all_recvd.append(_log_recv(msg.data))
+                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+        assert reused
+
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    async def test_210_fail(self, queue_name: str, auth_token: str) -> None:
+        """Failure-test open_sub_manual_acking() with reusing a
+        'QueueSubResource' instance."""
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        recv_gen = sub.open_sub_manual_acking()
+        async with recv_gen as gen:
+            async for i, msg in asl.enumerate(gen.next()):
+                print(f"{i}: `{msg}`")
+                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+
+        logging.warning("Round 2!")
+
+        # continue where we left off
+        with pytest.raises(RuntimeError):
+            async with recv_gen as gen:
+                assert 0  # we should never get here
+
+    @pytest.mark.asyncio
+    async def test_220_break(self, queue_name: str, auth_token: str) -> None:
+        """Test open_sub_manual_acking() with a `break` statement."""
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        all_recvd = []
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.next()):
+                print(f"{i}: `{msg}`")
+                all_recvd.append(_log_recv(msg.data))
+                if i == 2:
+                    break  # NOTE: break is treated as a good exit, so the msg is acked
+
+        logging.warning("Round 2!")
+
+        # continue where we left off
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.next()):
+                print(f"{i}: `{msg}`")
+                all_recvd.append(_log_recv(msg.data))
+
+        assert all_were_received(all_recvd)
