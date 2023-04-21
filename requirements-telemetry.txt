@@ -18,7 +18,7 @@ googleapis-common-protos==1.56.2
     # via
     #   opentelemetry-exporter-jaeger-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
-grpcio==1.53.0
+grpcio==1.54.0
     # via opentelemetry-exporter-jaeger-proto-grpc
 humanfriendly==10.0
     # via coloredlogs
@@ -71,7 +71,7 @@ typing-extensions==4.5.0
     #   wipac-telemetry
 urllib3==1.26.15
     # via requests
-wipac-dev-tools==1.6.14
+wipac-dev-tools==1.6.15
     # via
     #   oms-mqclient (setup.py)
     #   wipac-telemetry

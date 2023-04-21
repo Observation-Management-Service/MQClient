@@ -3,7 +3,7 @@
 <!--- End of README Badges (automated) --->
 # MQClient
 
-A message-queue client API supporting Apache Pulsar, Google's PubSub (GCP), RabbitMQ, and NATS.io through a common interface.
+A message-queue client API supporting Apache Pulsar, RabbitMQ, and NATS.io through a common interface.
 
 ### Running with WIPAC Telemetry
 See https://github.com/WIPACrepo/wipac-telemetry-prototype documentation

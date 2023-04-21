@@ -8,11 +8,11 @@ from mqclient import broker_client_manager
 
 def test_missing_broker_clients() -> None:
     """Test legitimate, but not-installed broker clients."""
-    for name in ["pulsar", "gcp", "rabbitmq", "nats"]:
+    for name in ["pulsar", "rabbitmq", "nats"]:
         with pytest.raises(
             RuntimeError,
             match=re.escape(
-                f"Install 'mqclient[{name}]' if you want to use the '{name}' broker client"
+                f"Install the '{name}' extra if you want to use the '{name}' broker client"
             ),
         ):
             broker_client_manager.get_broker_client(name)

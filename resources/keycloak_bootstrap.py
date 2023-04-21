@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 from functools import partial
+from typing import Any
 
 from krs import bootstrap  # type: ignore[import]
 from krs.token import get_token  # type: ignore[import]
@@ -20,7 +21,7 @@ async def keycloak_bootstrap(
 
     From https://github.com/WIPACrepo/http-data-transfer-client/blob/main/integration_tests/util.py
     """
-    client_secret = bootstrap.bootstrap()  # type: ignore[no-any-return]
+    client_secret = bootstrap.bootstrap()
 
     # monkeypatch.setenv("KEYCLOAK_REALM", "testrealm")  # set env by CI job
     # monkeypatch.setenv("KEYCLOAK_CLIENT_ID", "testclient")  # set env by CI job
@@ -41,6 +42,7 @@ async def keycloak_bootstrap(
     )
 
     # now make http client
+    args: Any
     args = {
         "authenticationFlowBindingOverrides": {},
         "bearerOnly": False,
@@ -129,7 +131,7 @@ async def keycloak_bootstrap(
     await rest_client.request("POST", url, args)
 
     # set up return values
-    args = {
+    ret_kwargs = {
         "oidc_url": f'{os.environ["KEYCLOAK_URL"]}/auth/realms/{os.environ["KEYCLOAK_REALM"]}',
         "client_id": client_id,
     }
@@ -137,11 +139,10 @@ async def keycloak_bootstrap(
         url = f"/clients/{keycloak_client_id}/client-secret"
         ret = await rest_client.request("GET", url)
         if "value" in ret:
-            args["client_secret"] = ret["value"]
+            ret_kwargs["client_secret"] = ret["value"]
         else:
             raise Exception("no client secret")
-
-    return args
+    return ret_kwargs
 
 
 async def main() -> None:

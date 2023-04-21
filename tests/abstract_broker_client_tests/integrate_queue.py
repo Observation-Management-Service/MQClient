@@ -148,8 +148,8 @@ class PubSubQueue:
         def start_recv_thread(num_id: int) -> Any:
             return asyncio.run(recv_thread(num_id))
 
-        with ThreadPool(num_subs) as p:
-            received_data = p.map(start_recv_thread, range(num_subs))
+        with ThreadPool(num_subs) as pool:
+            received_data = pool.map(start_recv_thread, range(num_subs))
         all_recvd.extend(item for sublist in received_data for item in sublist)
 
         assert all_were_received(all_recvd)
@@ -203,8 +203,8 @@ class PubSubQueue:
         def start_recv_thread(num_id: int) -> Any:
             return asyncio.run(recv_thread(num_id))
 
-        with ThreadPool(len(DATA_LIST)) as p:
-            all_recvd = p.map(start_recv_thread, range(len(DATA_LIST)))
+        with ThreadPool(len(DATA_LIST)) as pool:
+            all_recvd = pool.map(start_recv_thread, range(len(DATA_LIST)))
 
         assert all_were_received(all_recvd)
 
@@ -234,8 +234,8 @@ class PubSubQueue:
         def start_recv_thread(num_id: int) -> Any:
             return asyncio.run(recv_thread(num_id))
 
-        with ThreadPool(len(DATA_LIST)) as p:
-            all_recvd = p.map(start_recv_thread, range(len(DATA_LIST)))
+        with ThreadPool(len(DATA_LIST)) as pool:
+            all_recvd = pool.map(start_recv_thread, range(len(DATA_LIST)))
 
         # Extra Sub
         with pytest.raises(Exception):

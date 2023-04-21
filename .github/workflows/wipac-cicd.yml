@@ -14,14 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
-      - uses: WIPACrepo/wipac-dev-flake8-action@v1
+      - uses: WIPACrepo/wipac-dev-flake8-action@v1.0
 
   mypy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
-      # - uses: WIPACrepo/wipac-dev-mypy-action@v1.1
+      - uses: WIPACrepo/wipac-dev-mypy-action@v1.2
 
   py-setup:
     runs-on: ubuntu-latest
@@ -43,7 +43,7 @@ jobs:
           github.ref_type == 'branch' &&
           format('refs/heads/{0}', github.event.repository.default_branch) != github.ref
         name: wipac-dev-py-setup-action (only for non-dependabot non-default branches)
-        uses: WIPACrepo/wipac-dev-py-setup-action@v1.13
+        uses: WIPACrepo/wipac-dev-py-setup-action@v1.15
         with:
           base-keywords: "WIPAC IceCube"
 
@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - id: versions
-        uses: WIPACrepo/wipac-dev-py-versions-action@v2
+        uses: WIPACrepo/wipac-dev-py-versions-action@v2.0
 
   example:
     needs: [py-versions]
@@ -63,7 +63,7 @@ jobs:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        broker_client: [gcp, nats, pulsar, rabbitmq]
+        broker_client: [nats, pulsar, rabbitmq]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -80,10 +80,6 @@ jobs:
           # RabbitMQ
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
             ./resources/docker-rabbitmq.sh "${{ matrix.broker_client }}"
-          # GCP
-          elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
-            export PUBSUB_EMULATOR_HOST=localhost:8085
-            ./resources/local-gcp-emulator.sh
           # NATS
           elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
@@ -95,25 +91,16 @@ jobs:
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }}]
 
-          while true; do  # auto-retry for GCP (it fails to start up in time, often & undeterministically)
-            id=$(date +%s)
-            python examples/worker.py \
-                --broker-client ${{ matrix.broker_client }} \
-                --in-queue "queue1-$id" \
-                --out-queue "queue2-$id" \
-                >> worker.out 2>&1 &
-            failed=no
-            python examples/server.py \
-                --broker-client ${{ matrix.broker_client }} \
-                --work-queue "queue1-$id" \
-                --result-queue "queue2-$id" \
-                || failed=yes
-            if [ "$failed" = "yes" ] && [ "${{ matrix.broker_client }}" = "gcp" ]; then
-              sleep 15
-              continue
-            fi
-            break
-          done
+          id=$(date +%s)
+          python examples/worker.py \
+              --broker-client ${{ matrix.broker_client }} \
+              --in-queue "queue1-$id" \
+              --out-queue "queue2-$id" \
+              >> worker.out 2>&1 &
+          python examples/server.py \
+              --broker-client ${{ matrix.broker_client }} \
+              --work-queue "queue1-$id" \
+              --result-queue "queue2-$id"
 
       - name: worker output
         if: always()
@@ -165,7 +152,7 @@ jobs:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        broker_client: [gcp, nats, pulsar, rabbitmq]
+        broker_client: [nats, pulsar, rabbitmq]
     services:
       keycloak:
         image: ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master
@@ -219,11 +206,6 @@ jobs:
             ./resources/docker-rabbitmq.sh "${{ matrix.broker_client }}" ./resources/rabbitmq-custom.conf
             export PYTEST_DO_AUTH_FOR_MQCLIENT=yes
             export RABBITMQ_HEARTBEAT=60
-          # GCP
-          elif [ "${{ matrix.broker_client }}" = "gcp" ]; then
-            export PUBSUB_EMULATOR_HOST=localhost:8085
-            ./resources/local-gcp-emulator.sh
-            export PYTEST_DO_AUTH_FOR_MQCLIENT=no
           # NATS
           elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
