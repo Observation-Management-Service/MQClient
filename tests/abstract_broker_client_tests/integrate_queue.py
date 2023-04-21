@@ -782,6 +782,8 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
+        errored_msg = None
+
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         excepted = False
         async with sub.open_sub_manual_acking() as gen:
@@ -789,6 +791,7 @@ class PubSubQueue:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
                     if i == 2:
+                        errored_msg = msg.data
                         raise TestException()
                     all_recvd.append(_log_recv(msg.data))
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
@@ -812,9 +815,13 @@ class PubSubQueue:
                 await gen.ack(msg)
         assert posthoc
 
-        # NOT ALL RECEIVED! b/c timeout is not big enough to redeliver un-acked/nacked message
+        # Either all the messages have been gotten (re-opening the connection took longer enough)
+        # OR it hasn't been long enough to redeliver un-acked/nacked message
+        # This is difficult to test -- all we can tell is if it is one of these scenarios
         print(all_recvd)
-        assert not all_were_received(all_recvd)
+        assert all_were_received(all_recvd) or (
+            all_were_received(all_recvd + [errored_msg])
+        )
 
     @pytest.mark.asyncio
     async def test_230__fail_bad_usage(self, queue_name: str, auth_token: str) -> None:
@@ -839,7 +846,8 @@ class PubSubQueue:
         logging.warning("Round 2!")
 
         # continue where we left off
-        with pytest.raises(AttributeError):
+        with pytest.raises((AttributeError, RuntimeError)):
             # AttributeError: '_AsyncGeneratorContextManager' object has no attribute 'args'
+            # RuntimeError: generator didn't yield
             async with recv_gen as gen:
                 assert 0  # we should never get here
