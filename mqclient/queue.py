@@ -222,9 +222,6 @@ class Queue:
                 async for msg in stream:
                     print(msg)
 
-        NOTE: If using the GCP broker_client, a message is allocated for
-        redelivery if the consumer's iteration takes longer than 10 minutes.
-
         Returns:
             QueueSubResource -- context manager and generator object
         """
@@ -248,9 +245,6 @@ class Queue:
         (inside the context), the message is rejected, the context is
         exited, and exception can be re-raised if configured by
         `except_errors`.
-
-        NOTE: If using the GCP broker_client, a message is allocated for
-        redelivery if the context is open for longer than 10 minutes.
 
         Example:
             async with q.open_sub_one() as msg:
@@ -535,7 +529,7 @@ class QueueSubResource:
             carrier="msg.headers",
             carrier_relation=wtt.CarrierRelation.LINK,
         )
-        def get_message_callback(msg: Message) -> Message:
+        def get_message_callback(msg: Optional[Message]) -> Optional[Message]:
             return msg
 
         try:
@@ -566,5 +560,9 @@ class QueueSubResource:
     )
     async def nack_current(self) -> None:
         """Manually nack the current (most recently yielded) message."""
+        if not (self._sub and self._gen):
+            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+        if not self.msg:  # case: calling after iterator stopped (unusual but possible)
+            return
         # pylint:disable=protected-access
         await self.queue._safe_nack(self._sub, self.msg)
