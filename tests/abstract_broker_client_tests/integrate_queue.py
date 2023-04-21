@@ -670,11 +670,13 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_211__immediate_recovery(
+    async def test_211__immediate_recovery_fail(
         self, queue_name: str, auth_token: str
     ) -> None:
-        """Test open_sub_manual_acking() fail and immediate recovery, without
-        nacking."""
+        """Test open_sub_manual_acking() fail, immediate recovery, then fail.
+
+        Final fail is due to not nacking.
+        """
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -704,8 +706,9 @@ class PubSubQueue:
                 else:
                     await gen.ack(msg)
 
+        # NOT ALL RECEIVED! b/c timeout is not big enough to redeliver un-acked/nacked message
         print(all_recvd)
-        assert all_were_received(all_recvd)
+        assert not all_were_received(all_recvd)
 
     @pytest.mark.asyncio
     async def test_220__posthoc_recovery(
@@ -760,11 +763,13 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_221__posthoc_recovery(
+    async def test_221__posthoc_recovery_fail(
         self, queue_name: str, auth_token: str
     ) -> None:
-        """Test open_sub_manual_acking() fail and post-hoc recovery, without
-        nacking."""
+        """Test open_sub_manual_acking() fail, post-hoc recovery, then fail.
+
+        Final fail is due to not nacking.
+        """
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -806,8 +811,10 @@ class PubSubQueue:
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                 await gen.ack(msg)
         assert posthoc
+
+        # NOT ALL RECEIVED! b/c timeout is not big enough to redeliver un-acked/nacked message
         print(all_recvd)
-        assert all_were_received(all_recvd)
+        assert not all_were_received(all_recvd)
 
     @pytest.mark.asyncio
     async def test_230__fail_bad_usage(self, queue_name: str, auth_token: str) -> None:
