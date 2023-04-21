@@ -104,13 +104,13 @@ class Queue:
             self._ack_timeout,
         )
 
-    async def _create_sub_queue(self, override_prefetch: Optional[int] = None) -> Sub:
+    async def _create_sub_queue(self, prefetch_override: Optional[int] = None) -> Sub:
         """Wrap `self._broker_client.create_sub_queue()` with instance's
         config."""
         return await self._broker_client.create_sub_queue(
             self._address,
             self._name,
-            override_prefetch if override_prefetch else self._prefetch,
+            prefetch_override if prefetch_override else self._prefetch,
             self._auth_token,
             self._ack_timeout,
         )
@@ -242,6 +242,7 @@ class Queue:
     )
     async def open_sub_manual_acking(
         self,
+        preacked_limit: Optional[int] = None,
     ) -> AsyncGenerator["ManualQueueSubResource", None]:
         """Open a resource to receive messages from the queue as an iterator.
 
@@ -258,6 +259,12 @@ class Queue:
 
         **NOTE: unless you need to parallelize your message processing,
         use `open_sub()`**
+
+        Args:
+            preacked_limit (int, optional):
+                how many messages are expected to be pending before being
+                acked. If not given, the `self.prefetch` is used. The
+                strictness of this enforcement varies per backend
 
         Examples:
             async with queue.open_sub_manual_acking() as sub:
@@ -276,7 +283,7 @@ class Queue:
                     else:
                         await sub.ack(msg)
 
-            async with queue.open_sub_manual_acking() as sub:
+            async with queue.open_sub_manual_acking(preacked_limit=5) as sub:
                 messages = []
                 async for msg in sub.iter_messages():
                     try:
@@ -291,9 +298,7 @@ class Queue:
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
-        sub = await self._create_sub_queue(
-            override_prefetch=100  # TODO: could be var / env var
-        )
+        sub = await self._create_sub_queue(prefetch_override=preacked_limit)
 
         try:
             yield ManualQueueSubResource(
