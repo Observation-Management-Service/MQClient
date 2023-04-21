@@ -609,7 +609,33 @@ class PubSubQueue:
     ###########################################################################
 
     @pytest.mark.asyncio
-    async def test_200(self, queue_name: str, auth_token: str) -> None:
+    async def test_200__ideal(self, queue_name: str, auth_token: str) -> None:
+        """Test open_sub_manual_acking() ideal scenario."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                print(f"{i}: `{msg.data}`")
+                all_recvd.append(_log_recv(msg.data))
+                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                await gen.ack(msg)
+
+        print(all_recvd)
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    async def test_210__immediate_recovery(
+        self, queue_name: str, auth_token: str
+    ) -> None:
         """Test open_sub_manual_acking() fail and immediate recovery, with
         nacking."""
         all_recvd: List[Any] = []
@@ -644,7 +670,9 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_201(self, queue_name: str, auth_token: str) -> None:
+    async def test_211__immediate_recovery(
+        self, queue_name: str, auth_token: str
+    ) -> None:
         """Test open_sub_manual_acking() fail and immediate recovery, without
         nacking."""
         all_recvd: List[Any] = []
@@ -680,7 +708,9 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_210(self, queue_name: str, auth_token: str) -> None:
+    async def test_220__posthoc_recovery(
+        self, queue_name: str, auth_token: str
+    ) -> None:
         """Test open_sub_manual_acking() fail and post-hoc recovery, with
         nacking."""
         all_recvd: List[Any] = []
@@ -699,7 +729,7 @@ class PubSubQueue:
         excepted = False
         try:
             sub.timeout = 1
-            sub.except_errors = False
+            # sub.except_errors = False  # has no effect
             async with sub.open_sub_manual_acking() as gen:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
@@ -730,7 +760,9 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_211(self, queue_name: str, auth_token: str) -> None:
+    async def test_221__posthoc_recovery(
+        self, queue_name: str, auth_token: str
+    ) -> None:
         """Test open_sub_manual_acking() fail and post-hoc recovery, without
         nacking."""
         all_recvd: List[Any] = []
@@ -749,7 +781,7 @@ class PubSubQueue:
         excepted = False
         try:
             sub.timeout = 1
-            sub.except_errors = False
+            # sub.except_errors = False  # has no effect
             async with sub.open_sub_manual_acking() as gen:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
@@ -780,7 +812,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_220_fail(self, queue_name: str, auth_token: str) -> None:
+    async def test_230__fail_bad_usage(self, queue_name: str, auth_token: str) -> None:
         """Failure-test open_sub_manual_acking() with reusing a
         'QueueSubResource' instance."""
         async with Queue(
