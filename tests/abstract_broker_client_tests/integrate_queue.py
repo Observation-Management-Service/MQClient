@@ -610,7 +610,8 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_200(self, queue_name: str, auth_token: str) -> None:
-        """Test open_sub_manual_acking() fail and recovery, with nacking."""
+        """Test open_sub_manual_acking() fail and immediate recovery, with
+        nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -639,25 +640,49 @@ class PubSubQueue:
                 else:
                     await gen.ack(msg)
 
-        logging.warning("Round 2!")
-
-        # continue where we left off
-        reused = False
-        sub.timeout = 1
-        async with sub.open_sub_manual_acking() as gen:
-            async for i, msg in asl.enumerate(gen.iter_messages()):
-                print(f"{i}: `{msg.data}`")
-                reused = True
-                all_recvd.append(_log_recv(msg.data))
-                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                await gen.ack(msg)
-        assert reused
         print(all_recvd)
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
     async def test_201(self, queue_name: str, auth_token: str) -> None:
-        """Test open_sub_manual_acking() fail and recovery, without nacking."""
+        """Test open_sub_manual_acking() fail and immediate recovery, without
+        nacking."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                try:
+                    # DO WORK!
+                    print(f"{i}: `{msg.data}`")
+                    if i == 2:
+                        raise TestException()
+                    all_recvd.append(_log_recv(msg.data))
+                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                except Exception:
+                    # await gen.nack(msg)
+                    pass
+                else:
+                    await gen.ack(msg)
+
+        print(all_recvd)
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    async def test_210(self, queue_name: str, auth_token: str) -> None:
+        """Test open_sub_manual_acking() fail and post-hoc recovery, with
+        nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -677,6 +702,7 @@ class PubSubQueue:
             sub.except_errors = False
             async with sub.open_sub_manual_acking() as gen:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
+                    print(f"{i}: `{msg.data}`")
                     if i == 2:
                         raise TestException()
                     all_recvd.append(_log_recv(msg.data))
@@ -684,27 +710,77 @@ class PubSubQueue:
                     await gen.ack(msg)
         except TestException:
             excepted = True
-            # don't nack
+            await gen.nack(msg)
         assert excepted
 
         logging.warning("Round 2!")
 
         # continue where we left off
-        reused = False
+        posthoc = False
         sub.timeout = 1
         async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
-                reused = True
+                posthoc = True
                 all_recvd.append(_log_recv(msg.data))
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                 await gen.ack(msg)
-        assert reused
+        assert posthoc
         print(all_recvd)
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_210_fail(self, queue_name: str, auth_token: str) -> None:
+    async def test_211(self, queue_name: str, auth_token: str) -> None:
+        """Test open_sub_manual_acking() fail and post-hoc recovery, without
+        nacking."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        excepted = False
+        try:
+            sub.timeout = 1
+            sub.except_errors = False
+            async with sub.open_sub_manual_acking() as gen:
+                async for i, msg in asl.enumerate(gen.iter_messages()):
+                    print(f"{i}: `{msg.data}`")
+                    if i == 2:
+                        raise TestException()
+                    all_recvd.append(_log_recv(msg.data))
+                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                    await gen.ack(msg)
+        except TestException:
+            excepted = True
+            # await gen.ack(msg)  # no acking
+        assert excepted
+
+        logging.warning("Round 2!")
+
+        # continue where we left off
+        posthoc = False
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                print(f"{i}: `{msg.data}`")
+                posthoc = True
+                all_recvd.append(_log_recv(msg.data))
+                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                await gen.ack(msg)
+        assert posthoc
+        print(all_recvd)
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    async def test_220_fail(self, queue_name: str, auth_token: str) -> None:
         """Failure-test open_sub_manual_acking() with reusing a
         'QueueSubResource' instance."""
         async with Queue(

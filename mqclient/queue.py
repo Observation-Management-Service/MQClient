@@ -265,6 +265,15 @@ class Queue:
                     print(msg.data)
                     sub.ack(msg)
 
+            async with queue.open_sub_manual_acking() as sub:
+                async for msg in sub.iter_messages():
+                    try:
+                        process_message(msg.data)
+                    except Exception:
+                        await gen.nack(msg)
+                    else:
+                        await gen.ack(msg)
+
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
