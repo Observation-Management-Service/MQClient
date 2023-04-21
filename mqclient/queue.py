@@ -270,9 +270,9 @@ class Queue:
                     try:
                         process_message(msg.data)
                     except Exception:
-                        await gen.nack(msg)
+                        await sub.nack(msg)
                     else:
-                        await gen.ack(msg)
+                        await sub.ack(msg)
 
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
