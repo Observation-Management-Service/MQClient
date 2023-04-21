@@ -727,10 +727,10 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         excepted = False
-        try:
-            sub.timeout = 1
-            # sub.except_errors = False  # has no effect
-            async with sub.open_sub_manual_acking() as gen:
+        sub.timeout = 1
+        # sub.except_errors = False  # has no effect
+        async with sub.open_sub_manual_acking() as gen:
+            try:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
                     if i == 2:
@@ -738,9 +738,9 @@ class PubSubQueue:
                     all_recvd.append(_log_recv(msg.data))
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                     await gen.ack(msg)
-        except TestException:
-            excepted = True
-            await gen.nack(msg)
+            except TestException:
+                excepted = True
+                await gen.nack(msg)
         assert excepted
 
         logging.warning("Round 2!")
@@ -779,10 +779,8 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         excepted = False
-        try:
-            sub.timeout = 1
-            # sub.except_errors = False  # has no effect
-            async with sub.open_sub_manual_acking() as gen:
+        async with sub.open_sub_manual_acking() as gen:
+            try:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
                     if i == 2:
@@ -790,9 +788,9 @@ class PubSubQueue:
                     all_recvd.append(_log_recv(msg.data))
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                     await gen.ack(msg)
-        except TestException:
-            excepted = True
-            # await gen.ack(msg)  # no acking
+            except TestException:
+                excepted = True
+                # await gen.nack(msg)  # no acking
         assert excepted
 
         logging.warning("Round 2!")
