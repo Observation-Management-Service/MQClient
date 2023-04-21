@@ -5,7 +5,16 @@ import logging
 import sys
 import types
 import uuid
-from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Dict,
+    Optional,
+    Type,
+)
 
 from . import broker_client_manager
 from . import telemetry as wtt
@@ -288,6 +297,34 @@ class Queue:
         finally:
             await sub.close()
 
+    @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
+    @wtt.spanned(
+        these=[
+            "self._broker_client",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ]
+    )
+    async def open_sub_manual_acking(self) -> AsyncIterator["ManualQueueSubResource"]:
+        """A bare-bones sub function.
+
+        TODO - elaborate
+
+        All acking and/or nacking needs to be done by caller.
+        """
+        sub = await self._create_sub_queue()
+
+        try:
+            yield ManualQueueSubResource(
+                lambda: sub.get_message(self.timeout * 1000),
+                lambda msg: self._safe_ack(sub, msg),
+                lambda msg: self._safe_nack(sub, msg),
+            )
+        finally:
+            await sub.close()
+
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
         return (
@@ -319,8 +356,43 @@ class QueuePubResource:
         await self.pub.send_message(msg_bytes)
 
 
+class ManualQueueSubResource:
+    """A manager class around `Sub.get_message()`."""
+
+    def __init__(
+        self,
+        get_message_function: Callable[[], Awaitable[Optional[Message]]],
+        ack_function: Callable[[Message], Awaitable[None]],
+        nack_function: Callable[[Message], Awaitable[None]],
+    ) -> None:
+        self._get_message = get_message_function
+        self.ack = ack_function
+        self.nack = nack_function
+
+    async def get(self) -> Message:
+        """Get a message."""
+
+        @wtt.spanned(
+            kind=wtt.SpanKind.CONSUMER,
+            carrier="msg.headers",
+            carrier_relation=wtt.CarrierRelation.LINK,
+        )
+        def add_span_link(msg: Message) -> Message:
+            return msg
+
+        raw_msg = await self._get_message()
+        if not raw_msg:  # no message -> close and exit
+            raise EmptyQueueException(
+                "No message is available (`timeout` value may be too low)"
+            )
+
+        msg = add_span_link(raw_msg)  # got a message -> link and proceed
+        LOGGER.info(f"Received Message: {_message_size_message(msg)}")
+        return msg
+
+
 class QueueSubResource:
-    """An async context manager wrapping `Sub.message_generator()`."""
+    """An async context-manager generator, wraps `Sub.message_generator()`."""
 
     RUNTIME_ERROR_CONTEXT_STRING = (
         "'QueueSubResource' object's runtime "
