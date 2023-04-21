@@ -610,8 +610,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_200(self, queue_name: str, auth_token: str) -> None:
-        """Test open_sub_manual_acking() fail and recovery, with multiple
-        open_sub_manual_acking() calls."""
+        """Test open_sub_manual_acking() fail and recovery, with nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -628,12 +627,17 @@ class PubSubQueue:
         sub.timeout = 1
         async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
-                print(f"{i}: `{msg.data}`")
-                if i == 2:
-                    raise TestException()
-                all_recvd.append(_log_recv(msg.data))
-                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                await gen.ack(msg)
+                try:
+                    # DO WORK!
+                    print(f"{i}: `{msg.data}`")
+                    if i == 2:
+                        raise TestException()
+                    all_recvd.append(_log_recv(msg.data))
+                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                except Exception:
+                    await gen.nack(msg)
+                else:
+                    await gen.ack(msg)
 
         logging.warning("Round 2!")
 
@@ -653,8 +657,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     async def test_201(self, queue_name: str, auth_token: str) -> None:
-        """Test open_sub_manual_acking() fail and recovery, with error
-        propagation."""
+        """Test open_sub_manual_acking() fail and recovery, without nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -681,6 +684,7 @@ class PubSubQueue:
                     await gen.ack(msg)
         except TestException:
             excepted = True
+            # don't nack
         assert excepted
 
         logging.warning("Round 2!")
@@ -688,15 +692,15 @@ class PubSubQueue:
         # continue where we left off
         reused = False
         sub.timeout = 1
-        sub.except_errors = False
         async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
+                print(f"{i}: `{msg.data}`")
                 reused = True
                 all_recvd.append(_log_recv(msg.data))
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                 await gen.ack(msg)
         assert reused
-
+        print(all_recvd)
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
