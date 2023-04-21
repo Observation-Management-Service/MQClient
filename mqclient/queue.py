@@ -213,9 +213,6 @@ class Queue:
                 async for msg in stream:
                     print(msg)
 
-        NOTE: If using the GCP broker_client, a message is allocated for
-        redelivery if the consumer's iteration takes longer than 10 minutes.
-
         Returns:
             QueueSubResource -- context manager and generator object
         """
@@ -239,9 +236,6 @@ class Queue:
         (inside the context), the message is rejected, the context is
         exited, and exception can be re-raised if configured by
         `except_errors`.
-
-        NOTE: If using the GCP broker_client, a message is allocated for
-        redelivery if the context is open for longer than 10 minutes.
 
         Example:
             async with q.open_sub_one() as msg:
