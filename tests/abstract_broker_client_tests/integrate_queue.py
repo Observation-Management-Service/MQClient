@@ -851,3 +851,71 @@ class PubSubQueue:
             # RuntimeError: generator didn't yield
             async with recv_gen as gen:
                 assert 0  # we should never get here
+
+    @pytest.mark.asyncio
+    async def test_240__delayed_acking(self, queue_name: str, auth_token: str) -> None:
+        """Test open_sub_manual_acking() ideal scenario with multi-tasking."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking() as gen:
+            messages = []
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                print(f"{i}: `{msg.data}`")
+                all_recvd.append(_log_recv(msg.data))
+                messages.append(msg)
+                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+
+            for msg in messages:
+                await gen.ack(msg)
+
+        print(all_recvd)
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    async def test_241__delayed_acking__nacking(
+        self, queue_name: str, auth_token: str
+    ) -> None:
+        """Test open_sub_manual_acking() fail and immediate recovery with
+        multi-tasking, with nacking."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking() as gen:
+            messages = []
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                try:
+                    # DO WORK!
+                    print(f"{i}: `{msg.data}`")
+                    if i == 2:
+                        raise TestException()
+                    all_recvd.append(_log_recv(msg.data))
+                    messages.append(msg)
+                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                except Exception:
+                    await gen.nack(msg)
+
+            for msg in messages:
+                await gen.ack(msg)
+
+        print(all_recvd)
+        assert all_were_received(all_recvd)

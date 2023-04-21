@@ -259,7 +259,7 @@ class Queue:
         **NOTE: unless you need to parallelize your message processing,
         use `open_sub()`**
 
-        Example:
+        Examples:
             async with queue.open_sub_manual_acking() as sub:
                 async for msg in sub.iter_messages():
                     print(msg.data)
@@ -273,6 +273,18 @@ class Queue:
                         await sub.nack(msg)
                     else:
                         await sub.ack(msg)
+
+            async with queue.open_sub_manual_acking() as sub:
+                messages = []
+                async for msg in sub.iter_messages():
+                    try:
+                        process_message(msg.data)
+                        messages.append(msg)
+                    except Exception:
+                        await sub.nack(msg)
+
+                for msg in messages:
+                    await sub.ack(msg)
 
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
