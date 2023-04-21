@@ -633,7 +633,7 @@ class PubSubQueue:
                     raise TestException()
                 all_recvd.append(_log_recv(msg.data))
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                gen.ack(msg)
+                await gen.ack(msg)
 
         logging.warning("Round 2!")
 
@@ -646,7 +646,7 @@ class PubSubQueue:
                 reused = True
                 all_recvd.append(_log_recv(msg.data))
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                gen.ack(msg)
+                await gen.ack(msg)
         assert reused
         print(all_recvd)
         assert all_were_received(all_recvd)
@@ -678,7 +678,7 @@ class PubSubQueue:
                         raise TestException()
                     all_recvd.append(_log_recv(msg.data))
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                    gen.ack(msg)
+                    await gen.ack(msg)
         except TestException:
             excepted = True
         assert excepted
@@ -694,7 +694,7 @@ class PubSubQueue:
                 reused = True
                 all_recvd.append(_log_recv(msg.data))
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                gen.ack(msg)
+                await gen.ack(msg)
         assert reused
 
         assert all_were_received(all_recvd)
@@ -717,7 +717,7 @@ class PubSubQueue:
             async for i, msg in asl.enumerate(gen.next()):
                 print(f"{i}: `{msg}`")
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                gen.ack(msg)
+                await gen.ack(msg)
 
         logging.warning("Round 2!")
 
