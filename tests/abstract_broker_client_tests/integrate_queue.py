@@ -627,8 +627,8 @@ class PubSubQueue:
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
         async with sub.open_sub_manual_acking() as gen:
-            async for i, msg in asl.enumerate(gen.next()):
-                print(f"{i}: `{msg}`")
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                print(f"{i}: `{msg.data}`")
                 if i == 2:
                     raise TestException()
                 all_recvd.append(_log_recv(msg.data))
@@ -641,8 +641,8 @@ class PubSubQueue:
         reused = False
         sub.timeout = 1
         async with sub.open_sub_manual_acking() as gen:
-            async for i, msg in asl.enumerate(gen.next()):
-                print(f"{i}: `{msg}`")
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                print(f"{i}: `{msg.data}`")
                 reused = True
                 all_recvd.append(_log_recv(msg.data))
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
@@ -673,7 +673,7 @@ class PubSubQueue:
             sub.timeout = 1
             sub.except_errors = False
             async with sub.open_sub_manual_acking() as gen:
-                async for i, msg in asl.enumerate(gen.next()):
+                async for i, msg in asl.enumerate(gen.iter_messages()):
                     if i == 2:
                         raise TestException()
                     all_recvd.append(_log_recv(msg.data))
@@ -690,7 +690,7 @@ class PubSubQueue:
         sub.timeout = 1
         sub.except_errors = False
         async with sub.open_sub_manual_acking() as gen:
-            async for i, msg in asl.enumerate(gen.next()):
+            async for i, msg in asl.enumerate(gen.iter_messages()):
                 reused = True
                 all_recvd.append(_log_recv(msg.data))
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
@@ -714,14 +714,15 @@ class PubSubQueue:
         sub.timeout = 1
         recv_gen = sub.open_sub_manual_acking()
         async with recv_gen as gen:
-            async for i, msg in asl.enumerate(gen.next()):
-                print(f"{i}: `{msg}`")
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                print(f"{i}: `{msg.data}`")
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                 await gen.ack(msg)
 
         logging.warning("Round 2!")
 
         # continue where we left off
-        with pytest.raises(RuntimeError):
+        with pytest.raises(AttributeError):
+            # AttributeError: '_AsyncGeneratorContextManager' object has no attribute 'args'
             async with recv_gen as gen:
                 assert 0  # we should never get here

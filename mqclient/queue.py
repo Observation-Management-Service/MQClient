@@ -213,13 +213,15 @@ class Queue:
         This returns a context-manager/generator. Its iterator stops when no
         messages are received for `timeout` seconds. If an exception is raised
         (inside the context), the message is rejected, the context is exited,
-        and exception can be re-raised if configured by `except_errors`.
+        and exception is re-raised if configured by `except_errors`. The
+        connection is closed after the context manager exits.
+
         Multiple calls to `open_sub()` is okay, but reusing the returned
         instance is not.
 
         Example:
-            async with queue.open_sub() as stream:
-                async for msg in stream:
+            async with queue.open_sub() as sub:
+                async for msg in sub:
                     print(msg)
 
         Returns:
@@ -227,6 +229,55 @@ class Queue:
         """
         LOGGER.debug("Creating new QueueSubResource instance.")
         return QueueSubResource(self)
+
+    @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
+    @wtt.spanned(
+        these=[
+            "self._broker_client",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ]
+    )
+    async def open_sub_manual_acking(
+        self,
+    ) -> AsyncGenerator["ManualQueueSubResource", None]:
+        """Open a resource to receive messages from the queue as an iterator.
+
+        This returns a context-manager with an iterator function `iter_messages()`.
+        The iterator stops when no messages are received for `timeout` seconds.
+        Multiple calls to `open_sub()` is okay, but reusing the returned
+        instance is not.
+
+        The connection is closed after the context manager exits.
+
+        *Unlike `open_sub()`*, the caller is responsible for:
+            - All acking and/or nacking
+            - Any error handling
+
+        **NOTE: unless you need to parallelize your message processing,
+        use `open_sub()`**
+
+        Example:
+            async with queue.open_sub_manual_acking() as sub:
+                async for msg in sub.iter_messages():
+                    print(msg.data)
+                    sub.ack(msg)
+
+        Returns:
+            ManualQueueSubResource -- context manager w/ iterator function
+        """
+        sub = await self._create_sub_queue()
+
+        try:
+            yield ManualQueueSubResource(
+                lambda: sub.get_message(self.timeout * 1000),
+                lambda msg: self._safe_ack(sub, msg),
+                lambda msg: self._safe_nack(sub, msg),
+            )
+        finally:
+            await sub.close()
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
@@ -291,34 +342,6 @@ class Queue:
         finally:
             await sub.close()
 
-    @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
-    @wtt.spanned(
-        these=[
-            "self._broker_client",
-            "self._address",
-            "self._name",
-            "self._prefetch",
-            "self.timeout",
-        ]
-    )
-    async def open_sub_manual_acking(self) -> AsyncIterator["ManualQueueSubResource"]:
-        """A bare-bones sub function.
-
-        TODO - elaborate
-
-        All acking and/or nacking needs to be done by caller.
-        """
-        sub = await self._create_sub_queue()
-
-        try:
-            yield ManualQueueSubResource(
-                lambda: sub.get_message(self.timeout * 1000),
-                lambda msg: self._safe_ack(sub, msg),
-                lambda msg: self._safe_nack(sub, msg),
-            )
-        finally:
-            await sub.close()
-
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
         return (
@@ -363,7 +386,7 @@ class ManualQueueSubResource:
         self.ack = ack_function
         self.nack = nack_function
 
-    async def next(self) -> AsyncIterator[Message]:
+    async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
 
         @wtt.spanned(
