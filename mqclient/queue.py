@@ -363,8 +363,8 @@ class ManualQueueSubResource:
         self.ack = ack_function
         self.nack = nack_function
 
-    async def get(self) -> Message:
-        """Get a message."""
+    async def next(self) -> AsyncIterator[Message]:
+        """Yield a message."""
 
         @wtt.spanned(
             kind=wtt.SpanKind.CONSUMER,
@@ -374,15 +374,14 @@ class ManualQueueSubResource:
         def add_span_link(msg: Message) -> Message:
             return msg
 
-        raw_msg = await self._get_message()
-        if not raw_msg:  # no message -> close and exit
-            raise EmptyQueueException(
-                "No message is available (`timeout` value may be too low)"
-            )
+        while True:
+            raw_msg = await self._get_message()
+            if not raw_msg:  # no message -> close and exit
+                return
 
-        msg = add_span_link(raw_msg)  # got a message -> link and proceed
-        LOGGER.info(f"Received Message: {_message_size_message(msg)}")
-        return msg
+            msg = add_span_link(raw_msg)  # got a message -> link and proceed
+            LOGGER.info(f"Received Message: {_message_size_message(msg)}")
+            yield msg
 
 
 class QueueSubResource:
