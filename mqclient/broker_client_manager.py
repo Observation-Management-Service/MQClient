@@ -11,12 +11,6 @@ try:
     _INSTALLED_BROKERS["pulsar"] = apachepulsar
 except (ModuleNotFoundError, ImportError):
     _INSTALLED_BROKERS["pulsar"] = None
-# GCP
-try:
-    from .broker_clients import gcp
-    _INSTALLED_BROKERS["gcp"] = gcp
-except (ModuleNotFoundError, ImportError):
-    _INSTALLED_BROKERS["gcp"] = None
 # NATS
 try:
     from .broker_clients import nats
