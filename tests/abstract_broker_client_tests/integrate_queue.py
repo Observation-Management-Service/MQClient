@@ -975,11 +975,10 @@ class PubSubQueue:
             "are_messages_pending_ack_at_limit"
             in mqclient.broker_client_interface.Sub.__dict__
         )
-        module = importlib.import_module(
-            Queue(self.broker_client)._broker_client.__module__
-        )
-        if "are_messages_pending_ack_at_limit" not in getattr(module, "Sub").__dict__:
-            return
+        mod_name = Queue(self.broker_client)._broker_client.__module__
+        with open(importlib.import_module(mod_name).__file__) as f:  # type: ignore[arg-type]
+            if any("are_messages_pending_ack_at_limit" in ln for ln in f.readlines()):
+                return
 
         all_recvd: List[Any] = []
 
