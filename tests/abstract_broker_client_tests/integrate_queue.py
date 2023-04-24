@@ -3,11 +3,13 @@
 # pylint:disable=invalid-name,too-many-public-methods,redefined-outer-name,unused-import
 
 import asyncio
+import importlib
 import logging
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
 
 import asyncstdlib as asl
+import mqclient
 import pytest
 from mqclient.queue import AckPendingLimitSurpassedException, Queue
 
@@ -969,6 +971,16 @@ class PubSubQueue:
     ) -> None:
         """Test open_sub_manual_acking() w/ delayed acking AND surpass
         `ack_pending_limit`."""
+        assert (
+            "are_messages_pending_ack_at_limit"
+            in mqclient.broker_client_interface.Sub.__dict__
+        )
+        module = importlib.import_module(
+            Queue(self.broker_client)._broker_client.__module__
+        )
+        if "are_messages_pending_ack_at_limit" not in getattr(module, "Sub").__dict__:
+            return
+
         all_recvd: List[Any] = []
 
         async with Queue(
