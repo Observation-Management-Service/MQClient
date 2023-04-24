@@ -129,6 +129,11 @@ class Pub(RawQueue):
 class Sub(RawQueue):
     """Subscriber queue."""
 
+    @property
+    def prefetch(self) -> int:
+        """Get prefetch."""
+        return self._prefetch  # type: ignore[attr-defined, no-any-return]
+
     @staticmethod
     def _to_message(*args: Any) -> Optional[Message]:
         """Convert broker_client-specific payload to standardized Message type."""

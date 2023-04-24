@@ -147,12 +147,13 @@ class PulsarSub(Pulsar, Sub):
         subscription_name: str,
         auth_token: str,
         ack_timeout: Optional[int],
+        prefetch: int,
     ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_SUB} ({address}; {topic})")
         super().__init__(address, topic, auth_token, ack_timeout)
         self.consumer: pulsar.Consumer = None
         self.subscription_name = subscription_name
-        self.prefetch = 1
+        self._prefetch = prefetch  # see `Sub.prefetch` property
 
     async def connect(self) -> None:
         """Connect to subscriber."""
@@ -370,7 +371,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
             BrokerClient.SUBSCRIPTION_NAME,
             auth_token,
             ack_timeout,
+            prefetch,
         )
-        q.prefetch = prefetch
         await q.connect()
         return q

@@ -204,11 +204,11 @@ class RabbitMQSub(RabbitMQ, Sub):
         Sub
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, prefetch: int, **kwargs: Any) -> None:
         LOGGER.debug(f"{log_msgs.INIT_SUB} ({args}; {kwargs})")
         super().__init__(*args, **kwargs)
         self.consumer_id = None
-        self.prefetch = 1
+        self._prefetch = prefetch  # see `Sub.prefetch` property
 
     async def connect(self) -> None:
         """Set up connection, channel, and queue.
@@ -472,7 +472,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
             RawQueue: queue
         """
         # pylint: disable=invalid-name
-        q = RabbitMQSub(address, name, auth_token, ack_timeout)
-        q.prefetch = prefetch
+        q = RabbitMQSub(address, name, auth_token, ack_timeout, prefetch=prefetch)
         await q.connect()
         return q
