@@ -438,6 +438,7 @@ class ManualQueueSubResource:
             return msg
 
         while True:
+            self.are_messages_pending_ack_at_limit()  # TODO - remove
             raw_msg = await self._get_message()
             if not raw_msg:  # no message -> close and exit
                 if self.are_messages_pending_ack_at_limit():
