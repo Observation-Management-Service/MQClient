@@ -264,8 +264,8 @@ class Queue:
             ack_pending_limit (int, optional):
                 how many messages are expected to be pending before being
                 acked. If not given, the `self.prefetch` is used. If you
-                surpass this limit, the iterator may exit. The strictness
-                of this enforcement varies per backend.
+                surpass this limit, the iterator will raise a
+                `AckPendingLimitSurpassedException`.
 
         Examples:
             async with queue.open_sub_manual_acking() as sub:
@@ -306,7 +306,7 @@ class Queue:
                 lambda: sub.get_message(self.timeout * 1000),
                 lambda msg: self._safe_ack(sub, msg),
                 lambda msg: self._safe_nack(sub, msg),
-                sub.are_messages_pending_ack_at_limit,
+                ack_pending_limit=sub.prefetch,
             )
         finally:
             await sub.close()
@@ -417,14 +417,13 @@ class ManualQueueSubResource:
         get_message_function: Callable[[], Awaitable[Optional[Message]]],
         ack_function: Callable[[Message], Awaitable[None]],
         nack_function: Callable[[Message], Awaitable[None]],
-        are_messages_pending_ack_at_limit_function: Callable[[], bool],
+        ack_pending_limit: int,
     ) -> None:
         self._get_message = get_message_function
-        self.ack = ack_function
-        self.nack = nack_function
-        self.are_messages_pending_ack_at_limit = (
-            are_messages_pending_ack_at_limit_function
-        )
+        self._ack_function = ack_function
+        self._nack_function = nack_function
+        self._ack_pending = 0
+        self._ack_pending_limit = ack_pending_limit
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
@@ -438,17 +437,27 @@ class ManualQueueSubResource:
             return msg
 
         while True:
-            self.are_messages_pending_ack_at_limit()  # TODO - remove
+            if self._ack_pending >= self._ack_pending_limit:
+                raise AckPendingLimitSurpassedException()
+
             raw_msg = await self._get_message()
             if not raw_msg:  # no message -> close and exit
-                if self.are_messages_pending_ack_at_limit():
-                    # check after _get_message b/c undefined @ start (when no messages yet received)
-                    raise AckPendingLimitSurpassedException()
                 return
 
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
             LOGGER.info(f"Received Message: {_message_size_message(msg)}")
+            self._ack_pending += 1
             yield msg
+
+    async def ack(self, msg: Message) -> None:
+        """Acknowledge the message."""
+        await self._ack_function(msg)
+        self._ack_pending -= 1
+
+    async def nack(self, msg: Message) -> None:
+        """Acknowledge the message."""
+        await self._nack_function(msg)
+        self._ack_pending -= 1
 
 
 class QueueSubResource:

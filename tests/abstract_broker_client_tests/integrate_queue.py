@@ -972,23 +972,6 @@ class PubSubQueue:
     ) -> None:
         """Test open_sub_manual_acking() w/ delayed acking AND surpass
         `ack_pending_limit`."""
-
-        # FIRST: check that this test is applicable
-        central_method = "are_messages_pending_ack_at_limit"
-        # put this here in case method name gets refactored
-        assert central_method in mqclient.broker_client_interface.Sub.__dict__
-        # check if the backend client implements the method
-        with open(
-            inspect.getfile(
-                importlib.import_module(
-                    Queue(self.broker_client)._broker_client.__module__
-                )
-            )
-        ) as f:
-            if not any(central_method in ln for ln in f.readlines()):
-                return
-
-        # NOW: precede as normal
         all_recvd: List[Any] = []
 
         async with Queue(

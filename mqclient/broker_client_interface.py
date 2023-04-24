@@ -135,17 +135,10 @@ class Sub(RawQueue):
         """Get prefetch."""
         return self._prefetch  # type: ignore[attr-defined, no-any-return]
 
-    def are_messages_pending_ack_at_limit(self) -> bool:
-        """Return whether the Sub cannot receive more messages due to limit.
-
-        NOTE: If no messages have been received, this method may produce false results
-        """
-        # NOTE: only backends that can implement this need to -- not all will
-        return False
-
     @staticmethod
     def _to_message(*args: Any) -> Optional[Message]:
-        """Convert broker_client-specific payload to standardized Message type."""
+        """Convert broker_client-specific payload to standardized Message
+        type."""
         raise NotImplementedError()
 
     async def get_message(
