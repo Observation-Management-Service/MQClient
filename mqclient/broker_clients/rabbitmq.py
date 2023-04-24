@@ -214,6 +214,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         """Return whether the Sub cannot receive more messages due to limit."""
         if not self.channel:
             raise RuntimeError("queue is not connected")
+        LOGGER.warning(f"{self.channel.get_waiting_message_count()=}")
         return bool(self.channel.get_waiting_message_count() <= 0)
 
     async def connect(self) -> None:
