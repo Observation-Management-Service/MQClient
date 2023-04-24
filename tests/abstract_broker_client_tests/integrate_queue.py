@@ -978,9 +978,12 @@ class PubSubQueue:
         )
         mod_name = Queue(self.broker_client)._broker_client.__module__
         logging.warning(mod_name)
-        logging.warning(inspect.getfile(mod_name))
-        with open(inspect.getfile(mod_name)) as f:  # type: ignore[arg-type]
-            if any("are_messages_pending_ack_at_limit" in ln for ln in f.readlines()):
+        module = importlib.import_module(mod_name)
+        logging.warning(inspect.getfile(module))
+        with open(inspect.getfile(module)) as f:
+            if not any(
+                "are_messages_pending_ack_at_limit" in ln for ln in f.readlines()
+            ):
                 return
 
         all_recvd: List[Any] = []
