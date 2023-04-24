@@ -901,7 +901,7 @@ class PubSubQueue:
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
         async with sub.open_sub_manual_acking(preacked_limit=len(DATA_LIST)) as gen:
-            messages = []
+            pending = []
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 try:
                     # DO WORK!
@@ -909,12 +909,55 @@ class PubSubQueue:
                     if i == 2:
                         raise TestException()
                     all_recvd.append(_log_recv(msg.data))
-                    messages.append(msg)
+                    pending.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                 except Exception:
                     await gen.nack(msg)
 
-            for msg in messages:
+            for msg in pending:
+                await gen.ack(msg)
+
+        print(all_recvd)
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    async def test_242__delayed_mixed_acking_nacking(
+        self, queue_name: str, auth_token: str
+    ) -> None:
+        """Test open_sub_manual_acking() fail and immediate recovery with
+        multi-tasking, with mixed acking and nacking."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking(preacked_limit=len(DATA_LIST)) as gen:
+            pending = []
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                try:
+                    # DO WORK!
+                    print(f"{i}: `{msg.data}`")
+                    if i % 3 == 0:  # nack every 1/3
+                        raise TestException()
+                    all_recvd.append(_log_recv(msg.data))
+                    pending.append(msg)
+                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                    if i % 2 == 0:  # ack every 1/2
+                        await gen.ack(msg)
+                        pending.remove(msg)
+                except Exception:
+                    await gen.nack(msg)
+
+            for msg in pending:  # messages with index not %2 nor %3, (1,5,7,...)
                 await gen.ack(msg)
 
         print(all_recvd)
