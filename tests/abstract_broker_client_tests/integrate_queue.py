@@ -976,6 +976,7 @@ class PubSubQueue:
             in mqclient.broker_client_interface.Sub.__dict__
         )
         mod_name = Queue(self.broker_client)._broker_client.__module__
+        logging.warning(importlib.import_module(mod_name).__file__)
         with open(importlib.import_module(mod_name).__file__) as f:  # type: ignore[arg-type]
             if any("are_messages_pending_ack_at_limit" in ln for ln in f.readlines()):
                 return
