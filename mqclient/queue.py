@@ -242,7 +242,7 @@ class Queue:
     )
     async def open_sub_manual_acking(
         self,
-        preacked_limit: Optional[int] = None,
+        ack_pending_limit: Optional[int] = None,
     ) -> AsyncGenerator["ManualQueueSubResource", None]:
         """Open a resource to receive messages from the queue as an iterator.
 
@@ -261,10 +261,11 @@ class Queue:
         use `open_sub()`**
 
         Args:
-            preacked_limit (int, optional):
+            ack_pending_limit (int, optional):
                 how many messages are expected to be pending before being
-                acked. If not given, the `self.prefetch` is used. The
-                strictness of this enforcement varies per backend
+                acked. If not given, the `self.prefetch` is used. If you
+                surpass this limit, the iterator may exit. The strictness
+                of this enforcement varies per backend.
 
         Examples:
             async with queue.open_sub_manual_acking() as sub:
@@ -283,7 +284,7 @@ class Queue:
                     else:
                         await sub.ack(msg)
 
-            async with queue.open_sub_manual_acking(preacked_limit=5) as sub:
+            async with queue.open_sub_manual_acking(ack_pending_limit=5) as sub:
                 messages = []
                 async for msg in sub.iter_messages():
                     try:
@@ -298,7 +299,7 @@ class Queue:
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
-        sub = await self._create_sub_queue(prefetch_override=preacked_limit)
+        sub = await self._create_sub_queue(prefetch_override=ack_pending_limit)
 
         try:
             yield ManualQueueSubResource(

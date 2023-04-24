@@ -866,7 +866,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(preacked_limit=len(DATA_LIST)) as gen:
+        async with sub.open_sub_manual_acking(ack_pending_limit=len(DATA_LIST)) as gen:
             messages = []
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
@@ -900,7 +900,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(preacked_limit=len(DATA_LIST)) as gen:
+        async with sub.open_sub_manual_acking(ack_pending_limit=len(DATA_LIST)) as gen:
             pending = []
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 try:
@@ -940,7 +940,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(preacked_limit=len(DATA_LIST)) as gen:
+        async with sub.open_sub_manual_acking(ack_pending_limit=len(DATA_LIST)) as gen:
             pending = []
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 try:
