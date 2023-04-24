@@ -438,11 +438,11 @@ class ManualQueueSubResource:
             return msg
 
         while True:
-            if self.are_messages_pending_ack_at_limit():
-                raise AckPendingLimitSurpassedException()
-
             raw_msg = await self._get_message()
             if not raw_msg:  # no message -> close and exit
+                if self.are_messages_pending_ack_at_limit():
+                    # check after _get_message b/c undefined @ start (when no messages yet received)
+                    raise AckPendingLimitSurpassedException()
                 return
 
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
