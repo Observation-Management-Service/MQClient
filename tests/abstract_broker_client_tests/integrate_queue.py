@@ -983,6 +983,7 @@ class PubSubQueue:
         ack_pending_limit = len(DATA_LIST) // 2
         async with sub.open_sub_manual_acking(ack_pending_limit) as gen:
             messages = []
+            i = -1
             with pytest.raises(AckPendingLimitSurpassedException):
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
