@@ -13,15 +13,15 @@ TRY_ATTEMPTS = 3  # ex: 3 means 1 initial try and 2 retries
 
 
 class ConnectingFailedException(Exception):
-    """Raised when a `connect()` invocation fails."""
+    """Raised when a `connect()` fails."""
 
 
 class ClosingFailedException(Exception):
-    """Raised when a `close()` invocation fails."""
+    """Raised when a `close()` fails."""
 
 
 class AlreadyClosedException(ClosingFailedException):
-    """Raised when a `close()` invocation fails on an already closed interface."""
+    """Raised when a `close()` fails on an already closed interface."""
 
 
 class AckException(Exception):
@@ -90,7 +90,8 @@ class Message:
 
     @staticmethod
     def serialize(data: Any, headers: Optional[Dict[str, Any]] = None) -> bytes:
-        """Return serialized representation of message payload as a bytes object.
+        """Return serialized representation of message payload as a bytes
+        object.
 
         Optionally include `headers` dict for internal information.
         """
@@ -134,8 +135,8 @@ class Sub(RawQueue):
         """Get prefetch."""
         return self._prefetch  # type: ignore[attr-defined, no-any-return]
 
-    def ack_pending_surpassed_pretch(self) -> bool:
-        """Return whether # ack-pending messages >= prefetch."""
+    def are_messages_pending_ack_at_limit(self) -> bool:
+        """Return whether the Sub cannot receive more messages due to limit."""
         # NOTE: only backends that can implement this need to -- not all will
         return False
 

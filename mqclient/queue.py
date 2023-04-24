@@ -306,7 +306,7 @@ class Queue:
                 lambda: sub.get_message(self.timeout * 1000),
                 lambda msg: self._safe_ack(sub, msg),
                 lambda msg: self._safe_nack(sub, msg),
-                sub.ack_pending_surpassed_pretch,
+                sub.are_messages_pending_ack_at_limit,
             )
         finally:
             await sub.close()
@@ -417,12 +417,14 @@ class ManualQueueSubResource:
         get_message_function: Callable[[], Awaitable[Optional[Message]]],
         ack_function: Callable[[Message], Awaitable[None]],
         nack_function: Callable[[Message], Awaitable[None]],
-        ack_pending_surpassed_pretch_function: Callable[[], bool],
+        are_messages_pending_ack_at_limit_function: Callable[[], bool],
     ) -> None:
         self._get_message = get_message_function
         self.ack = ack_function
         self.nack = nack_function
-        self.ack_pending_surpassed_pretch = ack_pending_surpassed_pretch_function
+        self.are_messages_pending_ack_at_limit = (
+            are_messages_pending_ack_at_limit_function
+        )
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
@@ -436,7 +438,7 @@ class ManualQueueSubResource:
             return msg
 
         while True:
-            if self.ack_pending_surpassed_pretch():
+            if self.are_messages_pending_ack_at_limit():
                 raise AckPendingLimitSurpassedException()
 
             raw_msg = await self._get_message()

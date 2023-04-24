@@ -210,11 +210,11 @@ class RabbitMQSub(RabbitMQ, Sub):
         self.consumer_id = None
         self._prefetch = prefetch  # see `Sub.prefetch` property
 
-    def ack_pending_surpassed_pretch(self) -> bool:
-        """Return whether # ack-pending messages >= prefetch."""
-        print(f"{self.channel.get_waiting_message_count()=}")
-        print(f"{self.prefetch=}")
-        return self.channel.get_waiting_message_count() >= self.prefetch  # type: ignore[no-any-return, union-attr]
+    def are_messages_pending_ack_at_limit(self) -> bool:
+        """Return whether the Sub cannot receive more messages due to limit."""
+        if not self.channel:
+            raise RuntimeError("queue is not connected")
+        return bool(self.channel.get_waiting_message_count() <= 0)
 
     async def connect(self) -> None:
         """Set up connection, channel, and queue.
