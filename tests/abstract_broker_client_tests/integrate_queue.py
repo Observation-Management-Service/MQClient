@@ -3,14 +3,11 @@
 # pylint:disable=invalid-name,too-many-public-methods,redefined-outer-name,unused-import
 
 import asyncio
-import importlib
-import inspect
 import logging
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List
 
 import asyncstdlib as asl
-import mqclient
 import pytest
 from mqclient.queue import AckPendingLimitSurpassedException, Queue
 
