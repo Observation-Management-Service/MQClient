@@ -134,6 +134,11 @@ class Sub(RawQueue):
         """Get prefetch."""
         return self._prefetch  # type: ignore[attr-defined, no-any-return]
 
+    def ack_pending_surpassed_pretch(self) -> bool:
+        """Return whether # ack-pending messages >= prefetch."""
+        # NOTE: only backends that can implement this need to -- not all will
+        return False
+
     @staticmethod
     def _to_message(*args: Any) -> Optional[Message]:
         """Convert broker_client-specific payload to standardized Message type."""

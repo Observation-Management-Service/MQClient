@@ -306,6 +306,7 @@ class Queue:
                 lambda: sub.get_message(self.timeout * 1000),
                 lambda msg: self._safe_ack(sub, msg),
                 lambda msg: self._safe_nack(sub, msg),
+                sub.ack_pending_surpassed_pretch,
             )
         finally:
             await sub.close()
@@ -390,6 +391,10 @@ class EmptyQueueException(Exception):
     """Raised when the queue is empty."""
 
 
+class AckPendingLimitSurpassedException(Exception):
+    """Raised when the ack-pending limit has been surpassed."""
+
+
 class QueuePubResource:
     """A manager class around `Pub.send_message()`."""
 
@@ -412,10 +417,12 @@ class ManualQueueSubResource:
         get_message_function: Callable[[], Awaitable[Optional[Message]]],
         ack_function: Callable[[Message], Awaitable[None]],
         nack_function: Callable[[Message], Awaitable[None]],
+        ack_pending_surpassed_pretch_function: Callable[[], bool],
     ) -> None:
         self._get_message = get_message_function
         self.ack = ack_function
         self.nack = nack_function
+        self.ack_pending_surpassed_pretch = ack_pending_surpassed_pretch_function
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
@@ -429,6 +436,9 @@ class ManualQueueSubResource:
             return msg
 
         while True:
+            if self.ack_pending_surpassed_pretch():
+                raise AckPendingLimitSurpassedException()
+
             raw_msg = await self._get_message()
             if not raw_msg:  # no message -> close and exit
                 return

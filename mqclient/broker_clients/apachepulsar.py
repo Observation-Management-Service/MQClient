@@ -107,6 +107,7 @@ class PulsarPub(Pulsar, Pub):
             BrokerClient.SUBSCRIPTION_NAME,
             self._auth_token,
             self.ack_timeout,
+            prefetch=1,
         )
         await inner_sub.connect()
         await inner_sub.close()
