@@ -212,6 +212,8 @@ class RabbitMQSub(RabbitMQ, Sub):
 
     def ack_pending_surpassed_pretch(self) -> bool:
         """Return whether # ack-pending messages >= prefetch."""
+        print(f"{self.channel.get_waiting_message_count()=}")
+        print(f"{self.prefetch=}")
         return self.channel.get_waiting_message_count() >= self.prefetch  # type: ignore[no-any-return, union-attr]
 
     async def connect(self) -> None:
