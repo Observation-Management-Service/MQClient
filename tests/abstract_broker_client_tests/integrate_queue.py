@@ -9,7 +9,7 @@ from typing import Any, List
 
 import asyncstdlib as asl
 import pytest
-from mqclient.queue import Queue
+from mqclient.queue import AckPendingLimitSurpassedException, Queue
 
 from .utils import (
     DATA_LIST,
@@ -980,18 +980,16 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(
-            ack_pending_limit=len(DATA_LIST) // 2
-        ) as gen:
+        ack_pending_limit = len(DATA_LIST) // 2
+        async with sub.open_sub_manual_acking(ack_pending_limit) as gen:
             messages = []
-            async for i, msg in asl.enumerate(gen.iter_messages()):
-                print(f"{i}: `{msg.data}`")
-                all_recvd.append(_log_recv(msg.data))
-                messages.append(msg)
-                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-
-            for msg in messages:
-                await gen.ack(msg)
+            with pytest.raises(AckPendingLimitSurpassedException):
+                async for i, msg in asl.enumerate(gen.iter_messages()):
+                    print(f"{i}: `{msg.data}`")
+                    all_recvd.append(_log_recv(msg.data))
+                    messages.append(msg)
+                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+            assert i == ack_pending_limit  # last message was at limit
 
         print(all_recvd)
-        assert all_were_received(all_recvd)
+        assert not all_were_received(all_recvd)
