@@ -438,7 +438,10 @@ class ManualQueueSubResource:
 
         while True:
             if self._ack_pending >= self._ack_pending_limit:
-                raise AckPendingLimitSurpassedException()
+                raise AckPendingLimitSurpassedException(
+                    f"{self._ack_pending} messages are pending ack/nack "
+                    f"out of {self._ack_pending_limit} allowed"
+                )
 
             raw_msg = await self._get_message()
             if not raw_msg:  # no message -> close and exit
