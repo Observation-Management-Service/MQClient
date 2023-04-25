@@ -265,7 +265,7 @@ class Queue:
                 how many messages are expected to be pending before being
                 acked. If not given, the `self.prefetch` is used. If you
                 surpass this limit, the iterator will raise a
-                `AckPendingLimitSurpassedException`.
+                `TooManyMessagesPendingAckException`.
 
         Examples:
             async with queue.open_sub_manual_acking() as sub:
@@ -391,7 +391,7 @@ class EmptyQueueException(Exception):
     """Raised when the queue is empty."""
 
 
-class AckPendingLimitSurpassedException(Exception):
+class TooManyMessagesPendingAckException(Exception):
     """Raised when the ack-pending limit has been surpassed."""
 
 
@@ -438,9 +438,9 @@ class ManualQueueSubResource:
 
         while True:
             if self._ack_pending >= self._ack_pending_limit:
-                raise AckPendingLimitSurpassedException(
+                raise TooManyMessagesPendingAckException(
                     f"{self._ack_pending} messages are pending ack/nack "
-                    f"out of {self._ack_pending_limit} allowed"
+                    f"(out of {self._ack_pending_limit} allowed)"
                 )
 
             raw_msg = await self._get_message()

@@ -9,7 +9,7 @@ from typing import Any, List
 
 import asyncstdlib as asl
 import pytest
-from mqclient.queue import AckPendingLimitSurpassedException, Queue
+from mqclient.queue import Queue, TooManyMessagesPendingAckException
 
 from .utils import (
     DATA_LIST,
@@ -874,7 +874,7 @@ class PubSubQueue:
         ack_pending_limit = len(DATA_LIST) // 2
         async with sub.open_sub_manual_acking(ack_pending_limit) as gen:
             messages = []
-            with pytest.raises(AckPendingLimitSurpassedException):
+            with pytest.raises(TooManyMessagesPendingAckException):
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
                     all_recvd.append(_log_recv(msg.data))
@@ -905,14 +905,14 @@ class PubSubQueue:
         ack_pending_limit = len(DATA_LIST)
         async with sub.open_sub_manual_acking(ack_pending_limit) as gen:
             messages = []
-            with pytest.raises(AckPendingLimitSurpassedException):
+            with pytest.raises(TooManyMessagesPendingAckException):
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
                     all_recvd.append(_log_recv(msg.data))
                     messages.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                     if i == 2:
-                        pass  # this eventually causes a AckPendingLimitSurpassedException
+                        pass  # this eventually causes a TooManyMessagesPendingAckException
                     else:
                         await gen.ack(msg)
             assert i == ack_pending_limit  # last message was at limit
