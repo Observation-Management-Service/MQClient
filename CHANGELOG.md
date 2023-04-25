@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.0 (2023-04-25)
+
+
 ## v2.0.0 (2023-04-21)
 ### Breaking
 * Co-authored-by: github-actions <github-actions@github.com> ([`b4dd082`](https://github.com/Observation-Management-Service/MQClient/commit/b4dd08298e27a5dbdfb311abe9cfed5b7abf3559))
