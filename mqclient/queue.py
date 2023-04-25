@@ -285,15 +285,20 @@ class Queue:
                         await sub.ack(msg)
 
             async with queue.open_sub_manual_acking(ack_pending_limit=5) as sub:
-                messages = []
+                pending = []
                 async for msg in sub.iter_messages():
                     try:
                         process_message(msg.data)
-                        messages.append(msg)
+                        pending.append(msg)
                     except Exception:
                         await sub.nack(msg)
 
-                for msg in messages:
+                    if len(pending) == 3:
+                        for msg in pending:
+                            await sub.ack(msg)
+                        pending = []
+
+                for msg in pending:
                     await sub.ack(msg)
 
         Returns:
