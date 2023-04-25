@@ -915,7 +915,7 @@ class PubSubQueue:
                         pass  # eventually enough "passes" causes a TooManyMessagesPendingAckException
                     else:
                         await gen.ack(msg)
-                    assert gen._ack_pending == (i + 1) // 2
+                    assert gen._ack_pending == (i // 2) + 1
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
