@@ -547,7 +547,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_110_fail(self, queue_name: str, auth_token: str) -> None:
+    async def test_110__fail(self, queue_name: str, auth_token: str) -> None:
         """Failure-test open_sub() with reusing a 'QueueSubResource'
         instance."""
         async with Queue(
@@ -670,47 +670,6 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_211__immediate_recovery_fail(
-        self, queue_name: str, auth_token: str
-    ) -> None:
-        """Test open_sub_manual_acking() fail, immediate recovery, then fail.
-
-        Final fail is due to not nacking.
-        """
-        all_recvd: List[Any] = []
-
-        async with Queue(
-            self.broker_client, name=queue_name, auth_token=auth_token
-        ).open_pub() as p:
-            for d in DATA_LIST:
-                await p.send(d)
-                _log_send(d)
-
-        class TestException(Exception):  # pylint: disable=C0115
-            pass
-
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 1
-        async with sub.open_sub_manual_acking() as gen:
-            async for i, msg in asl.enumerate(gen.iter_messages()):
-                try:
-                    # DO WORK!
-                    print(f"{i}: `{msg.data}`")
-                    if i == 2:
-                        raise TestException()
-                    all_recvd.append(_log_recv(msg.data))
-                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                except Exception:
-                    # await gen.nack(msg)
-                    pass
-                else:
-                    await gen.ack(msg)
-
-        # NOT ALL RECEIVED! b/c timeout is not big enough to redeliver un-acked/nacked message
-        print(all_recvd)
-        assert not all_were_received(all_recvd)
-
-    @pytest.mark.asyncio
     async def test_220__posthoc_recovery(
         self, queue_name: str, auth_token: str
     ) -> None:
@@ -763,7 +722,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_221__posthoc_recovery_fail(
+    async def test_221__posthoc_recovery__fail(
         self, queue_name: str, auth_token: str
     ) -> None:
         """Test open_sub_manual_acking() fail, post-hoc recovery, then fail.
@@ -853,75 +812,7 @@ class PubSubQueue:
                 assert 0  # we should never get here
 
     @pytest.mark.asyncio
-    async def test_240__delayed_acking(self, queue_name: str, auth_token: str) -> None:
-        """Test open_sub_manual_acking() ideal scenario with multi-tasking."""
-        all_recvd: List[Any] = []
-
-        async with Queue(
-            self.broker_client, name=queue_name, auth_token=auth_token
-        ).open_pub() as p:
-            for d in DATA_LIST:
-                await p.send(d)
-                _log_send(d)
-
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 1
-        async with sub.open_sub_manual_acking(ack_pending_limit=len(DATA_LIST)) as gen:
-            messages = []
-            async for i, msg in asl.enumerate(gen.iter_messages()):
-                print(f"{i}: `{msg.data}`")
-                all_recvd.append(_log_recv(msg.data))
-                messages.append(msg)
-                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-
-            for msg in messages:
-                await gen.ack(msg)
-
-        print(all_recvd)
-        assert all_were_received(all_recvd)
-
-    @pytest.mark.asyncio
-    async def test_241__delayed_acking__nacking(
-        self, queue_name: str, auth_token: str
-    ) -> None:
-        """Test open_sub_manual_acking() fail and immediate recovery with
-        multi-tasking, with nacking."""
-        all_recvd: List[Any] = []
-
-        async with Queue(
-            self.broker_client, name=queue_name, auth_token=auth_token
-        ).open_pub() as p:
-            for d in DATA_LIST:
-                await p.send(d)
-                _log_send(d)
-
-        class TestException(Exception):  # pylint: disable=C0115
-            pass
-
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 1
-        async with sub.open_sub_manual_acking(ack_pending_limit=len(DATA_LIST)) as gen:
-            pending = []
-            async for i, msg in asl.enumerate(gen.iter_messages()):
-                try:
-                    # DO WORK!
-                    print(f"{i}: `{msg.data}`")
-                    if i == 2:
-                        raise TestException()
-                    all_recvd.append(_log_recv(msg.data))
-                    pending.append(msg)
-                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                except Exception:
-                    await gen.nack(msg)
-
-            for msg in pending:
-                await gen.ack(msg)
-
-        print(all_recvd)
-        assert all_were_received(all_recvd)
-
-    @pytest.mark.asyncio
-    async def test_242__delayed_mixed_acking_nacking(
+    async def test_240__delayed_mixed_acking_nacking(
         self, queue_name: str, auth_token: str
     ) -> None:
         """Test open_sub_manual_acking() fail and immediate recovery with
@@ -964,7 +855,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    async def test_245__delayed_acking_fail(
+    async def test_250__delayed_acking__fail(
         self, queue_name: str, auth_token: str
     ) -> None:
         """Test open_sub_manual_acking() w/ delayed acking AND surpass
@@ -983,13 +874,47 @@ class PubSubQueue:
         ack_pending_limit = len(DATA_LIST) // 2
         async with sub.open_sub_manual_acking(ack_pending_limit) as gen:
             messages = []
-            i = -1
             with pytest.raises(AckPendingLimitSurpassedException):
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
                     all_recvd.append(_log_recv(msg.data))
                     messages.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+            assert i == ack_pending_limit  # last message was at limit
+
+        print(all_recvd)
+        assert not all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    async def test_251__no_nacking__fail(
+        self, queue_name: str, auth_token: str
+    ) -> None:
+        """Test open_sub_manual_acking() w/ delayed acking AND surpass
+        `ack_pending_limit`."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        ack_pending_limit = len(DATA_LIST)
+        async with sub.open_sub_manual_acking(ack_pending_limit) as gen:
+            messages = []
+            with pytest.raises(AckPendingLimitSurpassedException):
+                async for i, msg in asl.enumerate(gen.iter_messages()):
+                    print(f"{i}: `{msg.data}`")
+                    all_recvd.append(_log_recv(msg.data))
+                    messages.append(msg)
+                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                    if i == 2:
+                        pass  # this eventually causes a AckPendingLimitSurpassedException
+                    else:
+                        await gen.ack(msg)
             assert i == ack_pending_limit  # last message was at limit
 
         print(all_recvd)
