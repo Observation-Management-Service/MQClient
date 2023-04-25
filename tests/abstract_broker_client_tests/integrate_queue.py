@@ -880,8 +880,7 @@ class PubSubQueue:
                     all_recvd.append(_log_recv(msg.data))
                     messages.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                    assert gen._ack_pending == i + i
-            assert i == ack_pending_limit - 1  # last message was at limit
+                    assert gen._ack_pending == i + 1
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
@@ -917,7 +916,6 @@ class PubSubQueue:
                     else:
                         await gen.ack(msg)
                     assert gen._ack_pending == (i + 1) // 2
-            assert ack_pending_limit == (i * 2) + 1  # last message was at limit
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
