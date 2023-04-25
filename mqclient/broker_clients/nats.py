@@ -155,11 +155,11 @@ class NATSSub(NATS, Sub):
         Sub
     """
 
-    def __init__(self, endpoint: str, stream_id: str, subject: str):
+    def __init__(self, endpoint: str, stream_id: str, subject: str, prefetch: int):
         LOGGER.debug(f"{log_msgs.INIT_SUB} ({endpoint}; {stream_id}; {subject})")
         super().__init__(endpoint, stream_id, subject)
         self._subscription: Optional[nats.js.JetStreamContext.PullSubscription] = None
-        self.prefetch = 1
+        self._prefetch = prefetch  # see `Sub.prefetch` property
 
     async def connect(self) -> None:
         """Set up sub (pull subscription)."""
@@ -380,7 +380,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
             address,
             name + "-stream",
             name + "-subject",
+            prefetch,
         )
-        q.prefetch = prefetch
         await q.connect()
         return q

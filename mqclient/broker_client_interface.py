@@ -13,15 +13,15 @@ TRY_ATTEMPTS = 3  # ex: 3 means 1 initial try and 2 retries
 
 
 class ConnectingFailedException(Exception):
-    """Raised when a `connect()` invocation fails."""
+    """Raised when a `connect()` fails."""
 
 
 class ClosingFailedException(Exception):
-    """Raised when a `close()` invocation fails."""
+    """Raised when a `close()` fails."""
 
 
 class AlreadyClosedException(ClosingFailedException):
-    """Raised when a `close()` invocation fails on an already closed interface."""
+    """Raised when a `close()` fails on an already closed interface."""
 
 
 class AckException(Exception):
@@ -90,7 +90,8 @@ class Message:
 
     @staticmethod
     def serialize(data: Any, headers: Optional[Dict[str, Any]] = None) -> bytes:
-        """Return serialized representation of message payload as a bytes object.
+        """Return serialized representation of message payload as a bytes
+        object.
 
         Optionally include `headers` dict for internal information.
         """
@@ -129,9 +130,15 @@ class Pub(RawQueue):
 class Sub(RawQueue):
     """Subscriber queue."""
 
+    @property
+    def prefetch(self) -> int:
+        """Get prefetch."""
+        return self._prefetch  # type: ignore[attr-defined, no-any-return]
+
     @staticmethod
     def _to_message(*args: Any) -> Optional[Message]:
-        """Convert broker_client-specific payload to standardized Message type."""
+        """Convert broker_client-specific payload to standardized Message
+        type."""
         raise NotImplementedError()
 
     async def get_message(

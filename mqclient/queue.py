@@ -5,7 +5,16 @@ import logging
 import sys
 import types
 import uuid
-from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Dict,
+    Optional,
+    Type,
+)
 
 from . import broker_client_manager
 from . import telemetry as wtt
@@ -95,13 +104,13 @@ class Queue:
             self._ack_timeout,
         )
 
-    async def _create_sub_queue(self) -> Sub:
+    async def _create_sub_queue(self, prefetch_override: Optional[int] = None) -> Sub:
         """Wrap `self._broker_client.create_sub_queue()` with instance's
         config."""
         return await self._broker_client.create_sub_queue(
             self._address,
             self._name,
-            self._prefetch,
+            prefetch_override if prefetch_override else self._prefetch,
             self._auth_token,
             self._ack_timeout,
         )
@@ -204,13 +213,15 @@ class Queue:
         This returns a context-manager/generator. Its iterator stops when no
         messages are received for `timeout` seconds. If an exception is raised
         (inside the context), the message is rejected, the context is exited,
-        and exception can be re-raised if configured by `except_errors`.
+        and exception is re-raised if configured by `except_errors`. The
+        connection is closed after the context manager exits.
+
         Multiple calls to `open_sub()` is okay, but reusing the returned
         instance is not.
 
         Example:
-            async with queue.open_sub() as stream:
-                async for msg in stream:
+            async with queue.open_sub() as sub:
+                async for msg in sub:
                     print(msg)
 
         Returns:
@@ -218,6 +229,92 @@ class Queue:
         """
         LOGGER.debug("Creating new QueueSubResource instance.")
         return QueueSubResource(self)
+
+    @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
+    @wtt.spanned(
+        these=[
+            "self._broker_client",
+            "self._address",
+            "self._name",
+            "self._prefetch",
+            "self.timeout",
+        ]
+    )
+    async def open_sub_manual_acking(
+        self,
+        ack_pending_limit: Optional[int] = None,
+    ) -> AsyncGenerator["ManualQueueSubResource", None]:
+        """Open a resource to receive messages from the queue as an iterator.
+
+        This returns a context-manager with an iterator function `iter_messages()`.
+        The iterator stops when no messages are received for `timeout` seconds.
+        Multiple calls to `open_sub()` is okay, but reusing the returned
+        instance is not.
+
+        The connection is closed after the context manager exits.
+
+        *Unlike `open_sub()`*, the caller is responsible for:
+            - All acking and/or nacking
+            - Any error handling
+
+        **NOTE: unless you need to parallelize your message processing,
+        use `open_sub()`**
+
+        Args:
+            ack_pending_limit (int, optional):
+                how many messages are expected to be pending before being
+                acked. If not given, the `self.prefetch` is used. If you
+                surpass this limit, the iterator will raise a
+                `TooManyMessagesPendingAckException`.
+
+        Examples:
+            async with queue.open_sub_manual_acking() as sub:
+                async for msg in sub.iter_messages():
+                    print(msg.data)
+                    sub.ack(msg)
+                    # if you choose not to nack on an error,
+                    # the broker will take longer to redeliver
+
+            async with queue.open_sub_manual_acking() as sub:
+                async for msg in sub.iter_messages():
+                    try:
+                        process_message(msg.data)
+                    except Exception:
+                        await sub.nack(msg)
+                    else:
+                        await sub.ack(msg)
+
+            async with queue.open_sub_manual_acking(ack_pending_limit=5) as sub:
+                pending = []
+                async for msg in sub.iter_messages():
+                    try:
+                        process_message(msg.data)
+                        pending.append(msg)
+                    except Exception:
+                        await sub.nack(msg)
+
+                    if len(pending) == 3:
+                        for msg in pending:
+                            await sub.ack(msg)
+                        pending = []
+
+                for msg in pending:
+                    await sub.ack(msg)
+
+        Returns:
+            ManualQueueSubResource -- context manager w/ iterator function
+        """
+        sub = await self._create_sub_queue(prefetch_override=ack_pending_limit)
+
+        try:
+            yield ManualQueueSubResource(
+                lambda: sub.get_message(self.timeout * 1000),
+                lambda msg: self._safe_ack(sub, msg),
+                lambda msg: self._safe_nack(sub, msg),
+                ack_pending_limit=sub.prefetch,
+            )
+        finally:
+            await sub.close()
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
@@ -299,6 +396,10 @@ class EmptyQueueException(Exception):
     """Raised when the queue is empty."""
 
 
+class TooManyMessagesPendingAckException(Exception):
+    """Raised when the ack-pending limit has been surpassed."""
+
+
 class QueuePubResource:
     """A manager class around `Pub.send_message()`."""
 
@@ -313,8 +414,62 @@ class QueuePubResource:
         await self.pub.send_message(msg_bytes)
 
 
+class ManualQueueSubResource:
+    """A manager class around `Sub.get_message()`."""
+
+    def __init__(
+        self,
+        get_message_function: Callable[[], Awaitable[Optional[Message]]],
+        ack_function: Callable[[Message], Awaitable[None]],
+        nack_function: Callable[[Message], Awaitable[None]],
+        ack_pending_limit: int,
+    ) -> None:
+        self._get_message = get_message_function
+        self._ack_function = ack_function
+        self._nack_function = nack_function
+        self._ack_pending = 0
+        self._ack_pending_limit = ack_pending_limit
+
+    async def iter_messages(self) -> AsyncIterator[Message]:
+        """Yield a message."""
+
+        @wtt.spanned(
+            kind=wtt.SpanKind.CONSUMER,
+            carrier="msg.headers",
+            carrier_relation=wtt.CarrierRelation.LINK,
+        )
+        def add_span_link(msg: Message) -> Message:
+            return msg
+
+        while True:
+            if self._ack_pending >= self._ack_pending_limit:
+                raise TooManyMessagesPendingAckException(
+                    f"{self._ack_pending} messages are pending ack/nack "
+                    f"(out of {self._ack_pending_limit} allowed)"
+                )
+
+            raw_msg = await self._get_message()
+            if not raw_msg:  # no message -> close and exit
+                return
+
+            msg = add_span_link(raw_msg)  # got a message -> link and proceed
+            LOGGER.info(f"Received Message: {_message_size_message(msg)}")
+            self._ack_pending += 1
+            yield msg
+
+    async def ack(self, msg: Message) -> None:
+        """Acknowledge the message."""
+        await self._ack_function(msg)
+        self._ack_pending -= 1
+
+    async def nack(self, msg: Message) -> None:
+        """Acknowledge the message."""
+        await self._nack_function(msg)
+        self._ack_pending -= 1
+
+
 class QueueSubResource:
-    """An async context manager wrapping `Sub.message_generator()`."""
+    """An async context-manager generator, wraps `Sub.message_generator()`."""
 
     RUNTIME_ERROR_CONTEXT_STRING = (
         "'QueueSubResource' object's runtime "
