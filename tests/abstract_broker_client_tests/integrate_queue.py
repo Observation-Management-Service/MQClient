@@ -880,7 +880,8 @@ class PubSubQueue:
                     all_recvd.append(_log_recv(msg.data))
                     messages.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-            assert i == ack_pending_limit  # last message was at limit
+                    assert gen._ack_pending == i + i
+            assert i == ack_pending_limit - 1  # last message was at limit
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
@@ -902,7 +903,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        ack_pending_limit = len(DATA_LIST)
+        ack_pending_limit = len(DATA_LIST) // 2
         async with sub.open_sub_manual_acking(ack_pending_limit) as gen:
             messages = []
             with pytest.raises(TooManyMessagesPendingAckException):
@@ -911,11 +912,12 @@ class PubSubQueue:
                     all_recvd.append(_log_recv(msg.data))
                     messages.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                    if i == 2:
-                        pass  # this eventually causes a TooManyMessagesPendingAckException
+                    if i % 2 == 0:
+                        pass  # eventually enough "passes" causes a TooManyMessagesPendingAckException
                     else:
                         await gen.ack(msg)
-            assert i == ack_pending_limit  # last message was at limit
+                    assert gen._ack_pending == (i + 1) // 2
+            assert i == ack_pending_limit - 1  # last message was at limit
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
