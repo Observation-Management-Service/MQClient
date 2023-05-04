@@ -65,13 +65,16 @@ class Queue:
         self._prefetch = prefetch
         self._auth_token = auth_token
 
+        # Public Vars
 
-        # publics
-        self._ack_timeout = 0
-        self.ack_timeout = ack_timeout
-        self._timeout = 0
+        # properties
+        self._timeout = timeout
         self.timeout = timeout
+        #
+        self._ack_timeout = ack_timeout
+        self.ack_timeout = ack_timeout
 
+        # others
         self.except_errors = except_errors
 
     @staticmethod
@@ -95,15 +98,15 @@ class Queue:
         self._timeout = val
 
     @property
-    def ack_timeout(self) -> int:
+    def ack_timeout(self) -> Optional[int]:
         """Get the ack_timeout value."""
         return self._ack_timeout
 
     @ack_timeout.setter
-    def ack_timeout(self, val: int) -> None:
+    def ack_timeout(self, val: Optional[int]) -> None:
         LOGGER.debug(f"Setting ack_timeout to {val}")
-        if val < 1:
-            raise ValueError("ack_timeout must be positive")
+        if val is not None and val < 1:
+            raise ValueError("ack_timeout must be positive or None")
         self._ack_timeout = val
     async def _create_pub_queue(self) -> Pub:
         """Wrap `self._broker_client.create_pub_queue()` with instance's
@@ -112,7 +115,7 @@ class Queue:
             self._address,
             self._name,
             self._auth_token,
-            self._ack_timeout,
+            self.ack_timeout,
         )
 
     async def _create_sub_queue(self, prefetch_override: Optional[int] = None) -> Sub:
@@ -123,7 +126,7 @@ class Queue:
             self._name,
             prefetch_override if prefetch_override else self._prefetch,
             self._auth_token,
-            self._ack_timeout,
+            self.ack_timeout,
         )
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
