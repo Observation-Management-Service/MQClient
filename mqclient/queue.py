@@ -65,13 +65,13 @@ class Queue:
         self._prefetch = prefetch
         self._auth_token = auth_token
 
-        if ack_timeout is not None and ack_timeout <= 0:
-            raise ValueError("timeout must be positive")
-        self._ack_timeout = ack_timeout
 
         # publics
+        self._ack_timeout = 0
+        self.ack_timeout = ack_timeout
         self._timeout = 0
         self.timeout = timeout
+
         self.except_errors = except_errors
 
     @staticmethod
@@ -94,6 +94,17 @@ class Queue:
             raise ValueError("timeout must be positive")
         self._timeout = val
 
+    @property
+    def ack_timeout(self) -> int:
+        """Get the ack_timeout value."""
+        return self._ack_timeout
+
+    @ack_timeout.setter
+    def ack_timeout(self, val: int) -> None:
+        LOGGER.debug(f"Setting ack_timeout to {val}")
+        if val < 1:
+            raise ValueError("ack_timeout must be positive")
+        self._ack_timeout = val
     async def _create_pub_queue(self) -> Pub:
         """Wrap `self._broker_client.create_pub_queue()` with instance's
         config."""
