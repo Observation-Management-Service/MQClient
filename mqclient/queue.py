@@ -56,6 +56,7 @@ class Queue:
         prefetch: int = 1,
         timeout: int = 60,
         ack_timeout: Optional[int] = None,
+        inactivity_timeout: Optional[int] = None,
         except_errors: bool = True,
         auth_token: str = "",
     ) -> None:
@@ -73,6 +74,9 @@ class Queue:
         #
         self._ack_timeout = ack_timeout
         self.ack_timeout = ack_timeout
+        #
+        self._inactivity_timeout = inactivity_timeout
+        self.inactivity_timeout = inactivity_timeout
 
         # others
         self.except_errors = except_errors
@@ -108,6 +112,19 @@ class Queue:
         if val is not None and val < 1:
             raise ValueError("ack_timeout must be positive or None")
         self._ack_timeout = val
+
+    @property
+    def inactivity_timeout(self) -> Optional[int]:
+        """Get the inactivity_timeout value."""
+        return self._inactivity_timeout
+
+    @inactivity_timeout.setter
+    def inactivity_timeout(self, val: Optional[int]) -> None:
+        LOGGER.debug(f"Setting inactivity_timeout to {val}")
+        if val is not None and val < 1:
+            raise ValueError("inactivity_timeout must be positive or None")
+        self._inactivity_timeout = val
+
     async def _create_pub_queue(self) -> Pub:
         """Wrap `self._broker_client.create_pub_queue()` with instance's
         config."""
@@ -116,6 +133,7 @@ class Queue:
             self._name,
             self._auth_token,
             self.ack_timeout,
+            self.inactivity_timeout,  # not used by all broker clients
         )
 
     async def _create_sub_queue(self, prefetch_override: Optional[int] = None) -> Sub:
@@ -127,6 +145,7 @@ class Queue:
             prefetch_override if prefetch_override else self._prefetch,
             self._auth_token,
             self.ack_timeout,
+            self.inactivity_timeout,  # not used by all broker clients
         )
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly

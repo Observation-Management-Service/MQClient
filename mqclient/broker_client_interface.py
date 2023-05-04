@@ -181,6 +181,7 @@ class BrokerClient:
         name: str,
         auth_token: str,
         ack_timeout: Optional[int],
+        inactivity_timeout: Optional[int],  # not used by all broker clients
     ) -> Pub:
         """Create a publishing queue."""
         raise NotImplementedError()
@@ -192,6 +193,7 @@ class BrokerClient:
         prefetch: int,
         auth_token: str,
         ack_timeout: Optional[int],
+        inactivity_timeout: Optional[int],  # not used by all broker clients
     ) -> Sub:
         """Create a subscription queue."""
         raise NotImplementedError()

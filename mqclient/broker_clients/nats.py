@@ -351,6 +351,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         name: str,
         auth_token: str,
         ack_timeout: Optional[int],
+        inactivity_timeout: Optional[int],  # not used by NATS
     ) -> NATSPub:
         """Create a publishing queue.
 
@@ -371,6 +372,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
         prefetch: int,
         auth_token: str,
         ack_timeout: Optional[int],
+        inactivity_timeout: Optional[int],  # not used by NATS
     ) -> NATSSub:
         """Create a subscription queue.
 
