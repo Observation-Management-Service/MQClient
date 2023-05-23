@@ -16,7 +16,7 @@ nats-py[nkeys]==2.2.0
     # via oms-mqclient (setup.py)
 nkeys==0.1.0
     # via nats-py
-requests==2.28.2
+requests==2.31.0
     # via wipac-dev-tools
 typing-extensions==4.5.0
     # via wipac-dev-tools
