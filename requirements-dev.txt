@@ -39,7 +39,7 @@ pytest-asyncio==0.21.0
     # via oms-mqclient (setup.py)
 pytest-mock==3.10.0
     # via oms-mqclient (setup.py)
-requests==2.28.2
+requests==2.31.0
     # via wipac-dev-tools
 tomli==2.0.1
     # via
