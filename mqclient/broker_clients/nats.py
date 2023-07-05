@@ -4,7 +4,6 @@
 import asyncio
 import logging
 import math
-import time
 from functools import partial
 from typing import (
     Any,
@@ -21,15 +20,14 @@ import nats
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
-    TRY_ATTEMPTS,
     ClosingFailedException,
     Message,
     Pub,
     RawQueue,
     Sub,
 )
+from . import utils
 
 LOGGER = logging.getLogger("mqclient.nats")
 
@@ -49,29 +47,36 @@ async def _anext(gen: AsyncGenerator[Any, Any], default: Any) -> Any:
 
 async def try_call(self: "NATS", func: Callable[..., Awaitable[T]]) -> T:
     """Call `func` with auto-retries."""
-    i = 0
-    for i in range(TRY_ATTEMPTS):
-        if i > 0:
-            LOGGER.debug(
-                f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-            )
+    return await utils.try_call(
+        func=func,
+        nonretriable_conditions=lambda e: isinstance(e, nats.errors.TimeoutError),
+        close=self.close,
+        connect=self.connect,
+        logger=LOGGER,
+    )
+    # i = 0
+    # for i in range(TRY_ATTEMPTS):
+    #     if i > 0:
+    #         LOGGER.debug(
+    #             f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
+    #         )
 
-        try:
-            return await func()
-        except nats.errors.TimeoutError:
-            raise
-        except Exception as e:  # pylint:disable=broad-except
-            LOGGER.debug(f"[try_call()] Encountered exception: '{e}'")
-            if i == TRY_ATTEMPTS - 1:
-                LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-                raise
+    #     try:
+    #         return await func()
+    #     except nats.errors.TimeoutError:
+    #         raise
+    #     except Exception as e:  # pylint:disable=broad-except
+    #         LOGGER.debug(f"[try_call()] Encountered exception: '{e}'")
+    #         if i == TRY_ATTEMPTS - 1:
+    #             LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
+    #             raise
 
-        await self.close()
-        await asyncio.sleep(RETRY_DELAY)
-        await self.connect()
+    #     await self.close()
+    #     await asyncio.sleep(RETRY_DELAY)
+    #     await self.connect()
 
-    LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception("NATS connection error")
+    # LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
+    # raise Exception("NATS connection error")
 
 
 class NATS(RawQueue):

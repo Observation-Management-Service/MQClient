@@ -2,16 +2,13 @@
 
 import asyncio
 import logging
-import time
 from typing import AsyncGenerator, Optional
 
 import pulsar  # type: ignore
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
-    TRY_ATTEMPTS,
     AlreadyClosedException,
     ClosingFailedException,
     Message,
@@ -19,6 +16,7 @@ from ..broker_client_interface import (
     RawQueue,
     Sub,
 )
+from . import utils
 
 LOGGER = logging.getLogger("mqclient.pulsar")
 
@@ -215,40 +213,65 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        for i in range(TRY_ATTEMPTS):
-            if i > 0:
-                LOGGER.debug(
-                    f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-                )
-
+        async def _get_message() -> Optional[Message]:
             try:
                 recvd = self.consumer.receive(timeout_millis=timeout_millis)
-                msg = PulsarSub._to_message(recvd)
-                if msg:
-                    LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
-                    return msg
-                else:
-                    LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
-                    return None
-
             except Exception as e:
                 # https://github.com/apache/pulsar/issues/3127
+                # TODO: shouldn't this be retriable?
                 if str(e) == "Pulsar error: TimeOut":
                     LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                     return None
-                # https://github.com/apache/pulsar/issues/3127
-                if str(e) == "Pulsar error: AlreadyClosed":
-                    await self.close()
-                    await asyncio.sleep(RETRY_DELAY)
-                    await self.connect()
-                    continue
-                LOGGER.debug(
-                    f"{log_msgs.GETMSG_RAISE_OTHER_ERROR} ({e.__class__.__name__})."
-                )
-                raise
+                raise  # all other error processed by utils.try_call()
+            msg = PulsarSub._to_message(recvd)
+            if msg:
+                LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
+                return msg
+            else:
+                LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+                return None
 
-        LOGGER.debug(log_msgs.GETMSG_CONNECTION_ERROR_MAX_RETRIES)
-        raise Exception("Pulsar connection error")
+        return await utils.try_call(
+            func=_get_message,
+            nonretriable_conditions=lambda e: str(e) != "Pulsar error: AlreadyClosed",
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
+        # for i in range(TRY_ATTEMPTS):
+        #     if i > 0:
+        #         LOGGER.debug(
+        #             f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
+        #         )
+
+        #     try:
+        #         recvd = self.consumer.receive(timeout_millis=timeout_millis)
+        #         msg = PulsarSub._to_message(recvd)
+        #         if msg:
+        #             LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
+        #             return msg
+        #         else:
+        #             LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+        #             return None
+
+        #     except Exception as e:
+        #         # https://github.com/apache/pulsar/issues/3127
+        #         if str(e) == "Pulsar error: TimeOut":
+        #             LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
+        #             return None
+        #         # https://github.com/apache/pulsar/issues/3127
+        #         if str(e) == "Pulsar error: AlreadyClosed":
+        #             await self.close()
+        #             await asyncio.sleep(RETRY_DELAY)
+        #             await self.connect()
+        #             continue
+        #         LOGGER.debug(
+        #             f"{log_msgs.GETMSG_RAISE_OTHER_ERROR} ({e.__class__.__name__})."
+        #         )
+        #         raise
+
+        # LOGGER.debug(log_msgs.GETMSG_CONNECTION_ERROR_MAX_RETRIES)
+        # raise Exception("Pulsar connection error")
 
     async def ack_message(self, msg: Message) -> None:
         """Ack a message from the queue."""

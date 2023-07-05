@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import time
 import urllib
 from functools import partial
 from typing import Any, AsyncGenerator, Callable, Dict, Optional, Tuple, Union
@@ -11,9 +10,7 @@ import pika  # type: ignore
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
-    TRY_ATTEMPTS,
     AlreadyClosedException,
     ClosingFailedException,
     ConnectingFailedException,
@@ -22,6 +19,7 @@ from ..broker_client_interface import (
     RawQueue,
     Sub,
 )
+from . import utils
 
 StrDict = Dict[str, Any]
 
@@ -365,30 +363,39 @@ async def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
 
     Try up to `TRY_ATTEMPTS` times, for connection-related errors.
     """
-    for i in range(TRY_ATTEMPTS):
-        if i > 0:
-            LOGGER.debug(
-                f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-            )
+    return await utils.try_call(
+        func=func,
+        nonretriable_conditions=lambda e: isinstance(
+            e, pika.exceptions.AMQPChannelError
+        ),
+        close=queue.close,
+        connect=queue.connect,
+        logger=LOGGER,
+    )
+    # for i in range(TRY_ATTEMPTS):
+    #     if i > 0:
+    #         LOGGER.debug(
+    #             f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
+    #         )
 
-        try:
-            return func()
-        except pika.exceptions.ConnectionClosedByBroker:
-            LOGGER.debug(log_msgs.TRYCALL_CONNECTION_CLOSED_BY_BROKER)
-        # Do not recover on channel errors
-        except pika.exceptions.AMQPChannelError as err:
-            LOGGER.error(f"{log_msgs.TRYCALL_RAISE_AMQP_CHANNEL_ERROR} {err}.")
-            raise
-        # Recover on all other connection errors
-        except pika.exceptions.AMQPConnectionError:
-            LOGGER.debug(log_msgs.TRYCALL_AMQP_CONNECTION_ERROR)
+    #     try:
+    #         return func()
+    #     except pika.exceptions.ConnectionClosedByBroker:
+    #         LOGGER.debug(log_msgs.TRYCALL_CONNECTION_CLOSED_BY_BROKER)
+    #     # Do not recover on channel errors
+    #     except pika.exceptions.AMQPChannelError as err:
+    #         LOGGER.error(f"{log_msgs.TRYCALL_RAISE_AMQP_CHANNEL_ERROR} {err}.")
+    #         raise
+    #     # Recover on all other connection errors
+    #     except pika.exceptions.AMQPConnectionError:
+    #         LOGGER.debug(log_msgs.TRYCALL_AMQP_CONNECTION_ERROR)
 
-        await queue.close()
-        await asyncio.sleep(RETRY_DELAY)
-        await queue.connect()
+    #     await queue.close()
+    #     await asyncio.sleep(RETRY_DELAY)
+    #     await queue.connect()
 
-    LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception("RabbitMQ connection error")
+    # LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
+    # raise Exception("RabbitMQ connection error")
 
 
 async def try_yield(
