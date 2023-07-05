@@ -49,7 +49,7 @@ async def _anext(gen: AsyncGenerator[Any, Any], default: Any) -> Any:
 async def try_call(self: "NATS", func: Callable[..., Awaitable[T]]) -> T:
     """Call `func` with auto-retries."""
     i = 0
-    while True:
+    for i in range(TRY_ATTEMPTS):
         if i > 0:
             LOGGER.debug(
                 f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
@@ -68,7 +68,9 @@ async def try_call(self: "NATS", func: Callable[..., Awaitable[T]]) -> T:
         await self.close()
         time.sleep(RETRY_DELAY)
         await self.connect()
-        i += 1
+
+    LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
+    raise Exception("NATS connection error")
 
 
 class NATS(RawQueue):
