@@ -239,7 +239,7 @@ class PulsarSub(Pulsar, Sub):
                 # https://github.com/apache/pulsar/issues/3127
                 if str(e) == "Pulsar error: AlreadyClosed":
                     await self.close()
-                    time.sleep(RETRY_DELAY)
+                    await asyncio.sleep(RETRY_DELAY)
                     await self.connect()
                     continue
                 LOGGER.debug(

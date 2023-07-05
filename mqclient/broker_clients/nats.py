@@ -1,6 +1,7 @@
 """Back-end using NATS."""
 
 
+import asyncio
 import logging
 import math
 import time
@@ -66,7 +67,7 @@ async def try_call(self: "NATS", func: Callable[..., Awaitable[T]]) -> T:
                 raise
 
         await self.close()
-        time.sleep(RETRY_DELAY)
+        await asyncio.sleep(RETRY_DELAY)
         await self.connect()
 
     LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)

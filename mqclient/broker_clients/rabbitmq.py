@@ -1,5 +1,6 @@
 """Back-end using RabbitMQ."""
 
+import asyncio
 import logging
 import time
 import urllib
@@ -383,7 +384,7 @@ async def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
             LOGGER.debug(log_msgs.TRYCALL_AMQP_CONNECTION_ERROR)
 
         await queue.close()
-        time.sleep(RETRY_DELAY)
+        await asyncio.sleep(RETRY_DELAY)
         await queue.connect()
 
     LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
@@ -417,7 +418,7 @@ async def try_yield(
             LOGGER.debug(log_msgs.TRYYIELD_AMQP_CONNECTION_ERROR)
 
         await queue.close()
-        time.sleep(RETRY_DELAY)
+        await asyncio.sleep(RETRY_DELAY)
         await queue.connect()
 
     LOGGER.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
