@@ -45,7 +45,9 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         messages = [(MagicMock(delivery_tag=i), None, d) for d, i in zip(data, ids)]
         if append_none:
             messages += [(None, None, None)]  # type: ignore
-        mock_con.return_value.channel.return_value.consume.return_value = messages
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = (
+            messages
+        )
 
     @pytest.mark.asyncio
     async def test_create_pub_queue(self, mock_con: Any, queue_name: str) -> None:
@@ -63,7 +65,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
             "localhost", queue_name, 213, "", None
         )
         assert sub.queue == queue_name  # type: ignore
-        assert sub.prefetch == 213  # type: ignore
+        assert sub.prefetch == 213
         mock_con.return_value.channel.assert_called()
 
     @pytest.mark.asyncio
@@ -86,7 +88,9 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         mock_con.return_value.is_closed = False  # HACK - manually set attr
 
         fake_message = (MagicMock(delivery_tag=12), None, Message.serialize("foo, bar"))
-        mock_con.return_value.channel.return_value.consume.return_value = [fake_message]
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = [
+            fake_message
+        ]
         m = await sub.get_message()
         assert m is not None
         assert m.msg_id == 12
@@ -107,7 +111,9 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         mock_con.return_value.is_closed = False  # HACK - manually set attr
 
         err_msg = (unittest.mock.ANY, None, b"foo, bar")
-        mock_con.return_value.channel.return_value.consume.return_value = [err_msg]
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = [
+            err_msg
+        ]
         with pytest.raises(Exception):
             _ = [m async for m in sub.message_generator()]
         # would be called by Queue
@@ -115,7 +121,9 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
 
         # `propagate_error` attribute has no affect (b/c it deals w/ *downstream* errors)
         err_msg = (unittest.mock.ANY, None, b"foo, bar")
-        mock_con.return_value.channel.return_value.consume.return_value = [err_msg]
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = [
+            err_msg
+        ]
         with pytest.raises(Exception):
             _ = [m async for m in sub.message_generator(propagate_error=False)]
         # would be called by Queue
