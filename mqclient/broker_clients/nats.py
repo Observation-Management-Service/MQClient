@@ -104,7 +104,7 @@ class NATS(RawQueue):
     async def connect(self) -> None:
         """Set up connection and channel."""
         await super().connect()
-        self._nats_client = await nats.connect([self.endpoint])
+        self._nats_client = await nats.connect(self.endpoint)  # type: ignore[arg-type]
         # Create JetStream context
         self.js = self._nats_client.jetstream(timeout=TIMEOUT_MILLIS_DEFAULT // 1000)
         await self.js.add_stream(name=self.stream_id, subjects=[self.subject])
