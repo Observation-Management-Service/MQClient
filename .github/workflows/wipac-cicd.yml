@@ -84,7 +84,6 @@ jobs:
           # Pulsar
           if [ "${{ matrix.broker_client }}" = "pulsar" ]; then
             ./resources/docker-pulsar.sh "${{ matrix.broker_client }}"
-            export _MQCLIENT_TIMEOUT_MILLIS=5000
           # RabbitMQ
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
             ./resources/docker-rabbitmq.sh "${{ matrix.broker_client }}"
