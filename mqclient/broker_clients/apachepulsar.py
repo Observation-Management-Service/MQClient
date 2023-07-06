@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from functools import partial
 from typing import AsyncGenerator, Optional
 
 import pulsar  # type: ignore
