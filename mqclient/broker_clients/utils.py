@@ -3,7 +3,7 @@
 
 import asyncio
 import logging
-from typing import Awaitable, Callable, TypeVar
+from typing import Awaitable, Callable, Optional, TypeVar
 
 from .. import log_msgs
 from ..broker_client_interface import RETRY_DELAY, TRY_ATTEMPTS
@@ -13,11 +13,10 @@ T = TypeVar("T")  # the callable/awaitable return type
 
 async def try_call(
     func: Callable[[], Awaitable[T]],
-    nonretriable_conditions: Callable[[Exception], bool],
-    # retriable_conditions: Callable[[Exception], bool],
     close: Callable[[], Awaitable[None]],
     connect: Callable[[], Awaitable[None]],
     logger: logging.Logger,
+    nonretriable_conditions: Optional[Callable[[Exception], bool]] = None,
 ) -> T:
     """Call `func` with auto-retries."""
     for i in range(TRY_ATTEMPTS):
@@ -30,7 +29,7 @@ async def try_call(
             return await func()
         except Exception as e:
             logger.error(e)
-            if nonretriable_conditions(e):
+            if nonretriable_conditions and nonretriable_conditions(e):
                 raise
             elif i + 1 == TRY_ATTEMPTS:
                 logger.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)

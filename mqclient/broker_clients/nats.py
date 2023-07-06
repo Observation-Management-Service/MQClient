@@ -4,16 +4,7 @@
 import logging
 import math
 from functools import partial
-from typing import (
-    Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    List,
-    Optional,
-    TypeVar,
-    cast,
-)
+from typing import Any, AsyncGenerator, List, Optional, TypeVar, cast
 
 import nats
 
@@ -42,40 +33,6 @@ async def _anext(gen: AsyncGenerator[Any, Any], default: Any) -> Any:
         return await gen.__anext__()
     except StopAsyncIteration:
         return default
-
-
-async def try_call(self: "NATS", func: Callable[..., Awaitable[T]]) -> T:
-    """Call `func` with auto-retries."""
-    return await utils.try_call(
-        func=func,
-        nonretriable_conditions=lambda e: isinstance(e, nats.errors.TimeoutError),
-        close=self.close,
-        connect=self.connect,
-        logger=LOGGER,
-    )
-    # i = 0
-    # for i in range(TRY_ATTEMPTS):
-    #     if i > 0:
-    #         LOGGER.debug(
-    #             f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-    #         )
-
-    #     try:
-    #         return await func()
-    #     except nats.errors.TimeoutError:
-    #         raise
-    #     except Exception as e:  # pylint:disable=broad-except
-    #         LOGGER.debug(f"[try_call()] Encountered exception: '{e}'")
-    #         if i == TRY_ATTEMPTS - 1:
-    #             LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-    #             raise
-
-    #     await self.close()
-    #     await asyncio.sleep(RETRY_DELAY)
-    #     await self.connect()
-
-    # LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-    # raise Exception("NATS connection error")
 
 
 class NATS(RawQueue):
@@ -147,8 +104,11 @@ class NATSPub(NATS, Pub):
         if not self.js:
             raise RuntimeError("JetStream is not connected")
 
-        ack: nats.js.api.PubAck = await try_call(
-            self, partial(self.js.publish, self.subject, msg)
+        ack: nats.js.api.PubAck = await utils.try_call(
+            func=partial(self.js.publish, self.subject, msg),
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
         )
         LOGGER.debug(f"Sent Message w/ Ack: {ack}")
         LOGGER.debug(log_msgs.SENT_MESSAGE)
@@ -224,12 +184,17 @@ class NATSSub(NATS, Sub):
             timeout_millis = TIMEOUT_MILLIS_DEFAULT
 
         try:
-            nats_msgs: List[nats.aio.msg.Msg] = await try_call(
-                self,
-                partial(
+            nats_msgs: List[nats.aio.msg.Msg] = await utils.try_call(
+                func=partial(
                     self._subscription.fetch,
                     num_messages,
                     int(math.ceil(timeout_millis / 1000)),
+                ),
+                close=self.close,
+                connect=self.connect,
+                logger=LOGGER,
+                nonretriable_conditions=lambda e: isinstance(
+                    e, nats.errors.TimeoutError
                 ),
             )
         except nats.errors.TimeoutError:
@@ -279,7 +244,12 @@ class NATSSub(NATS, Sub):
             raise RuntimeError("subscriber is not connected")
 
         # Acknowledges the received messages so they will not be sent again.
-        await try_call(self, partial(self._from_message(msg).ack))
+        await utils.try_call(
+            func=partial(self._from_message(msg).ack),
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
 
     async def reject_message(self, msg: Message) -> None:
@@ -288,7 +258,12 @@ class NATSSub(NATS, Sub):
         if not self._subscription:
             raise RuntimeError("subscriber is not connected")
 
-        await try_call(self, partial(self._from_message(msg).nak))  # yes, it's "nak"
+        await utils.try_call(
+            func=partial(self._from_message(msg).nak),  # yes, it's "nak"
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
 
     async def message_generator(
