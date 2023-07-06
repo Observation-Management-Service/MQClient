@@ -409,9 +409,10 @@ async def try_yield(
 
     Try up to `TRY_ATTEMPTS` times, for connection-related errors.
     """
+    iterator = func()
 
     async def _next() -> Any:
-        return next(func)  # type: ignore[call-overload]
+        return next(iterator)
 
     while True:
         try:
