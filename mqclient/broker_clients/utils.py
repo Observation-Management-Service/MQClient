@@ -2,9 +2,8 @@
 
 
 import asyncio
-import inspect
 import logging
-from typing import Awaitable, Callable, Optional, TypeVar, Union
+from typing import Awaitable, Callable, Optional, TypeVar
 
 from .. import log_msgs
 from ..broker_client_interface import RETRY_DELAY, TRY_ATTEMPTS
@@ -13,7 +12,7 @@ T = TypeVar("T")  # the callable/awaitable return type
 
 
 async def try_call(
-    func: Callable[[], Union[T, Awaitable[T]]],
+    func: Callable[[], Awaitable[T]],
     close: Callable[[], Awaitable[None]],
     connect: Callable[[], Awaitable[None]],
     logger: logging.Logger,
@@ -27,10 +26,7 @@ async def try_call(
             )
 
         try:
-            if inspect.iscoroutinefunction(func):
-                return await func()  # type: ignore[misc, no-any-return]
-            else:
-                return func()  # type: ignore[return-value]
+            return await func()
         except Exception as e:
             logger.error(e)
             if nonretriable_conditions and nonretriable_conditions(e):
