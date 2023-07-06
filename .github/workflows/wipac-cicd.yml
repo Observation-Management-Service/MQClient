@@ -212,7 +212,6 @@ jobs:
           elif [ "${{ matrix.broker_client }}" = "rabbitmq" ]; then
             ./resources/docker-rabbitmq.sh "${{ matrix.broker_client }}" ./resources/rabbitmq-custom.conf
             export PYTEST_DO_AUTH_FOR_MQCLIENT=yes
-            export RABBITMQ_HEARTBEAT=60
           # NATS
           elif [ "${{ matrix.broker_client }}" = "nats" ]; then
             ./resources/local-nats-js.sh
