@@ -24,6 +24,12 @@ from .broker_client_interface import AckException, Message, NackException, Pub, 
 LOGGER = logging.getLogger("mqclient")
 
 
+# deprecation check
+for envvar in ["RABBITMQ_HEARTBEAT", "PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC"]:
+    if os.getenv(envvar):
+        raise RuntimeError(f"Environment variable {envvar} has been deprecated.")
+
+
 def _message_size_message(msg: Message) -> str:
     return (
         f"{sys.getsizeof(msg.payload)} bytes "
@@ -74,11 +80,6 @@ class Queue:
         self._timeout = 0
         self.timeout = timeout
         self.except_errors = except_errors
-
-        # deprecation check
-        for envvar in ["RABBITMQ_HEARTBEAT", "PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC"]:
-            if os.getenv(envvar):
-                RuntimeError(f"Environment variable {envvar} has been deprecated.")
 
     @staticmethod
     def make_name() -> str:
