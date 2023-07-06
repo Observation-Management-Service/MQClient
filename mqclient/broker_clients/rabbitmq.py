@@ -363,8 +363,12 @@ async def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
 
     Try up to `TRY_ATTEMPTS` times, for connection-related errors.
     """
+
+    async def _func() -> Any:
+        return func()
+
     return await utils.try_call(
-        func=func,
+        func=_func,
         nonretriable_conditions=lambda e: isinstance(
             e, pika.exceptions.AMQPChannelError
         ),
