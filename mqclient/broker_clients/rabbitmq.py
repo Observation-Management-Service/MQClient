@@ -1,6 +1,5 @@
 """Back-end using RabbitMQ."""
 
-import asyncio
 import logging
 import urllib
 from functools import partial
