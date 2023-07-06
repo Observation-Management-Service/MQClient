@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.1 (2023-07-06)
+
+### Other
+
+* Bump/Pin Dependencies ([#100](https://github.com/Observation-Management-Service/MQClient/issues/100)) ([`5f8df64`](https://github.com/Observation-Management-Service/MQClient/commit/5f8df64de4bfd86eb2e7c93233b24e8a2d9620b2))
+
 ## v2.1.0 (2023-04-25)
 
 
