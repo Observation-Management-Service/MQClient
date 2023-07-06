@@ -128,11 +128,11 @@ class PulsarPub(Pulsar, Pub):
         if not self.producer:
             raise RuntimeError("queue is not connected")
 
+        async def _send_message() -> None:
+            self.producer.send(msg)
+
         await utils.try_call(
-            func=partial(
-                self.producer.send,
-                msg,
-            ),
+            func=_send_message,
             close=self.close,
             connect=self.connect,
             logger=LOGGER,
@@ -255,15 +255,15 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
+        async def _ack_message() -> None:
+            self.consumer.acknowledge(
+                pulsar.MessageId.deserialize(msg.msg_id)
+                if isinstance(msg.msg_id, bytes)
+                else msg.msg_id
+            )
+
         await utils.try_call(
-            func=partial(
-                self.consumer.acknowledge,
-                message=(
-                    pulsar.MessageId.deserialize(msg.msg_id)
-                    if isinstance(msg.msg_id, bytes)
-                    else msg.msg_id
-                ),
-            ),
+            func=_ack_message,
             close=self.close,
             connect=self.connect,
             logger=LOGGER,
@@ -276,15 +276,15 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
+        async def _reject_message() -> None:
+            self.consumer.negative_acknowledge(
+                pulsar.MessageId.deserialize(msg.msg_id)
+                if isinstance(msg.msg_id, bytes)
+                else msg.msg_id
+            )
+
         await utils.try_call(
-            func=partial(
-                self.consumer.negative_acknowledge,
-                message=(
-                    pulsar.MessageId.deserialize(msg.msg_id)
-                    if isinstance(msg.msg_id, bytes)
-                    else msg.msg_id
-                ),
-            ),
+            func=_reject_message,
             close=self.close,
             connect=self.connect,
             logger=LOGGER,
