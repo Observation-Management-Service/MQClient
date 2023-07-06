@@ -410,13 +410,13 @@ async def try_yield(
     Try up to `TRY_ATTEMPTS` times, for connection-related errors.
     """
 
-    async def _next(func: Callable[..., Any]) -> Any:
+    async def _next() -> Any:
         return next(func)  # type: ignore[call-overload]
 
     while True:
         try:
             yield await utils.try_call(
-                func=lambda: _next(func),
+                func=_next,
                 nonretriable_conditions=lambda e: isinstance(
                     e, (pika.exceptions.AMQPChannelError, StopIteration)
                 ),

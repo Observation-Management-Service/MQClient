@@ -1,7 +1,6 @@
 """Back-end using NATS."""
 
 
-import asyncio
 import logging
 import math
 from functools import partial
