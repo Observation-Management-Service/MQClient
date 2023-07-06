@@ -1,13 +1,16 @@
 """Define an interface that broker_clients will adhere to."""
 
 
+import os
 import pickle
 from enum import Enum, auto
 from typing import Any, AsyncGenerator, Dict, Optional, Union
 
 MessageID = Union[int, str, bytes]
 
-TIMEOUT_MILLIS_DEFAULT = 1000  # milliseconds
+TIMEOUT_MILLIS_DEFAULT = int(
+    os.getenv("_MQCLIENT_TIMEOUT_MILLIS", "1000")
+)  # milliseconds
 RETRY_DELAY = 1  # seconds
 TRY_ATTEMPTS = 3  # ex: 3 means 1 initial try and 2 retries
 
