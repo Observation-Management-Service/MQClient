@@ -3,17 +3,7 @@
 
 import asyncio
 import logging
-from functools import partial
-from typing import (
-    Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    List,
-    Optional,
-    TypeVar,
-    cast,
-)
+from typing import Awaitable, Callable, TypeVar
 
 from .. import log_msgs
 from ..broker_client_interface import RETRY_DELAY, TRY_ATTEMPTS
