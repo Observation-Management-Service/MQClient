@@ -2,6 +2,7 @@
 
 import contextlib
 import logging
+import os
 import sys
 import types
 import uuid
@@ -21,6 +22,12 @@ from . import telemetry as wtt
 from .broker_client_interface import AckException, Message, NackException, Pub, Sub
 
 LOGGER = logging.getLogger("mqclient")
+
+
+# deprecation check
+for envvar in ["RABBITMQ_HEARTBEAT", "PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC"]:
+    if os.getenv(envvar):
+        RuntimeError(f"Environment variable {envvar} has been deprecated.")
 
 
 def _message_size_message(msg: Message) -> str:
