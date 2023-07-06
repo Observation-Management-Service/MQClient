@@ -128,7 +128,7 @@ class PulsarPub(Pulsar, Pub):
         if not self.producer:
             raise RuntimeError("queue is not connected")
 
-        return await utils.try_call(
+        await utils.try_call(
             func=partial(
                 self.producer.send,
                 msg,
@@ -247,7 +247,7 @@ class PulsarSub(Pulsar, Sub):
             if str(e) == "Pulsar error: TimeOut":
                 LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                 return None
-            raise  # all other error processed by utils.try_call()
+            raise
 
     async def ack_message(self, msg: Message) -> None:
         """Ack a message from the queue."""
@@ -255,7 +255,7 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        return await utils.try_call(
+        await utils.try_call(
             func=partial(
                 self.consumer.acknowledge,
                 message=(
@@ -276,7 +276,7 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        return await utils.try_call(
+        await utils.try_call(
             func=partial(
                 self.consumer.negative_acknowledge,
                 message=(
