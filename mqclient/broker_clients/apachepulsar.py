@@ -254,7 +254,6 @@ class PulsarSub(Pulsar, Sub):
                 LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                 return None
             raise
-
         if msg := PulsarSub._to_message(pulsar_msg):
             LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
             return msg

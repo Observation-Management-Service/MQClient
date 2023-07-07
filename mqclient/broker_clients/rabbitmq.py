@@ -290,6 +290,7 @@ class RabbitMQSub(RabbitMQ, Sub):
                     logger=LOGGER,
                 )
             except StopIteration:
+                LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                 return
             if msg := RabbitMQSub._to_message(pika_msg[0], pika_msg[2]):  # type: ignore[index]
                 LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")

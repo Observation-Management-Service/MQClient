@@ -217,9 +217,11 @@ class NATSSub(NATS, Sub):
                 ),
             )
         except nats.errors.TimeoutError:
+            LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
+            return []
+        if not nats_msgs:
             LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
             return []
-
         msgs = []
         for recvd in nats_msgs:
             if msg := self._to_message(recvd):
