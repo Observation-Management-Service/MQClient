@@ -12,7 +12,7 @@ T = TypeVar("T")  # the callable/awaitable return type
 
 
 async def auto_retry_call(
-    func: Callable[[], Union[T | Awaitable[T]]],
+    func: Callable[[], Union[T, Awaitable[T]]],
     retries: int,
     retry_delay: int,
     close: Callable[[], Awaitable[None]],
