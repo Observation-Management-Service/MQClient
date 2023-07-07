@@ -9,7 +9,7 @@ MessageID = Union[int, str, bytes]
 
 TIMEOUT_MILLIS_DEFAULT = 1000  # milliseconds
 RETRY_DELAY = 1  # seconds
-TRY_ATTEMPTS = 3  # ex: 3 means 1 initial try and 2 retries
+RETRIES = 2  # ex: 2 means 1 initial try and 2 retries
 
 
 class ConnectingFailedException(Exception):
@@ -122,7 +122,12 @@ class RawQueue:
 class Pub(RawQueue):
     """Publisher queue."""
 
-    async def send_message(self, msg: bytes) -> None:
+    async def send_message(
+        self,
+        msg: bytes,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
+    ) -> None:
         """Send a message on a queue."""
         raise NotImplementedError()
 
@@ -142,21 +147,38 @@ class Sub(RawQueue):
         raise NotImplementedError()
 
     async def get_message(
-        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
+        self,
+        timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
     ) -> Optional[Message]:
         """Get a single message from a queue."""
         raise NotImplementedError()
 
-    async def ack_message(self, msg: Message) -> None:
+    async def ack_message(
+        self,
+        msg: Message,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
+    ) -> None:
         """Ack a message from the queue."""
         raise NotImplementedError()
 
-    async def reject_message(self, msg: Message) -> None:
+    async def reject_message(
+        self,
+        msg: Message,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
+    ) -> None:
         """Reject (nack) a message from the queue."""
         raise NotImplementedError()
 
     def message_generator(  # NOTE: no `async` b/c it's abstract; overriding methods will need `async`
-        self, timeout: int = 60, propagate_error: bool = True
+        self,
+        timeout: int = 60,
+        propagate_error: bool = True,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 

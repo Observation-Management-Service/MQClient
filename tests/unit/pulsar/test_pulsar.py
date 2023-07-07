@@ -106,15 +106,22 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
             "localhost", queue_name, 1, "", None
         )
 
+        retries = 2  # >= 0
+
         mock_con.return_value.subscribe.return_value.receive.side_effect = Exception()
         with pytest.raises(Exception):
-            _ = [m async for m in sub.message_generator()]
+            _ = [m async for m in sub.message_generator(retries=retries)]
         # would be called by Queue
-        self._get_close_mock_fn(mock_con).assert_not_called()
+        assert self._get_close_mock_fn(mock_con).call_count == retries
 
         # `propagate_error` attribute has no affect (b/c it deals w/ *downstream* errors)
         mock_con.return_value.subscribe.return_value.receive.side_effect = Exception()
         with pytest.raises(Exception):
-            _ = [m async for m in sub.message_generator(propagate_error=False)]
+            _ = [
+                m
+                async for m in sub.message_generator(
+                    propagate_error=False, retries=retries
+                )
+            ]
         # would be called by Queue
-        self._get_close_mock_fn(mock_con).assert_not_called()
+        assert self._get_close_mock_fn(mock_con).call_count == retries

@@ -8,6 +8,8 @@ import pulsar  # type: ignore
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
+    RETRIES,
+    RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     AlreadyClosedException,
     ClosingFailedException,
@@ -121,7 +123,12 @@ class PulsarPub(Pulsar, Pub):
             raise ClosingFailedException("No producer to sub.")
         LOGGER.debug(log_msgs.CLOSED_PUB)
 
-    async def send_message(self, msg: bytes) -> None:
+    async def send_message(
+        self,
+        msg: bytes,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
+    ) -> None:
         """Send a message on a queue."""
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
         if not self.producer:
@@ -132,6 +139,8 @@ class PulsarPub(Pulsar, Pub):
 
         await utils.try_call(
             func=_send_message,
+            retries=retries,
+            retry_delay=retry_delay,
             close=self.close,
             connect=self.connect,
             logger=LOGGER,
@@ -210,7 +219,10 @@ class PulsarSub(Pulsar, Sub):
             return Message(id_, data)
 
     async def get_message(
-        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
+        self,
+        timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
     ) -> Optional[Message]:
         """Get a single message from a queue.
 
@@ -235,6 +247,8 @@ class PulsarSub(Pulsar, Sub):
         try:
             return await utils.try_call(
                 func=_get_message,
+                retries=retries,
+                retry_delay=retry_delay,
                 close=self.close,
                 connect=self.connect,
                 logger=LOGGER,
@@ -248,7 +262,12 @@ class PulsarSub(Pulsar, Sub):
                 return None
             raise
 
-    async def ack_message(self, msg: Message) -> None:
+    async def ack_message(
+        self,
+        msg: Message,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
+    ) -> None:
         """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
         if not self.consumer:
@@ -263,13 +282,20 @@ class PulsarSub(Pulsar, Sub):
 
         await utils.try_call(
             func=_ack_message,
+            retries=retries,
+            retry_delay=retry_delay,
             close=self.close,
             connect=self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg}).")
 
-    async def reject_message(self, msg: Message) -> None:
+    async def reject_message(
+        self,
+        msg: Message,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
+    ) -> None:
         """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
         if not self.consumer:
@@ -284,6 +310,8 @@ class PulsarSub(Pulsar, Sub):
 
         await utils.try_call(
             func=_reject_message,
+            retries=retries,
+            retry_delay=retry_delay,
             close=self.close,
             connect=self.connect,
             logger=LOGGER,
@@ -291,7 +319,11 @@ class PulsarSub(Pulsar, Sub):
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg}).")
 
     async def message_generator(
-        self, timeout: int = 60, propagate_error: bool = True
+        self,
+        timeout: int = 60,
+        propagate_error: bool = True,
+        retries: int = RETRIES,
+        retry_delay: int = RETRY_DELAY,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 
