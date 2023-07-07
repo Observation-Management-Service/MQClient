@@ -9,9 +9,6 @@ import pika  # type: ignore
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    RETRIES,
-    RETRY_DELAY,
-    TIMEOUT_MILLIS_DEFAULT,
     AlreadyClosedException,
     ClosingFailedException,
     ConnectingFailedException,
@@ -173,8 +170,8 @@ class RabbitMQPub(RabbitMQ, Pub):
     async def send_message(
         self,
         msg: bytes,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        retries: int,
+        retry_delay: int,
     ) -> None:
         """Send a message on a queue.
 
@@ -251,7 +248,8 @@ class RabbitMQSub(RabbitMQ, Sub):
 
     @staticmethod
     def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
-        method_frame: Optional[pika.spec.Basic.GetOk], body: Optional[Union[str, bytes]]
+        method_frame: Optional[pika.spec.Basic.GetOk],
+        body: Optional[Union[str, bytes]],
     ) -> Optional[Message]:
         """Transform RabbitMQ-Message to Message type."""
         if not method_frame or body is None:
@@ -301,9 +299,9 @@ class RabbitMQSub(RabbitMQ, Sub):
 
     async def get_message(
         self,
-        timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        timeout_millis: Optional[int],
+        retries: int,
+        retry_delay: int,
     ) -> Optional[Message]:
         """Get a message from a queue."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
@@ -322,8 +320,8 @@ class RabbitMQSub(RabbitMQ, Sub):
     async def ack_message(
         self,
         msg: Message,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        retries: int,
+        retry_delay: int,
     ) -> None:
         """Ack a message from the queue.
 
@@ -353,8 +351,8 @@ class RabbitMQSub(RabbitMQ, Sub):
     async def reject_message(
         self,
         msg: Message,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        retries: int,
+        retry_delay: int,
     ) -> None:
         """Reject (nack) a message from the queue.
 
@@ -383,10 +381,10 @@ class RabbitMQSub(RabbitMQ, Sub):
 
     async def message_generator(
         self,
-        timeout: int = 60,
-        propagate_error: bool = True,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        timeout: int,
+        propagate_error: bool,
+        retries: int,
+        retry_delay: int,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 

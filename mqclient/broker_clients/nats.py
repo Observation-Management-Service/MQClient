@@ -10,8 +10,6 @@ import nats
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    RETRIES,
-    RETRY_DELAY,
     TIMEOUT_MILLIS_DEFAULT,
     ClosingFailedException,
     Message,
@@ -103,8 +101,8 @@ class NATSPub(NATS, Pub):
     async def send_message(
         self,
         msg: bytes,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        retries: int,
+        retry_delay: int,
     ) -> None:
         """Send a message (publish)."""
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
@@ -231,9 +229,9 @@ class NATSSub(NATS, Sub):
 
     async def get_message(
         self,
-        timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        timeout_millis: Optional[int],
+        retries: int,
+        retry_delay: int,
     ) -> Optional[Message]:
         """Get a message."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
@@ -279,8 +277,8 @@ class NATSSub(NATS, Sub):
     async def ack_message(
         self,
         msg: Message,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        retries: int,
+        retry_delay: int,
     ) -> None:
         """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
@@ -301,8 +299,8 @@ class NATSSub(NATS, Sub):
     async def reject_message(
         self,
         msg: Message,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        retries: int,
+        retry_delay: int,
     ) -> None:
         """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
@@ -321,10 +319,10 @@ class NATSSub(NATS, Sub):
 
     async def message_generator(
         self,
-        timeout: int = 60,
-        propagate_error: bool = True,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        timeout: int,
+        propagate_error: bool,
+        retries: int,
+        retry_delay: int,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 

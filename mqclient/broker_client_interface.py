@@ -125,8 +125,8 @@ class Pub(RawQueue):
     async def send_message(
         self,
         msg: bytes,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        retries: int,
+        retry_delay: int,
     ) -> None:
         """Send a message on a queue."""
         raise NotImplementedError()
@@ -148,9 +148,9 @@ class Sub(RawQueue):
 
     async def get_message(
         self,
-        timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        timeout_millis: Optional[int],
+        retries: int,
+        retry_delay: int,
     ) -> Optional[Message]:
         """Get a single message from a queue."""
         raise NotImplementedError()
@@ -158,8 +158,8 @@ class Sub(RawQueue):
     async def ack_message(
         self,
         msg: Message,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        retries: int,
+        retry_delay: int,
     ) -> None:
         """Ack a message from the queue."""
         raise NotImplementedError()
@@ -167,18 +167,18 @@ class Sub(RawQueue):
     async def reject_message(
         self,
         msg: Message,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        retries: int,
+        retry_delay: int,
     ) -> None:
         """Reject (nack) a message from the queue."""
         raise NotImplementedError()
 
     def message_generator(  # NOTE: no `async` b/c it's abstract; overriding methods will need `async`
         self,
-        timeout: int = 60,
-        propagate_error: bool = True,
-        retries: int = RETRIES,
-        retry_delay: int = RETRY_DELAY,
+        timeout: int,
+        propagate_error: bool,
+        retries: int,
+        retry_delay: int,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 
