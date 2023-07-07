@@ -21,6 +21,7 @@ async def try_call(
 ) -> T:
     """Call `func` with auto-retries."""
     retry_delay = max(retry_delay, 1)
+    retries = max(retries, 0)
 
     for i in range(retries + 1):
         if i > 0:

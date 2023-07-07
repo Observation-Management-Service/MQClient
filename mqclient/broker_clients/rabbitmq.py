@@ -2,17 +2,7 @@
 
 import logging
 import urllib
-from functools import partial
-from typing import (
-    Any,
-    AsyncGenerator,
-    AsyncIterator,
-    Callable,
-    Dict,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Tuple, Union
 
 import pika  # type: ignore
 
