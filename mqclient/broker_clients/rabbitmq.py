@@ -276,20 +276,10 @@ class RabbitMQSub(RabbitMQ, Sub):
             inactivity_timeout=timeout_millis / 1000.0 if timeout_millis else None,
         )
 
-        async def _next() -> Optional[Message]:
-            method_frame, _, body = next(iterator)
-            msg = RabbitMQSub._to_message(method_frame, body)
-            if msg:
-                LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
-                return msg
-            else:
-                LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
-                return None
-
         while True:
             try:
-                yield await utils.auto_retry_call(
-                    func=_next,
+                pika_msg = await utils.auto_retry_call(
+                    func=functools.partial(next, iterator),
                     nonretriable_conditions=lambda e: isinstance(
                         e, (pika.exceptions.AMQPChannelError, StopIteration)
                     ),
@@ -301,6 +291,12 @@ class RabbitMQSub(RabbitMQ, Sub):
                 )
             except StopIteration:
                 return
+            if msg := RabbitMQSub._to_message(pika_msg[0], pika_msg[2]):  # type: ignore[index]
+                LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
+                yield msg
+            else:
+                LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+                yield None
 
     async def get_message(
         self,

@@ -217,12 +217,13 @@ class NATSSub(NATS, Sub):
                 ),
             )
         except nats.errors.TimeoutError:
+            LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
             return []
 
         msgs = []
         for recvd in nats_msgs:
-            msg = self._to_message(recvd)
-            if msg:
+            if msg := self._to_message(recvd):
+                LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
                 msgs.append(msg)
         return msgs
 
@@ -246,10 +247,8 @@ class NATSSub(NATS, Sub):
                     retry_delay,
                 )
             )[0]
-            LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
             return msg
         except IndexError:
-            LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
             return None
 
     async def _gen_messages(

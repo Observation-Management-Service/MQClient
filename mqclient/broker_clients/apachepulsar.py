@@ -234,20 +234,12 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        async def _get_message() -> Optional[Message]:
-            msg = PulsarSub._to_message(
-                self.consumer.receive(timeout_millis=timeout_millis)
-            )
-            if msg:
-                LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
-                return msg
-            else:
-                LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
-                return None
-
         try:
-            return await utils.auto_retry_call(
-                func=_get_message,
+            pulsar_msg = await utils.auto_retry_call(
+                func=functools.partial(
+                    self.consumer.receive,
+                    timeout_millis=timeout_millis,
+                ),
                 retries=retries,
                 retry_delay=retry_delay,
                 close=self.close,
@@ -262,6 +254,13 @@ class PulsarSub(Pulsar, Sub):
                 LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                 return None
             raise
+
+        if msg := PulsarSub._to_message(pulsar_msg):
+            LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
+            return msg
+        else:
+            LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+            return None
 
     async def ack_message(
         self,
