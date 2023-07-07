@@ -8,8 +8,6 @@ from typing import Any, AsyncGenerator, Dict, Optional, Union
 MessageID = Union[int, str, bytes]
 
 TIMEOUT_MILLIS_DEFAULT = 1000  # milliseconds
-RETRY_DELAY = 1  # seconds
-RETRIES = 2  # ex: 2 means 1 initial try and 2 retries
 
 
 class ConnectingFailedException(Exception):

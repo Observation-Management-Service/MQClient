@@ -1,6 +1,7 @@
 """Queue class encapsulating a pub-sub messaging system."""
 
 import contextlib
+import functools
 import logging
 import os
 import sys
@@ -63,6 +64,8 @@ class Queue:
         prefetch: int = 1,
         timeout: int = 60,
         ack_timeout: Optional[int] = None,
+        retry_delay: int = 1,  # seconds
+        retries: int = 2,  # ex: 2 means 1 initial try and 2 retries
         except_errors: bool = True,
         auth_token: str = "",
     ) -> None:
@@ -76,9 +79,15 @@ class Queue:
             raise ValueError("timeout must be positive")
         self._ack_timeout = ack_timeout
 
-        # publics
-        self._timeout = 0
+        # properties
+        self._timeout = -1
         self.timeout = timeout
+        self._retries = -1
+        self.retries = retries
+        self._retry_delay = -1
+        self.retry_delay = retry_delay
+
+        # publics
         self.except_errors = except_errors
 
     @staticmethod
@@ -100,6 +109,30 @@ class Queue:
         if val < 1:
             raise ValueError("timeout must be positive")
         self._timeout = val
+
+    @property
+    def retries(self) -> int:
+        """Get the retries value."""
+        return self._retries
+
+    @retries.setter
+    def retries(self, val: int) -> None:
+        LOGGER.debug(f"Setting retries to {val}")
+        if val < 0:
+            raise ValueError("retries must be non-negative")
+        self._retries = val
+
+    @property
+    def retry_delay(self) -> int:
+        """Get the retry_delay value."""
+        return self._retry_delay
+
+    @retry_delay.setter
+    def retry_delay(self, val: int) -> None:
+        LOGGER.debug(f"Setting retry_delay to {val}")
+        if val < 1:
+            raise ValueError("retry_delay must be positive")
+        self._retry_delay = val
 
     async def _create_pub_queue(self) -> Pub:
         """Wrap `self._broker_client.create_pub_queue()` with instance's
@@ -152,7 +185,7 @@ class Queue:
         pub = await self._create_pub_queue()
 
         try:
-            yield QueuePubResource(pub)
+            yield QueuePubResource(pub, self.retries, self.retry_delay)
         finally:
             await pub.close()
 
@@ -171,7 +204,11 @@ class Queue:
         # pylint:disable=protected-access
         if msg._ack_status == Message.AckStatus.NONE:
             try:
-                await sub.ack_message(msg)
+                await sub.ack_message(
+                    msg,
+                    retries=self.retries,
+                    retry_delay=self.retry_delay,
+                )
                 msg._ack_status = Message.AckStatus.ACKED  # mark after success
             except Exception as e:
                 raise AckException(f"Acking failed on broker_client: {msg}") from e
@@ -200,7 +237,11 @@ class Queue:
         # pylint:disable=protected-access
         if msg._ack_status == Message.AckStatus.NONE:
             try:
-                await sub.reject_message(msg)
+                await sub.reject_message(
+                    msg,
+                    retries=self.retries,
+                    retry_delay=self.retry_delay,
+                )
                 msg._ack_status = Message.AckStatus.NACKED  # mark after success
             except Exception as e:
                 raise NackException(f"Nacking failed on broker_client: {msg}") from e
@@ -315,9 +356,14 @@ class Queue:
 
         try:
             yield ManualQueueSubResource(
-                lambda: sub.get_message(self.timeout * 1000),
-                lambda msg: self._safe_ack(sub, msg),
-                lambda msg: self._safe_nack(sub, msg),
+                functools.partial(
+                    sub.get_message,
+                    self.timeout * 1000,
+                    retries=self.retries,
+                    retry_delay=self.retry_delay,
+                ),
+                functools.partial(self._safe_ack, sub),
+                functools.partial(self._safe_nack, sub),
                 ack_pending_limit=sub.prefetch,
             )
         finally:
@@ -364,7 +410,11 @@ class Queue:
             return msg
 
         sub = await self._create_sub_queue()
-        raw_msg = await sub.get_message(self.timeout * 1000)
+        raw_msg = await sub.get_message(
+            self.timeout * 1000,
+            retries=self.retries,
+            retry_delay=self.retry_delay,
+        )
 
         if not raw_msg:  # no message -> close and exit
             await sub.close()
@@ -410,15 +460,21 @@ class TooManyMessagesPendingAckException(Exception):
 class QueuePubResource:
     """A manager class around `Pub.send_message()`."""
 
-    def __init__(self, pub: Pub):
+    def __init__(self, pub: Pub, retries: int, retry_delay: int):
         self.pub = pub
+        self.retries = retries
+        self.retry_delay = retry_delay
 
     @wtt.spanned(kind=wtt.SpanKind.PRODUCER)
     async def send(self, data: Any) -> None:
         """Send a message."""
         msg_bytes = Message.serialize(data, headers=wtt.inject_links_carrier())
         LOGGER.info(f"Sending Message: {sys.getsizeof(msg_bytes)} bytes")
-        await self.pub.send_message(msg_bytes)
+        await self.pub.send_message(
+            msg_bytes,
+            retries=self.retries,
+            retry_delay=self.retry_delay,
+        )
 
 
 class ManualQueueSubResource:
@@ -519,6 +575,8 @@ class QueueSubResource:
         self._gen = self._sub.message_generator(
             timeout=self.queue.timeout,
             propagate_error=(not self.queue.except_errors),
+            retries=self.queue.retries,
+            retry_delay=self.queue.retry_delay,
         )
 
         self._span = wtt.get_current_span()
