@@ -2,8 +2,9 @@
 
 
 import asyncio
+import inspect
 import logging
-from typing import Awaitable, Callable, Optional, TypeVar
+from typing import Awaitable, Callable, Optional, TypeVar, Union
 
 from .. import log_msgs
 
@@ -11,7 +12,7 @@ T = TypeVar("T")  # the callable/awaitable return type
 
 
 async def auto_retry_call(
-    func: Callable[[], Awaitable[T]],
+    func: Callable[[], Union[T | Awaitable[T]]],
     retries: int,
     retry_delay: int,
     close: Callable[[], Awaitable[None]],
@@ -30,7 +31,11 @@ async def auto_retry_call(
             )
 
         try:
-            return await func()
+            ret = func()
+            if inspect.isawaitable(ret):
+                return await ret  # type: ignore[no-any-return]
+            else:
+                return ret  # type: ignore[return-value]
         except Exception as e:
             logger.error(e)
             if nonretriable_conditions and nonretriable_conditions(e):

@@ -1,6 +1,7 @@
 """Back-end using Apache Pulsar."""
 
 import asyncio
+import functools
 import logging
 from typing import AsyncGenerator, Optional
 
@@ -134,11 +135,11 @@ class PulsarPub(Pulsar, Pub):
         if not self.producer:
             raise RuntimeError("queue is not connected")
 
-        async def _send_message() -> None:
-            self.producer.send(msg)
-
         await utils.auto_retry_call(
-            func=_send_message,
+            func=functools.partial(
+                self.producer.send,
+                msg,
+            ),
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
@@ -273,15 +274,15 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        async def _ack_message() -> None:
-            self.consumer.acknowledge(
-                pulsar.MessageId.deserialize(msg.msg_id)
-                if isinstance(msg.msg_id, bytes)
-                else msg.msg_id
-            )
-
         await utils.auto_retry_call(
-            func=_ack_message,
+            func=functools.partial(
+                self.consumer.acknowledge,
+                message=(
+                    pulsar.MessageId.deserialize(msg.msg_id)
+                    if isinstance(msg.msg_id, bytes)
+                    else msg.msg_id
+                ),
+            ),
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
@@ -301,15 +302,15 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        async def _reject_message() -> None:
-            self.consumer.negative_acknowledge(
-                pulsar.MessageId.deserialize(msg.msg_id)
-                if isinstance(msg.msg_id, bytes)
-                else msg.msg_id
-            )
-
         await utils.auto_retry_call(
-            func=_reject_message,
+            func=functools.partial(
+                self.consumer.negative_acknowledge,
+                message=(
+                    pulsar.MessageId.deserialize(msg.msg_id)
+                    if isinstance(msg.msg_id, bytes)
+                    else msg.msg_id
+                ),
+            ),
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,

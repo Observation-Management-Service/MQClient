@@ -1,5 +1,6 @@
 """Back-end using RabbitMQ."""
 
+import functools
 import logging
 import urllib
 from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Tuple, Union
@@ -188,15 +189,13 @@ class RabbitMQPub(RabbitMQ, Pub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        async def _func() -> Any:
-            return self.channel.basic_publish(  # type: ignore[union-attr]
+        await utils.auto_retry_call(
+            func=functools.partial(
+                self.channel.basic_publish,
                 exchange="",
                 routing_key=self.queue,
                 body=msg,
-            )
-
-        await utils.auto_retry_call(
-            func=_func,
+            ),
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
             ),
@@ -338,11 +337,11 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        async def _func() -> Any:
-            return self.channel.basic_ack(msg.msg_id)  # type: ignore[union-attr]
-
         await utils.auto_retry_call(
-            func=_func,
+            func=functools.partial(
+                self.channel.basic_ack,
+                msg.msg_id,
+            ),
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
             ),
@@ -369,11 +368,11 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        async def _func() -> Any:
-            return self.channel.basic_nack(msg.msg_id)  # type: ignore[union-attr]
-
         await utils.auto_retry_call(
-            func=_func,
+            func=functools.partial(
+                self.channel.basic_nack,
+                msg.msg_id,
+            ),
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
             ),

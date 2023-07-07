@@ -1,9 +1,9 @@
 """Back-end using NATS."""
 
 
+import functools
 import logging
 import math
-from functools import partial
 from typing import Any, AsyncGenerator, List, Optional, TypeVar, cast
 
 import nats
@@ -112,7 +112,11 @@ class NATSPub(NATS, Pub):
             raise RuntimeError("JetStream is not connected")
 
         ack: nats.js.api.PubAck = await utils.auto_retry_call(
-            func=partial(self.js.publish, self.subject, msg),
+            func=functools.partial(
+                self.js.publish,
+                self.subject,
+                msg,
+            ),
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
@@ -198,7 +202,7 @@ class NATSSub(NATS, Sub):
 
         try:
             nats_msgs: List[nats.aio.msg.Msg] = await utils.auto_retry_call(
-                func=partial(
+                func=functools.partial(
                     self._subscription.fetch,
                     num_messages,
                     int(math.ceil(timeout_millis / 1000)),
@@ -284,7 +288,9 @@ class NATSSub(NATS, Sub):
 
         # Acknowledges the received messages so they will not be sent again.
         await utils.auto_retry_call(
-            func=partial(self._from_message(msg).ack),
+            func=functools.partial(
+                self._from_message(msg).ack,
+            ),
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
@@ -305,7 +311,9 @@ class NATSSub(NATS, Sub):
             raise RuntimeError("subscriber is not connected")
 
         await utils.auto_retry_call(
-            func=partial(self._from_message(msg).nak),  # yes, it's "nak"
+            func=functools.partial(
+                self._from_message(msg).nak,  # yes, it's "nak"
+            ),
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
