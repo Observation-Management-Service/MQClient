@@ -1,7 +1,6 @@
 """Unit Tests for RabbitMQ/Pika BrokerClient."""
 
 import itertools
-import unittest
 from typing import Any, List, Optional, Tuple
 from unittest.mock import MagicMock
 
