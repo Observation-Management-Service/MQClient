@@ -274,14 +274,15 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
+        if isinstance(msg.msg_id, bytes):
+            pulsar_msg = pulsar.MessageId.deserialize(msg.msg_id)
+        else:
+            pulsar_msg = msg.msg_id
+
         await utils.auto_retry_call(
             func=functools.partial(
                 self.consumer.acknowledge,
-                message=(
-                    pulsar.MessageId.deserialize(msg.msg_id)
-                    if isinstance(msg.msg_id, bytes)
-                    else msg.msg_id
-                ),
+                pulsar_msg,
             ),
             retries=retries,
             retry_delay=retry_delay,
@@ -302,14 +303,15 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
+        if isinstance(msg.msg_id, bytes):
+            pulsar_msg = pulsar.MessageId.deserialize(msg.msg_id)
+        else:
+            pulsar_msg = msg.msg_id
+
         await utils.auto_retry_call(
             func=functools.partial(
                 self.consumer.negative_acknowledge,
-                message=(
-                    pulsar.MessageId.deserialize(msg.msg_id)
-                    if isinstance(msg.msg_id, bytes)
-                    else msg.msg_id
-                ),
+                pulsar_msg,
             ),
             retries=retries,
             retry_delay=retry_delay,
