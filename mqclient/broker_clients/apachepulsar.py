@@ -137,7 +137,7 @@ class PulsarPub(Pulsar, Pub):
         async def _send_message() -> None:
             self.producer.send(msg)
 
-        await utils.try_call(
+        await utils.auto_retry_call(
             func=_send_message,
             retries=retries,
             retry_delay=retry_delay,
@@ -245,7 +245,7 @@ class PulsarSub(Pulsar, Sub):
                 return None
 
         try:
-            return await utils.try_call(
+            return await utils.auto_retry_call(
                 func=_get_message,
                 retries=retries,
                 retry_delay=retry_delay,
@@ -280,7 +280,7 @@ class PulsarSub(Pulsar, Sub):
                 else msg.msg_id
             )
 
-        await utils.try_call(
+        await utils.auto_retry_call(
             func=_ack_message,
             retries=retries,
             retry_delay=retry_delay,
@@ -308,7 +308,7 @@ class PulsarSub(Pulsar, Sub):
                 else msg.msg_id
             )
 
-        await utils.try_call(
+        await utils.auto_retry_call(
             func=_reject_message,
             retries=retries,
             retry_delay=retry_delay,

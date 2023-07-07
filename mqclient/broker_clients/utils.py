@@ -10,7 +10,7 @@ from .. import log_msgs
 T = TypeVar("T")  # the callable/awaitable return type
 
 
-async def try_call(
+async def auto_retry_call(
     func: Callable[[], Awaitable[T]],
     retries: int,
     retry_delay: int,

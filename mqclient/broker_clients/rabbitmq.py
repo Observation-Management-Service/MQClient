@@ -195,7 +195,7 @@ class RabbitMQPub(RabbitMQ, Pub):
                 body=msg,
             )
 
-        await utils.try_call(
+        await utils.auto_retry_call(
             func=_func,
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
@@ -289,7 +289,7 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         while True:
             try:
-                yield await utils.try_call(
+                yield await utils.auto_retry_call(
                     func=_next,
                     nonretriable_conditions=lambda e: isinstance(
                         e, (pika.exceptions.AMQPChannelError, StopIteration)
@@ -341,7 +341,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         async def _func() -> Any:
             return self.channel.basic_ack(msg.msg_id)  # type: ignore[union-attr]
 
-        await utils.try_call(
+        await utils.auto_retry_call(
             func=_func,
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
@@ -372,7 +372,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         async def _func() -> Any:
             return self.channel.basic_nack(msg.msg_id)  # type: ignore[union-attr]
 
-        await utils.try_call(
+        await utils.auto_retry_call(
             func=_func,
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
