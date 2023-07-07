@@ -112,11 +112,13 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
 
         retries = 2  # >= 0
 
-        err_msg = (unittest.mock.ANY, None, b"foo, bar")
-        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = [
-            err_msg
-        ]
-        with pytest.raises(Exception):
+        class _MyException(Exception):
+            pass
+
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = (
+            _MyException
+        )
+        with pytest.raises(_MyException):
             _ = [m async for m in sub.message_generator(retries=retries)]
         # would be called by Queue one more time
         assert self._get_close_mock_fn(mock_con).call_count == retries
@@ -125,11 +127,10 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         self._get_close_mock_fn(mock_con).reset_mock()
 
         # `propagate_error` attribute has no affect (b/c it deals w/ *downstream* errors)
-        err_msg = (unittest.mock.ANY, None, b"foo, bar")
-        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = [
-            err_msg
-        ]
-        with pytest.raises(Exception):
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = (
+            _MyException
+        )
+        with pytest.raises(_MyException):
             _ = [
                 m
                 async for m in sub.message_generator(
