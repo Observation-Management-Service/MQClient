@@ -350,7 +350,12 @@ class BrokerClientUnitTest:
         fake_ids = [i * 10 for i in range(num_msgs)]
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        gen = sub.message_generator(propagate_error=False)
+        gen = sub.message_generator(
+            timeout=TIMEOUT,
+            propagate_error=False,
+            retries=RETRIES,
+            retry_delay=RETRY_DELAY,
+        )
         i = 0
         async for msg in gen:
             logging.debug(i)
@@ -390,7 +395,12 @@ class BrokerClientUnitTest:
 
         excepted = False
         try:
-            async for msg in sub.message_generator(propagate_error=False):
+            async for msg in sub.message_generator(
+                timeout=TIMEOUT,
+                propagate_error=False,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            ):
                 logging.debug(msg)
                 raise Exception
         except Exception:

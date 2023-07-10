@@ -13,9 +13,16 @@ from typing import List, Optional
 
 import asyncstdlib as asl
 import pytest
-from mqclient.broker_client_interface import BrokerClient, Message
+from mqclient.broker_client_interface import (
+    TIMEOUT_MILLIS_DEFAULT,
+    BrokerClient,
+    Message,
+)
 
 from .utils import DATA_LIST, _log_recv, _log_send
+
+RETRIES = 3  # TODO - grab these from Queue
+RETRY_DELAY = 1  # ' '
 
 
 def _log_recv_message(recv_msg: Optional[Message]) -> None:
@@ -47,7 +54,11 @@ class PubSubBrokerClientInterface:
         # send
         for msg in DATA_LIST:
             raw_data = Message.serialize(msg)
-            await pub.send_message(raw_data)
+            await pub.send_message(
+                raw_data,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            )
             _log_send(msg)
 
         # receive
@@ -55,7 +66,11 @@ class PubSubBrokerClientInterface:
             logging.info(i)
             assert i <= len(DATA_LIST)
 
-            recv_msg = await sub.get_message()
+            recv_msg = await sub.get_message(
+                timeout_millis=TIMEOUT_MILLIS_DEFAULT,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            )
             _log_recv_message(recv_msg)
 
             # check received message
@@ -66,7 +81,11 @@ class PubSubBrokerClientInterface:
             assert recv_msg
             assert DATA_LIST[i] == recv_msg.data
 
-            await sub.ack_message(recv_msg)
+            await sub.ack_message(
+                recv_msg,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            )
 
         await pub.close()
         await sub.close()
@@ -87,7 +106,11 @@ class PubSubBrokerClientInterface:
         # send
         for msg in DATA_LIST:
             raw_data = Message.serialize(msg)
-            await pub.send_message(raw_data)
+            await pub.send_message(
+                raw_data,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            )
             _log_send(msg)
 
         # receive -- nack each message, once, and anticipate its redelivery
@@ -103,7 +126,11 @@ class PubSubBrokerClientInterface:
                 assert all((d in DATA_LIST) for d in redelivered_data)
                 break
 
-            recv_msg = await sub.get_message()
+            recv_msg = await sub.get_message(
+                timeout_millis=TIMEOUT_MILLIS_DEFAULT,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            )
             _log_recv_message(recv_msg)
 
             if not recv_msg:
@@ -116,11 +143,19 @@ class PubSubBrokerClientInterface:
                 logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
-                await sub.ack_message(recv_msg)
+                await sub.ack_message(
+                    recv_msg,
+                    retries=RETRIES,
+                    retry_delay=RETRY_DELAY,
+                )
             # otherwise, nack message
             else:
                 nacked_msgs.append(recv_msg)
-                await sub.reject_message(recv_msg)
+                await sub.reject_message(
+                    recv_msg,
+                    retries=RETRIES,
+                    retry_delay=RETRY_DELAY,
+                )
                 logging.info("NACK!")
 
         await pub.close()
@@ -156,12 +191,20 @@ class PubSubBrokerClientInterface:
             if data_to_send:
                 msg = data_to_send[0]
                 raw_data = Message.serialize(msg)
-                await pub.send_message(raw_data)
+                await pub.send_message(
+                    raw_data,
+                    retries=RETRIES,
+                    retry_delay=RETRY_DELAY,
+                )
                 _log_send(msg)
                 data_to_send.remove(msg)
 
             # get a message
-            recv_msg = await sub.get_message()
+            recv_msg = await sub.get_message(
+                timeout_millis=TIMEOUT_MILLIS_DEFAULT,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            )
             _log_recv_message(recv_msg)
 
             if not recv_msg:
@@ -174,11 +217,19 @@ class PubSubBrokerClientInterface:
                 logging.info("REDELIVERED!")
                 nacked_msgs.remove(recv_msg)
                 redelivered_msgs.append(recv_msg)
-                await sub.ack_message(recv_msg)
+                await sub.ack_message(
+                    recv_msg,
+                    retries=RETRIES,
+                    retry_delay=RETRY_DELAY,
+                )
             # otherwise, nack message
             else:
                 nacked_msgs.append(recv_msg)
-                await sub.reject_message(recv_msg)
+                await sub.reject_message(
+                    recv_msg,
+                    retries=RETRIES,
+                    retry_delay=RETRY_DELAY,
+                )
                 logging.info("NACK!")
 
         await pub.close()
@@ -197,7 +248,11 @@ class PubSubBrokerClientInterface:
         # send
         for msg in DATA_LIST:
             raw_data = Message.serialize(msg)
-            await pub.send_message(raw_data)
+            await pub.send_message(
+                raw_data,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            )
             _log_send(msg)
 
         # receive
@@ -211,7 +266,11 @@ class PubSubBrokerClientInterface:
             assert recv_msg
             assert recv_msg.data in DATA_LIST
             last = i
-            await sub.ack_message(recv_msg)
+            await sub.ack_message(
+                recv_msg,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            )
 
         assert last == len(DATA_LIST) - 1
 
