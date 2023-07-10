@@ -125,7 +125,7 @@ class RabbitMQ(RawQueue):
             raise AlreadyClosedException()
 
         try:
-            self.channel.cancel()
+            # self.channel.cancel() -- done by self.connection.close()
             self.connection.close()
         except Exception as e:
             raise ClosingFailedException() from e
