@@ -341,7 +341,11 @@ class PulsarSub(Pulsar, Sub):
             while True:
                 # get message
                 LOGGER.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
-                msg = await self.get_message(timeout_millis=timeout * 1000)
+                msg = await self.get_message(
+                    timeout_millis=timeout * 1000,
+                    retries=retries,
+                    retry_delay=retry_delay,
+                )
                 if msg is None:
                     LOGGER.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                     break

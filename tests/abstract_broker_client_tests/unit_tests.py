@@ -13,6 +13,9 @@ from mqclient.queue import Queue
 
 from .utils import is_inst_name
 
+RETRIES = 3  # TODO - grab these from Queue
+RETRY_DELAY = 1  # ' '
+
 
 class BrokerClientUnitTest:
     """Unit test suite interface for specified broker_client."""
@@ -85,7 +88,11 @@ class BrokerClientUnitTest:
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
-        await sub.ack_message(Message(12, b""))
+        await sub.ack_message(
+            Message(12, b""),
+            retries=RETRIES,
+            retry_delay=RETRY_DELAY,
+        )
         self._get_ack_mock_fn(mock_con).assert_called_with(12)
 
     @pytest.mark.asyncio
@@ -98,7 +105,11 @@ class BrokerClientUnitTest:
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
-        await sub.reject_message(Message(12, b""))
+        await sub.reject_message(
+            Message(12, b""),
+            retries=RETRIES,
+            retry_delay=RETRY_DELAY,
+        )
         self._get_nack_mock_fn(mock_con).assert_called_with(12)
 
     @pytest.mark.asyncio
