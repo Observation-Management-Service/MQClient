@@ -1,7 +1,6 @@
 """Unit Tests for RabbitMQ/Pika BrokerClient."""
 
 import itertools
-import unittest
 from typing import Any, List, Optional, Tuple
 from unittest.mock import MagicMock
 
@@ -10,6 +9,12 @@ import pytest
 from mqclient import broker_client_manager
 from mqclient.broker_client_interface import Message
 from mqclient.broker_clients.rabbitmq import HUMAN_PATTERN, _get_credentials, _parse_url
+from mqclient.config import (
+    DEFAULT_RETRIES,
+    DEFAULT_RETRY_DELAY,
+    DEFAULT_TIMEOUT,
+    DEFAULT_TIMEOUT_MILLIS,
+)
 
 from ...abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
 
@@ -45,7 +50,9 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         messages = [(MagicMock(delivery_tag=i), None, d) for d, i in zip(data, ids)]
         if append_none:
             messages += [(None, None, None)]  # type: ignore
-        mock_con.return_value.channel.return_value.consume.return_value = messages
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = (
+            messages
+        )
 
     @pytest.mark.asyncio
     async def test_create_pub_queue(self, mock_con: Any, queue_name: str) -> None:
@@ -63,7 +70,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
             "localhost", queue_name, 213, "", None
         )
         assert sub.queue == queue_name  # type: ignore
-        assert sub.prefetch == 213  # type: ignore
+        assert sub.prefetch == 213
         mock_con.return_value.channel.assert_called()
 
     @pytest.mark.asyncio
@@ -72,7 +79,11 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         pub = await self.broker_client.create_pub_queue(
             "localhost", queue_name, "", None
         )
-        await pub.send_message(b"foo, bar, baz")
+        await pub.send_message(
+            b"foo, bar, baz",
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
         mock_con.return_value.channel.return_value.basic_publish.assert_called_with(
             exchange="", routing_key=queue_name, body=b"foo, bar, baz"
         )
@@ -86,8 +97,14 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         mock_con.return_value.is_closed = False  # HACK - manually set attr
 
         fake_message = (MagicMock(delivery_tag=12), None, Message.serialize("foo, bar"))
-        mock_con.return_value.channel.return_value.consume.return_value = [fake_message]
-        m = await sub.get_message()
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = [
+            fake_message
+        ]
+        m = await sub.get_message(
+            timeout_millis=DEFAULT_TIMEOUT_MILLIS,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
         assert m is not None
         assert m.msg_id == 12
         assert m.data == "foo, bar"
@@ -106,20 +123,44 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         )
         mock_con.return_value.is_closed = False  # HACK - manually set attr
 
-        err_msg = (unittest.mock.ANY, None, b"foo, bar")
-        mock_con.return_value.channel.return_value.consume.return_value = [err_msg]
-        with pytest.raises(Exception):
-            _ = [m async for m in sub.message_generator()]
-        # would be called by Queue
-        self._get_close_mock_fn(mock_con).assert_not_called()
+        retries = 2  # >= 0
+
+        class _MyException(Exception):
+            pass
+
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = (
+            _MyException
+        )
+        with pytest.raises(_MyException):
+            async for m in sub.message_generator(
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=True,
+                retries=retries,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            ):
+                pass
+
+        # would be called by Queue one more time
+        assert self._get_close_mock_fn(mock_con).call_count == retries
+
+        # reset for next call
+        self._get_close_mock_fn(mock_con).reset_mock()
 
         # `propagate_error` attribute has no affect (b/c it deals w/ *downstream* errors)
-        err_msg = (unittest.mock.ANY, None, b"foo, bar")
-        mock_con.return_value.channel.return_value.consume.return_value = [err_msg]
-        with pytest.raises(Exception):
-            _ = [m async for m in sub.message_generator(propagate_error=False)]
-        # would be called by Queue
-        self._get_close_mock_fn(mock_con).assert_not_called()
+        mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = (
+            _MyException
+        )
+        with pytest.raises(_MyException):
+            async for m in sub.message_generator(
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=False,
+                retries=retries,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            ):
+                pass
+
+        # would be called by Queue one more time
+        assert self._get_close_mock_fn(mock_con).call_count == retries
 
 
 class TestUnitRabbitMQHelpers:

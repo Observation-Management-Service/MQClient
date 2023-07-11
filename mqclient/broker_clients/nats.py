@@ -1,34 +1,23 @@
 """Back-end using NATS."""
 
 
+import functools
 import logging
 import math
-import time
-from functools import partial
-from typing import (
-    Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    List,
-    Optional,
-    TypeVar,
-    cast,
-)
+from typing import Any, AsyncGenerator, List, Optional, TypeVar, cast
 
 import nats
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    RETRY_DELAY,
-    TIMEOUT_MILLIS_DEFAULT,
-    TRY_ATTEMPTS,
     ClosingFailedException,
     Message,
     Pub,
     RawQueue,
     Sub,
 )
+from ..config import DEFAULT_TIMEOUT_MILLIS
+from . import utils
 
 LOGGER = logging.getLogger("mqclient.nats")
 
@@ -44,31 +33,6 @@ async def _anext(gen: AsyncGenerator[Any, Any], default: Any) -> Any:
         return await gen.__anext__()
     except StopAsyncIteration:
         return default
-
-
-async def try_call(self: "NATS", func: Callable[..., Awaitable[T]]) -> T:
-    """Call `func` with auto-retries."""
-    i = 0
-    while True:
-        if i > 0:
-            LOGGER.debug(
-                f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-            )
-
-        try:
-            return await func()
-        except nats.errors.TimeoutError:
-            raise
-        except Exception as e:  # pylint:disable=broad-except
-            LOGGER.debug(f"[try_call()] Encountered exception: '{e}'")
-            if i == TRY_ATTEMPTS - 1:
-                LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-                raise
-
-        await self.close()
-        time.sleep(RETRY_DELAY)
-        await self.connect()
-        i += 1
 
 
 class NATS(RawQueue):
@@ -98,7 +62,7 @@ class NATS(RawQueue):
         await super().connect()
         self._nats_client = await nats.connect(self.endpoint)  # type: ignore[arg-type]
         # Create JetStream context
-        self.js = self._nats_client.jetstream(timeout=TIMEOUT_MILLIS_DEFAULT // 1000)
+        self.js = self._nats_client.jetstream(timeout=DEFAULT_TIMEOUT_MILLIS // 1000)
         await self.js.add_stream(name=self.stream_id, subjects=[self.subject])
 
     async def close(self) -> None:
@@ -134,14 +98,28 @@ class NATSPub(NATS, Pub):
         await super().close()
         LOGGER.debug(log_msgs.CLOSED_PUB)
 
-    async def send_message(self, msg: bytes) -> None:
+    async def send_message(
+        self,
+        msg: bytes,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Send a message (publish)."""
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
         if not self.js:
             raise RuntimeError("JetStream is not connected")
 
-        ack: nats.js.api.PubAck = await try_call(
-            self, partial(self.js.publish, self.subject, msg)
+        ack: nats.js.api.PubAck = await utils.auto_retry_call(
+            func=functools.partial(
+                self.js.publish,
+                self.subject,
+                msg,
+            ),
+            retries=retries,
+            retry_delay=retry_delay,
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
         )
         LOGGER.debug(f"Sent Message w/ Ack: {ack}")
         LOGGER.debug(log_msgs.SENT_MESSAGE)
@@ -203,7 +181,11 @@ class NATSSub(NATS, Sub):
         )
 
     async def _get_messages(
-        self, timeout_millis: Optional[int], num_messages: int
+        self,
+        timeout_millis: Optional[int],
+        num_messages: int,
+        retries: int,
+        retry_delay: int,
     ) -> List[Message]:
         """Get n messages.
 
@@ -214,29 +196,42 @@ class NATSSub(NATS, Sub):
             raise RuntimeError("Subscriber is not connected")
 
         if not timeout_millis:
-            timeout_millis = TIMEOUT_MILLIS_DEFAULT
+            timeout_millis = DEFAULT_TIMEOUT_MILLIS
 
         try:
-            nats_msgs: List[nats.aio.msg.Msg] = await try_call(
-                self,
-                partial(
+            nats_msgs: List[nats.aio.msg.Msg] = await utils.auto_retry_call(
+                func=functools.partial(
                     self._subscription.fetch,
                     num_messages,
                     int(math.ceil(timeout_millis / 1000)),
                 ),
+                retries=retries,
+                retry_delay=retry_delay,
+                close=self.close,
+                connect=self.connect,
+                logger=LOGGER,
+                nonretriable_conditions=lambda e: isinstance(
+                    e, nats.errors.TimeoutError
+                ),
             )
         except nats.errors.TimeoutError:
+            LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
             return []
-
+        if not nats_msgs:
+            LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+            return []
         msgs = []
         for recvd in nats_msgs:
-            msg = self._to_message(recvd)
-            if msg:
+            if msg := self._to_message(recvd):
+                LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
                 msgs.append(msg)
         return msgs
 
     async def get_message(
-        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
+        self,
+        timeout_millis: Optional[int],
+        retries: int,
+        retry_delay: int,
     ) -> Optional[Message]:
         """Get a message."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
@@ -244,48 +239,90 @@ class NATSSub(NATS, Sub):
             raise RuntimeError("Subscriber is not connected.")
 
         try:
-            msg = (await self._get_messages(timeout_millis, 1))[0]
-            LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
+            msg = (
+                await self._get_messages(
+                    timeout_millis,
+                    1,
+                    retries,
+                    retry_delay,
+                )
+            )[0]
             return msg
         except IndexError:
-            LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
             return None
 
     async def _gen_messages(
-        self, timeout_millis: Optional[int], num_messages: int
+        self,
+        timeout_millis: Optional[int],
+        num_messages: int,
+        retries: int,
+        retry_delay: int,
     ) -> AsyncGenerator[Message, None]:
         """Continuously generate messages until there are no more."""
         if not self._subscription:
             raise RuntimeError("Subscriber is not connected.")
 
         while True:
-            msgs = await self._get_messages(timeout_millis, num_messages)
+            msgs = await self._get_messages(
+                timeout_millis,
+                num_messages,
+                retries,
+                retry_delay,
+            )
             if not msgs:
                 return
             for msg in msgs:
                 yield msg
 
-    async def ack_message(self, msg: Message) -> None:
+    async def ack_message(
+        self,
+        msg: Message,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
         if not self._subscription:
             raise RuntimeError("subscriber is not connected")
 
         # Acknowledges the received messages so they will not be sent again.
-        await try_call(self, partial(self._from_message(msg).ack))
+        await utils.auto_retry_call(
+            func=self._from_message(msg).ack,  # type: ignore[arg-type]
+            retries=retries,
+            retry_delay=retry_delay,
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
 
-    async def reject_message(self, msg: Message) -> None:
+    async def reject_message(
+        self,
+        msg: Message,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
         if not self._subscription:
             raise RuntimeError("subscriber is not connected")
 
-        await try_call(self, partial(self._from_message(msg).nak))  # yes, it's "nak"
+        await utils.auto_retry_call(
+            func=self._from_message(msg).nak,  # type: ignore[arg-type]  # yes, it's "nak"
+            retries=retries,
+            retry_delay=retry_delay,
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
 
     async def message_generator(
-        self, timeout: int = 60, propagate_error: bool = True
+        self,
+        timeout: int,
+        propagate_error: bool,
+        retries: int,
+        retry_delay: int,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 
@@ -302,7 +339,12 @@ class NATSSub(NATS, Sub):
 
         msg = None
         try:
-            gen = self._gen_messages(timeout * 1000, self.prefetch)
+            gen = self._gen_messages(
+                timeout * 1000,
+                self.prefetch,
+                retries,
+                retry_delay,
+            )
             while True:
                 # get message
                 LOGGER.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)

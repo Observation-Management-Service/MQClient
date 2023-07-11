@@ -1,18 +1,14 @@
 """Back-end using RabbitMQ."""
 
+import functools
 import logging
-import time
 import urllib
-from functools import partial
-from typing import Any, AsyncGenerator, Callable, Dict, Optional, Tuple, Union
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Tuple, Union
 
 import pika  # type: ignore
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    RETRY_DELAY,
-    TIMEOUT_MILLIS_DEFAULT,
-    TRY_ATTEMPTS,
     AlreadyClosedException,
     ClosingFailedException,
     ConnectingFailedException,
@@ -21,6 +17,7 @@ from ..broker_client_interface import (
     RawQueue,
     Sub,
 )
+from . import utils
 
 StrDict = Dict[str, Any]
 
@@ -128,7 +125,7 @@ class RabbitMQ(RawQueue):
             raise AlreadyClosedException()
 
         try:
-            self.channel.cancel()
+            # self.channel.cancel() -- done by self.connection.close()
             self.connection.close()
         except Exception as e:
             raise ClosingFailedException() from e
@@ -170,7 +167,12 @@ class RabbitMQPub(RabbitMQ, Pub):
         await super().close()
         LOGGER.debug(log_msgs.CLOSED_PUB)
 
-    async def send_message(self, msg: bytes) -> None:
+    async def send_message(
+        self,
+        msg: bytes,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Send a message on a queue.
 
         Args:
@@ -184,14 +186,21 @@ class RabbitMQPub(RabbitMQ, Pub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        await try_call(
-            self,
-            partial(
+        await utils.auto_retry_call(
+            func=functools.partial(
                 self.channel.basic_publish,
                 exchange="",
                 routing_key=self.queue,
                 body=msg,
             ),
+            nonretriable_conditions=lambda e: isinstance(
+                e, pika.exceptions.AMQPChannelError
+            ),
+            retries=retries,
+            retry_delay=retry_delay,
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
         )
         LOGGER.debug(log_msgs.SENT_MESSAGE)
 
@@ -239,7 +248,8 @@ class RabbitMQSub(RabbitMQ, Sub):
 
     @staticmethod
     def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
-        method_frame: Optional[pika.spec.Basic.GetOk], body: Optional[Union[str, bytes]]
+        method_frame: Optional[pika.spec.Basic.GetOk],
+        body: Optional[Union[str, bytes]],
     ) -> Optional[Message]:
         """Transform RabbitMQ-Message to Message type."""
         if not method_frame or body is None:
@@ -250,33 +260,69 @@ class RabbitMQSub(RabbitMQ, Sub):
         else:
             return Message(method_frame.delivery_tag, body)
 
+    async def _iter_messages(
+        self,
+        timeout_millis: Optional[int],
+        retries: int,
+        retry_delay: int,
+    ) -> AsyncIterator[Optional[Message]]:
+        if not self.channel:
+            raise RuntimeError("queue is not connected")
+
+        iterator = self.channel.consume(
+            self.queue,
+            inactivity_timeout=timeout_millis / 1000.0 if timeout_millis else None,
+        )
+
+        while True:
+            try:
+                pika_msg = await utils.auto_retry_call(
+                    func=functools.partial(next, iterator),
+                    nonretriable_conditions=lambda e: isinstance(
+                        e, (pika.exceptions.AMQPChannelError, StopIteration)
+                    ),
+                    retries=retries,
+                    retry_delay=retry_delay,
+                    close=self.close,
+                    connect=self.connect,
+                    logger=LOGGER,
+                )
+            except StopIteration:
+                LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
+                return
+            if msg := RabbitMQSub._to_message(pika_msg[0], pika_msg[2]):  # type: ignore[index]
+                LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
+                yield msg
+            else:
+                LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+                yield None
+
     async def get_message(
-        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
+        self,
+        timeout_millis: Optional[int],
+        retries: int,
+        retry_delay: int,
     ) -> Optional[Message]:
         """Get a message from a queue."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        gen = partial(
-            self.channel.consume,
-            self.queue,
-            inactivity_timeout=timeout_millis / 1000.0 if timeout_millis else None,
-        )
-        async for method_frame, _, body in try_yield(self, gen):
-            msg = RabbitMQSub._to_message(method_frame, body)  # None -> timeout
+        msg = None
+        async for msg in self._iter_messages(timeout_millis, retries, retry_delay):
+            # None -> timeout
             break  # get just one message
 
         # self.channel.cancel()  # this is done by `open_sub_one()` *after* ack/nack via `close()`
 
-        if msg:
-            LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
-            return msg
-        else:
-            LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
-            return None
+        return msg
 
-    async def ack_message(self, msg: Message) -> None:
+    async def ack_message(
+        self,
+        msg: Message,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Ack a message from the queue.
 
         Note that RabbitMQ acks messages in-order, so acking message 3
@@ -286,10 +332,28 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        await try_call(self, partial(self.channel.basic_ack, msg.msg_id))
+        await utils.auto_retry_call(
+            func=functools.partial(
+                self.channel.basic_ack,
+                msg.msg_id,
+            ),
+            nonretriable_conditions=lambda e: isinstance(
+                e, pika.exceptions.AMQPChannelError
+            ),
+            retries=retries,
+            retry_delay=retry_delay,
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
 
-    async def reject_message(self, msg: Message) -> None:
+    async def reject_message(
+        self,
+        msg: Message,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Reject (nack) a message from the queue.
 
         Note that RabbitMQ acks messages in-order, so nacking message 3
@@ -299,11 +363,28 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        await try_call(self, partial(self.channel.basic_nack, msg.msg_id))
+        await utils.auto_retry_call(
+            func=functools.partial(
+                self.channel.basic_nack,
+                msg.msg_id,
+            ),
+            nonretriable_conditions=lambda e: isinstance(
+                e, pika.exceptions.AMQPChannelError
+            ),
+            retries=retries,
+            retry_delay=retry_delay,
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
 
     async def message_generator(
-        self, timeout: int = 60, propagate_error: bool = True
+        self,
+        timeout: int,
+        propagate_error: bool,
+        retries: int,
+        retry_delay: int,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 
@@ -320,11 +401,7 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         msg = None
         try:
-            gen = partial(self.channel.consume, self.queue, inactivity_timeout=timeout)
-
-            async for method_frame, _, body in try_yield(self, gen):
-                # get message
-                msg = RabbitMQSub._to_message(method_frame, body)
+            async for msg in self._iter_messages(timeout * 1000, retries, retry_delay):
                 LOGGER.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
                 if not msg:
                     LOGGER.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
@@ -357,71 +434,6 @@ class RabbitMQSub(RabbitMQ, Sub):
         # Done with generator, one way or another
         finally:
             self.channel.cancel()
-
-
-async def try_call(queue: RabbitMQ, func: Callable[..., Any]) -> Any:
-    """Try to call `func` and return value.
-
-    Try up to `TRY_ATTEMPTS` times, for connection-related errors.
-    """
-    for i in range(TRY_ATTEMPTS):
-        if i > 0:
-            LOGGER.debug(
-                f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-            )
-
-        try:
-            return func()
-        except pika.exceptions.ConnectionClosedByBroker:
-            LOGGER.debug(log_msgs.TRYCALL_CONNECTION_CLOSED_BY_BROKER)
-        # Do not recover on channel errors
-        except pika.exceptions.AMQPChannelError as err:
-            LOGGER.error(f"{log_msgs.TRYCALL_RAISE_AMQP_CHANNEL_ERROR} {err}.")
-            raise
-        # Recover on all other connection errors
-        except pika.exceptions.AMQPConnectionError:
-            LOGGER.debug(log_msgs.TRYCALL_AMQP_CONNECTION_ERROR)
-
-        await queue.close()
-        time.sleep(RETRY_DELAY)
-        await queue.connect()
-
-    LOGGER.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception("RabbitMQ connection error")
-
-
-async def try_yield(
-    queue: RabbitMQ, func: Callable[..., Any]
-) -> AsyncGenerator[Any, None]:
-    """Try to call `func` and yield value(s).
-
-    Try up to `TRY_ATTEMPTS` times, for connection-related errors.
-    """
-    for i in range(TRY_ATTEMPTS):
-        if i > 0:
-            LOGGER.debug(
-                f"{log_msgs.TRYYIELD_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-            )
-
-        try:
-            for x in func():  # pylint: disable=invalid-name
-                yield x
-        except pika.exceptions.ConnectionClosedByBroker:
-            LOGGER.debug(log_msgs.TRYYIELD_CONNECTION_CLOSED_BY_BROKER)
-        # Do not recover on channel errors
-        except pika.exceptions.AMQPChannelError as err:
-            LOGGER.error(f"{log_msgs.TRYYIELD_RAISE_AMQP_CHANNEL_ERROR} {err}.")
-            raise
-        # Recover on all other connection errors
-        except pika.exceptions.AMQPConnectionError:
-            LOGGER.debug(log_msgs.TRYYIELD_AMQP_CONNECTION_ERROR)
-
-        await queue.close()
-        time.sleep(RETRY_DELAY)
-        await queue.connect()
-
-    LOGGER.debug(log_msgs.TRYYIELD_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception("RabbitMQ connection error")
 
 
 class BrokerClient(broker_client_interface.BrokerClient):

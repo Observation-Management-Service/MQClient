@@ -8,7 +8,7 @@ backoff==2.2.1
     # via opentelemetry-exporter-otlp-proto-http
 certifi==2023.5.7
     # via requests
-charset-normalizer==3.1.0
+charset-normalizer==3.2.0
     # via requests
 coloredlogs==15.0.1
     # via wipac-telemetry
@@ -85,7 +85,7 @@ wipac-telemetry==0.2.7
     # via oms-mqclient (setup.py)
 wrapt==1.15.0
     # via deprecated
-zipp==3.15.0
+zipp==3.16.0
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:

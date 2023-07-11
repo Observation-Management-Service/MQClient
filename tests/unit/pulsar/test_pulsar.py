@@ -5,6 +5,12 @@ from typing import Any, List
 import pytest
 from mqclient import broker_client_manager
 from mqclient.broker_client_interface import Message
+from mqclient.config import (
+    DEFAULT_RETRIES,
+    DEFAULT_RETRY_DELAY,
+    DEFAULT_TIMEOUT,
+    DEFAULT_TIMEOUT_MILLIS,
+)
 
 from ...abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
 
@@ -70,7 +76,11 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
         pub = await self.broker_client.create_pub_queue(
             "localhost", queue_name, "", None
         )
-        await pub.send_message(b"foo, bar, baz")
+        await pub.send_message(
+            b"foo, bar, baz",
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
         mock_con.return_value.create_producer.return_value.send.assert_called_with(
             b"foo, bar, baz"
         )
@@ -87,7 +97,11 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
         mock_con.return_value.subscribe.return_value.receive.return_value.message_id.return_value = (
             12
         )
-        m = await sub.get_message()
+        m = await sub.get_message(
+            timeout_millis=DEFAULT_TIMEOUT_MILLIS,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
 
         assert m is not None
         assert m.msg_id == 12
@@ -106,15 +120,39 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
             "localhost", queue_name, 1, "", None
         )
 
-        mock_con.return_value.subscribe.return_value.receive.side_effect = Exception()
-        with pytest.raises(Exception):
-            _ = [m async for m in sub.message_generator()]
-        # would be called by Queue
-        self._get_close_mock_fn(mock_con).assert_not_called()
+        retries = 2  # >= 0
+
+        class _MyException(Exception):
+            pass
+
+        mock_con.return_value.subscribe.return_value.receive.side_effect = (
+            _MyException()
+        )
+        with pytest.raises(_MyException):
+            async for m in sub.message_generator(
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=True,
+                retries=retries,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            ):
+                pass
+        # would be called by Queue one more time
+        assert self._get_close_mock_fn(mock_con).call_count == retries
+
+        # reset for next call
+        self._get_close_mock_fn(mock_con).reset_mock()
 
         # `propagate_error` attribute has no affect (b/c it deals w/ *downstream* errors)
-        mock_con.return_value.subscribe.return_value.receive.side_effect = Exception()
-        with pytest.raises(Exception):
-            _ = [m async for m in sub.message_generator(propagate_error=False)]
-        # would be called by Queue
-        self._get_close_mock_fn(mock_con).assert_not_called()
+        mock_con.return_value.subscribe.return_value.receive.side_effect = (
+            _MyException()
+        )
+        with pytest.raises(_MyException):
+            async for m in sub.message_generator(
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=False,
+                retries=retries,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            ):
+                pass
+        # would be called by Queue one more time
+        assert self._get_close_mock_fn(mock_con).call_count == retries

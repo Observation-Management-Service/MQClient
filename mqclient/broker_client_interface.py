@@ -7,10 +7,6 @@ from typing import Any, AsyncGenerator, Dict, Optional, Union
 
 MessageID = Union[int, str, bytes]
 
-TIMEOUT_MILLIS_DEFAULT = 1000  # milliseconds
-RETRY_DELAY = 1  # seconds
-TRY_ATTEMPTS = 3  # ex: 3 means 1 initial try and 2 retries
-
 
 class ConnectingFailedException(Exception):
     """Raised when a `connect()` fails."""
@@ -122,7 +118,12 @@ class RawQueue:
 class Pub(RawQueue):
     """Publisher queue."""
 
-    async def send_message(self, msg: bytes) -> None:
+    async def send_message(
+        self,
+        msg: bytes,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Send a message on a queue."""
         raise NotImplementedError()
 
@@ -142,21 +143,38 @@ class Sub(RawQueue):
         raise NotImplementedError()
 
     async def get_message(
-        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
+        self,
+        timeout_millis: Optional[int],
+        retries: int,
+        retry_delay: int,
     ) -> Optional[Message]:
         """Get a single message from a queue."""
         raise NotImplementedError()
 
-    async def ack_message(self, msg: Message) -> None:
+    async def ack_message(
+        self,
+        msg: Message,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Ack a message from the queue."""
         raise NotImplementedError()
 
-    async def reject_message(self, msg: Message) -> None:
+    async def reject_message(
+        self,
+        msg: Message,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Reject (nack) a message from the queue."""
         raise NotImplementedError()
 
     def message_generator(  # NOTE: no `async` b/c it's abstract; overriding methods will need `async`
-        self, timeout: int = 60, propagate_error: bool = True
+        self,
+        timeout: int,
+        propagate_error: bool,
+        retries: int,
+        retry_delay: int,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 

@@ -9,6 +9,7 @@ from unittest.mock import Mock
 import asyncstdlib as asl
 import pytest
 from mqclient.broker_client_interface import BrokerClient, Message
+from mqclient.config import DEFAULT_RETRIES, DEFAULT_RETRY_DELAY, DEFAULT_TIMEOUT
 from mqclient.queue import Queue
 
 from .utils import is_inst_name
@@ -85,7 +86,11 @@ class BrokerClientUnitTest:
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
-        await sub.ack_message(Message(12, b""))
+        await sub.ack_message(
+            Message(12, b""),
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
         self._get_ack_mock_fn(mock_con).assert_called_with(12)
 
     @pytest.mark.asyncio
@@ -98,7 +103,11 @@ class BrokerClientUnitTest:
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
-        await sub.reject_message(Message(12, b""))
+        await sub.reject_message(
+            Message(12, b""),
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
         self._get_nack_mock_fn(mock_con).assert_called_with(12)
 
     @pytest.mark.asyncio
@@ -119,7 +128,14 @@ class BrokerClientUnitTest:
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
         msg: Optional[Message]
-        async for i, msg in asl.enumerate(sub.message_generator()):
+        async for i, msg in asl.enumerate(
+            sub.message_generator(
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=True,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            )
+        ):
             logging.debug(i)
             if i > 0:  # see if previous msg was acked
                 # prev_id = (i - 1) * 10
@@ -153,7 +169,14 @@ class BrokerClientUnitTest:
 
         m = None
         msg: Optional[Message]
-        async for i, msg in asl.enumerate(sub.message_generator()):
+        async for i, msg in asl.enumerate(
+            sub.message_generator(
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=True,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            )
+        ):
             m = msg
             if i == 0:
                 break
@@ -180,7 +203,14 @@ class BrokerClientUnitTest:
 
         m = None
         msg: Optional[Message]
-        async for i, msg in asl.enumerate(sub.message_generator()):
+        async for i, msg in asl.enumerate(
+            sub.message_generator(
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=True,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            )
+        ):
             assert i < 1
             m = msg
         assert m is not None
@@ -221,7 +251,12 @@ class BrokerClientUnitTest:
         fake_ids = [0, 1, 2]
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        gen = sub.message_generator()
+        gen = sub.message_generator(
+            timeout=DEFAULT_TIMEOUT,
+            propagate_error=True,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
         i = 0
         async for msg in gen:
             logging.debug(i)
@@ -258,7 +293,12 @@ class BrokerClientUnitTest:
             mock_con, fake_data, fake_ids, append_none=False
         )
 
-        gen = sub.message_generator()  # propagate_error=True
+        gen = sub.message_generator(
+            timeout=DEFAULT_TIMEOUT,
+            propagate_error=True,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )  # propagate_error=True
         i = 0
         async for msg in gen:
             logging.debug(i)
@@ -306,7 +346,12 @@ class BrokerClientUnitTest:
         fake_ids = [i * 10 for i in range(num_msgs)]
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
-        gen = sub.message_generator(propagate_error=False)
+        gen = sub.message_generator(
+            timeout=DEFAULT_TIMEOUT,
+            propagate_error=False,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
         i = 0
         async for msg in gen:
             logging.debug(i)
@@ -346,7 +391,12 @@ class BrokerClientUnitTest:
 
         excepted = False
         try:
-            async for msg in sub.message_generator(propagate_error=False):
+            async for msg in sub.message_generator(
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=False,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            ):
                 logging.debug(msg)
                 raise Exception
         except Exception:

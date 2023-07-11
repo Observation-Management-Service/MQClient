@@ -8,7 +8,7 @@ asyncstdlib==3.10.8
     # via oms-mqclient (setup.py)
 certifi==2023.5.7
     # via requests
-charset-normalizer==3.1.0
+charset-normalizer==3.2.0
     # via requests
 coloredlogs==15.0.1
     # via oms-mqclient (setup.py)

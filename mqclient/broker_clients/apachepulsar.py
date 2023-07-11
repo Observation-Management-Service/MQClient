@@ -1,17 +1,14 @@
 """Back-end using Apache Pulsar."""
 
 import asyncio
+import functools
 import logging
-import time
 from typing import AsyncGenerator, Optional
 
 import pulsar  # type: ignore
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    RETRY_DELAY,
-    TIMEOUT_MILLIS_DEFAULT,
-    TRY_ATTEMPTS,
     AlreadyClosedException,
     ClosingFailedException,
     Message,
@@ -19,6 +16,7 @@ from ..broker_client_interface import (
     RawQueue,
     Sub,
 )
+from . import utils
 
 LOGGER = logging.getLogger("mqclient.pulsar")
 
@@ -123,13 +121,28 @@ class PulsarPub(Pulsar, Pub):
             raise ClosingFailedException("No producer to sub.")
         LOGGER.debug(log_msgs.CLOSED_PUB)
 
-    async def send_message(self, msg: bytes) -> None:
+    async def send_message(
+        self,
+        msg: bytes,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Send a message on a queue."""
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
         if not self.producer:
             raise RuntimeError("queue is not connected")
 
-        self.producer.send(msg)
+        await utils.auto_retry_call(
+            func=functools.partial(
+                self.producer.send,
+                msg,
+            ),
+            retries=retries,
+            retry_delay=retry_delay,
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
         LOGGER.debug(log_msgs.SENT_MESSAGE)
 
 
@@ -204,7 +217,10 @@ class PulsarSub(Pulsar, Sub):
             return Message(id_, data)
 
     async def get_message(
-        self, timeout_millis: Optional[int] = TIMEOUT_MILLIS_DEFAULT
+        self,
+        timeout_millis: Optional[int],
+        retries: int,
+        retry_delay: int,
     ) -> Optional[Message]:
         """Get a single message from a queue.
 
@@ -215,69 +231,97 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
-        for i in range(TRY_ATTEMPTS):
-            if i > 0:
-                LOGGER.debug(
-                    f"{log_msgs.GETMSG_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-                )
+        try:
+            pulsar_msg = await utils.auto_retry_call(
+                func=functools.partial(
+                    self.consumer.receive,
+                    timeout_millis=timeout_millis,
+                ),
+                retries=retries,
+                retry_delay=retry_delay,
+                close=self.close,
+                connect=self.connect,
+                logger=LOGGER,
+                nonretriable_conditions=lambda e: str(e) == "Pulsar error: TimeOut",
+            )
+        except Exception as e:
+            # https://github.com/apache/pulsar/issues/3127
+            # consumer timed out so there's nothing left in the tube
+            if str(e) == "Pulsar error: TimeOut":
+                LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
+                return None
+            raise
+        if msg := PulsarSub._to_message(pulsar_msg):
+            LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
+            return msg
+        else:
+            LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+            return None
 
-            try:
-                recvd = self.consumer.receive(timeout_millis=timeout_millis)
-                msg = PulsarSub._to_message(recvd)
-                if msg:
-                    LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg}).")
-                    return msg
-                else:
-                    LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
-                    return None
-
-            except Exception as e:
-                # https://github.com/apache/pulsar/issues/3127
-                if str(e) == "Pulsar error: TimeOut":
-                    LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
-                    return None
-                # https://github.com/apache/pulsar/issues/3127
-                if str(e) == "Pulsar error: AlreadyClosed":
-                    await self.close()
-                    time.sleep(RETRY_DELAY)
-                    await self.connect()
-                    continue
-                LOGGER.debug(
-                    f"{log_msgs.GETMSG_RAISE_OTHER_ERROR} ({e.__class__.__name__})."
-                )
-                raise
-
-        LOGGER.debug(log_msgs.GETMSG_CONNECTION_ERROR_MAX_RETRIES)
-        raise Exception("Pulsar connection error")
-
-    async def ack_message(self, msg: Message) -> None:
+    async def ack_message(
+        self,
+        msg: Message,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
         if isinstance(msg.msg_id, bytes):
-            self.consumer.acknowledge(pulsar.MessageId.deserialize(msg.msg_id))
+            pulsar_msg = pulsar.MessageId.deserialize(msg.msg_id)
         else:
-            self.consumer.acknowledge(msg.msg_id)
+            pulsar_msg = msg.msg_id
 
+        await utils.auto_retry_call(
+            func=functools.partial(
+                self.consumer.acknowledge,
+                pulsar_msg,
+            ),
+            retries=retries,
+            retry_delay=retry_delay,
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg}).")
 
-    async def reject_message(self, msg: Message) -> None:
+    async def reject_message(
+        self,
+        msg: Message,
+        retries: int,
+        retry_delay: int,
+    ) -> None:
         """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
         if isinstance(msg.msg_id, bytes):
-            self.consumer.negative_acknowledge(pulsar.MessageId.deserialize(msg.msg_id))
+            pulsar_msg = pulsar.MessageId.deserialize(msg.msg_id)
         else:
-            self.consumer.negative_acknowledge(msg.msg_id)
+            pulsar_msg = msg.msg_id
 
+        await utils.auto_retry_call(
+            func=functools.partial(
+                self.consumer.negative_acknowledge,
+                pulsar_msg,
+            ),
+            retries=retries,
+            retry_delay=retry_delay,
+            close=self.close,
+            connect=self.connect,
+            logger=LOGGER,
+        )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg}).")
 
     async def message_generator(
-        self, timeout: int = 60, propagate_error: bool = True
+        self,
+        timeout: int,
+        propagate_error: bool,
+        retries: int,
+        retry_delay: int,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 
@@ -297,7 +341,11 @@ class PulsarSub(Pulsar, Sub):
             while True:
                 # get message
                 LOGGER.debug(log_msgs.MSGGEN_GET_NEW_MESSAGE)
-                msg = await self.get_message(timeout_millis=timeout * 1000)
+                msg = await self.get_message(
+                    timeout_millis=timeout * 1000,
+                    retries=retries,
+                    retry_delay=retry_delay,
+                )
                 if msg is None:
                     LOGGER.info(log_msgs.MSGGEN_NO_MESSAGE_LOOK_BACK_IN_QUEUE)
                     break
