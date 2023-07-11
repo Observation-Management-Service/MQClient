@@ -870,7 +870,7 @@ class PubSubQueue:
                 _log_send(d)
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 5  # enough to let the prefetch refill
+        sub.timeout = 1
         async with sub.open_sub_manual_acking(1) as gen:
             messages = []
             with pytest.raises(TooManyMessagesPendingAckException):
@@ -901,7 +901,7 @@ class PubSubQueue:
                 _log_send(d)
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 5  # enough to let the prefetch refill
+        sub.timeout = 1
         async with sub.open_sub_manual_acking(2) as gen:
             messages = []
             with pytest.raises(TooManyMessagesPendingAckException):
