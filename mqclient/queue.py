@@ -369,7 +369,14 @@ class Queue:
         elif ack_pending_limit < 1:
             raise ValueError("ack_pending_limit must be positive (or None)")
 
-        sub = await self._create_sub_queue(prefetch_override=0)
+        sub = await self._create_sub_queue(
+            # if prefetch=N (N>0), pika requires N acks/nacks before it gets more messages
+            #   we could implement logic that would check if this condition is met
+            #   but that would go against the intention of the "manual" usage,
+            #   e.g. a long running client with long running, parallel tasks
+            #   that finish at different times (don't want to wait for all to finish)
+            prefetch_override=0,
+        )
 
         try:
             yield ManualQueueSubResource(
