@@ -870,7 +870,7 @@ class PubSubQueue:
                 _log_send(d)
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 1
+        sub.timeout = 5  # enough to let the prefetch refill
         async with sub.open_sub_manual_acking(1) as gen:
             messages = []
             with pytest.raises(TooManyMessagesPendingAckException):
@@ -881,8 +881,6 @@ class PubSubQueue:
                     messages.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                     assert gen._ack_pending == i + 1
-
-                    await asyncio.sleep(0.1)  # let the prefetch refill
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
@@ -903,7 +901,7 @@ class PubSubQueue:
                 _log_send(d)
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 1
+        sub.timeout = 5  # enough to let the prefetch refill
         async with sub.open_sub_manual_acking(2) as gen:
             messages = []
             with pytest.raises(TooManyMessagesPendingAckException):
@@ -921,8 +919,6 @@ class PubSubQueue:
                         assert (
                             gen._ack_pending == i - 1
                         )  # i=2 has 1 pending (aka itself)
-
-                    await asyncio.sleep(0.1)  # let the prefetch refill
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
