@@ -4,7 +4,7 @@ from typing import Any, List
 
 import pytest
 from mqclient import broker_client_manager
-from mqclient.broker_client_interface import Message
+from mqclient.broker_client_interface import TIMEOUT_MILLIS_DEFAULT, Message
 
 from ...abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
 
