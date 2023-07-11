@@ -343,7 +343,7 @@ class NATSSub(NATS, Sub):
         try:
             gen = self._gen_messages(
                 timeout * 1000,
-                self.prefetch,
+                self.prefetch + 1,  # prefetch + 1 = # of msgs pulled
                 retries,
                 retry_delay,
             )
