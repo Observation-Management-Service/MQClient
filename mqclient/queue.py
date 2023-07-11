@@ -521,10 +521,6 @@ class ManualQueueSubResource:
         def add_span_link(msg: Message) -> Message:
             return msg
 
-        # pulsar & pika require getting 2x when prefetch runs out
-        one_more_chance = False
-
-        # loop!
         while True:
             if self._ack_pending >= self._ack_pending_limit:
                 raise TooManyMessagesPendingAckException(
@@ -533,13 +529,8 @@ class ManualQueueSubResource:
                 )
 
             raw_msg = await self._get_message()
-            if not raw_msg:  # no message...
-                if one_more_chance:  # no message -> close and exit
-                    return
-                else:  # no message -> one more chance
-                    one_more_chance = True
-                    continue
-            one_more_chance = False
+            if not raw_msg:  # no message -> close and exit
+                return
 
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
             LOGGER.info(f"Received Message: {_message_size_message(msg)}")
