@@ -79,7 +79,11 @@ class Queue:
         self._broker_client = broker_client_manager.get_broker_client(broker_client)
         self._address = address
         self._name = name if name else Queue.make_name()
+
+        if prefetch < 0:
+            raise ValueError("prefetch must be non-negative")
         self._prefetch = prefetch
+
         self._auth_token = auth_token
 
         if ack_timeout is not None and ack_timeout <= 0:
@@ -318,8 +322,8 @@ class Queue:
         Args:
             ack_pending_limit (int, optional):
                 how many messages are expected to be pending before being
-                acked. If not given, the `self.prefetch` is used. If you
-                surpass this limit, the iterator will raise a
+                acked. If not given, the `self.prefetch + 1` is used.
+                If you surpass this limit, the iterator will raise a
                 `TooManyMessagesPendingAckException`.
 
         Examples:
@@ -359,7 +363,12 @@ class Queue:
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
-        sub = await self._create_sub_queue(prefetch_override=ack_pending_limit)
+        if ack_pending_limit is None:
+            ack_pending_limit = self._prefetch + 1
+        elif ack_pending_limit < 1:
+            raise ValueError("ack_pending_limit must be positive (or None)")
+
+        sub = await self._create_sub_queue(prefetch_override=ack_pending_limit - 1)
 
         try:
             yield ManualQueueSubResource(
@@ -371,7 +380,7 @@ class Queue:
                 ),
                 functools.partial(self._safe_ack, sub),
                 functools.partial(self._safe_nack, sub),
-                ack_pending_limit=sub.prefetch,
+                ack_pending_limit=ack_pending_limit,
             )
         finally:
             await sub.close()
