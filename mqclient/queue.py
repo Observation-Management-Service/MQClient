@@ -67,7 +67,7 @@ class Queue:
         broker_client: str,
         address: str = "localhost",
         name: str = "",
-        prefetch: int = 1,
+        prefetch: int = DEFAULT_PREFETCH,
         timeout: int = DEFAULT_TIMEOUT,
         ack_timeout: Optional[int] = None,
         retry_delay: int = DEFAULT_RETRY_DELAY,  # seconds
