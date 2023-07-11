@@ -871,8 +871,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        ack_pending_limit = len(DATA_LIST) // 2
-        async with sub.open_sub_manual_acking(ack_pending_limit) as gen:
+        async with sub.open_sub_manual_acking(len(DATA_LIST) - 2) as gen:
             messages = []
             with pytest.raises(TooManyMessagesPendingAckException):
                 async for i, msg in asl.enumerate(gen.iter_messages()):
@@ -902,8 +901,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        ack_pending_limit = len(DATA_LIST) // 2
-        async with sub.open_sub_manual_acking(ack_pending_limit) as gen:
+        async with sub.open_sub_manual_acking(len(DATA_LIST) - 2) as gen:
             messages = []
             with pytest.raises(TooManyMessagesPendingAckException):
                 async for i, msg in asl.enumerate(gen.iter_messages()):
@@ -911,11 +909,12 @@ class PubSubQueue:
                     all_recvd.append(_log_recv(msg.data))
                     messages.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                    if i % 2 == 0:
+                    if i >= 2:
                         pass  # eventually enough "passes" causes a TooManyMessagesPendingAckException
+                        assert gen._ack_pending == i - 2
                     else:
                         await gen.ack(msg)
-                    assert gen._ack_pending == (i // 2) + 1
+                        assert gen._ack_pending == 0
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
