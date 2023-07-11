@@ -324,7 +324,8 @@ class Queue:
                 how many messages are expected to be pending before being
                 acked. If not given, the `self.prefetch + 1` is used.
                 If you surpass this limit, the iterator will raise a
-                `TooManyMessagesPendingAckException`.
+                `TooManyMessagesPendingAckException`. NOTE: prefetching
+                is disabled for this method.
 
         Examples:
             async with queue.open_sub_manual_acking() as sub:
@@ -368,7 +369,7 @@ class Queue:
         elif ack_pending_limit < 1:
             raise ValueError("ack_pending_limit must be positive (or None)")
 
-        sub = await self._create_sub_queue(prefetch_override=ack_pending_limit - 1)
+        sub = await self._create_sub_queue(prefetch_override=0)
 
         try:
             yield ManualQueueSubResource(
