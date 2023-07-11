@@ -20,7 +20,7 @@ idna==3.4
     # via requests
 iniconfig==2.0.0
     # via pytest
-mock==5.0.2
+mock==5.1.0
     # via oms-mqclient (setup.py)
 mypy==1.4.1
     # via oms-mqclient (setup.py)
