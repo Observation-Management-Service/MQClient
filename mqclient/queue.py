@@ -301,7 +301,6 @@ class Queue:
     )
     async def open_sub_manual_acking(
         self,
-        ack_pending_limit: Optional[int] = None,
     ) -> AsyncGenerator["ManualQueueSubResource", None]:
         """Open a resource to receive messages from the queue as an iterator.
 
@@ -319,13 +318,7 @@ class Queue:
         **NOTE: unless you need to parallelize your message processing,
         use `open_sub()`**
 
-        Args:
-            ack_pending_limit (int, optional):
-                how many messages are expected to be pending before being
-                acked. If not given, the `self.prefetch + 1` is used.
-                If you surpass this limit, the iterator will raise a
-                `TooManyMessagesPendingAckException`. NOTE: prefetching
-                is disabled for this method.
+        NOTE: prefetching is disabled for this method
 
         Examples:
             async with queue.open_sub_manual_acking() as sub:
@@ -364,17 +357,13 @@ class Queue:
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
-        if ack_pending_limit is None:
-            ack_pending_limit = self._prefetch + 1
-        elif ack_pending_limit < 1:
-            raise ValueError("ack_pending_limit must be positive (or None)")
-
         sub = await self._create_sub_queue(
             # if prefetch=N (N>0), pika requires N acks/nacks before it gets more messages
-            #   we could implement logic that would check if this condition is met
+            #   We could implement logic that checks if this condition is met
             #   but that would go against the intention of the "manual" usage,
             #   e.g. a long running client with long running, parallel tasks
-            #   that finish at different times (don't want to wait for all to finish)
+            #   that finish at different times shouldn't have to wait for all
+            #   tasks to finish before getting more messages.
             prefetch_override=0,
         )
 
@@ -388,7 +377,6 @@ class Queue:
                 ),
                 functools.partial(self._safe_ack, sub),
                 functools.partial(self._safe_nack, sub),
-                ack_pending_limit=ack_pending_limit,
             )
         finally:
             await sub.close()
@@ -477,10 +465,6 @@ class EmptyQueueException(Exception):
     """Raised when the queue is empty."""
 
 
-class TooManyMessagesPendingAckException(Exception):
-    """Raised when the ack-pending limit has been surpassed."""
-
-
 class QueuePubResource:
     """A manager class around `Pub.send_message()`."""
 
@@ -509,13 +493,10 @@ class ManualQueueSubResource:
         get_message_function: Callable[[], Awaitable[Optional[Message]]],
         ack_function: Callable[[Message], Awaitable[None]],
         nack_function: Callable[[Message], Awaitable[None]],
-        ack_pending_limit: int,
     ) -> None:
         self._get_message = get_message_function
         self._ack_function = ack_function
         self._nack_function = nack_function
-        self._ack_pending = 0
-        self._ack_pending_limit = ack_pending_limit
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
@@ -529,30 +510,21 @@ class ManualQueueSubResource:
             return msg
 
         while True:
-            if self._ack_pending >= self._ack_pending_limit:
-                raise TooManyMessagesPendingAckException(
-                    f"{self._ack_pending} messages are pending ack/nack "
-                    f"(out of {self._ack_pending_limit} allowed)"
-                )
-
             raw_msg = await self._get_message()
             if not raw_msg:  # no message -> close and exit
                 return
 
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
             LOGGER.info(f"Received Message: {_message_size_message(msg)}")
-            self._ack_pending += 1
             yield msg
 
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
         await self._ack_function(msg)
-        self._ack_pending -= 1
 
     async def nack(self, msg: Message) -> None:
         """Acknowledge the message."""
         await self._nack_function(msg)
-        self._ack_pending -= 1
 
 
 class QueueSubResource:

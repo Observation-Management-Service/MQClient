@@ -9,7 +9,7 @@ from typing import Any, List
 
 import asyncstdlib as asl
 import pytest
-from mqclient.queue import Queue, TooManyMessagesPendingAckException
+from mqclient.queue import Queue
 
 from .utils import (
     DATA_LIST,
@@ -831,7 +831,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(ack_pending_limit=len(DATA_LIST)) as gen:
+        async with sub.open_sub_manual_acking() as gen:
             pending = []
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 try:
@@ -853,72 +853,3 @@ class PubSubQueue:
 
         print(all_recvd)
         assert all_were_received(all_recvd)
-
-    @pytest.mark.asyncio
-    async def test_250__delayed_acking__fail(
-        self, queue_name: str, auth_token: str
-    ) -> None:
-        """Test open_sub_manual_acking() w/ delayed acking AND surpass
-        `ack_pending_limit`."""
-        all_recvd: List[Any] = []
-
-        async with Queue(
-            self.broker_client, name=queue_name, auth_token=auth_token
-        ).open_pub() as p:
-            for d in DATA_LIST:
-                await p.send(d)
-                _log_send(d)
-
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 1
-        async with sub.open_sub_manual_acking(1) as gen:
-            messages = []
-            with pytest.raises(TooManyMessagesPendingAckException):
-                async for i, msg in asl.enumerate(gen.iter_messages()):
-                    print(f"{i}: `{msg.data}`")
-                    print(f"{gen._ack_pending=}")
-                    all_recvd.append(_log_recv(msg.data))
-                    messages.append(msg)
-                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                    assert gen._ack_pending == i + 1
-
-        print(all_recvd)
-        assert not all_were_received(all_recvd)
-
-    @pytest.mark.asyncio
-    async def test_251__no_nacking__fail(
-        self, queue_name: str, auth_token: str
-    ) -> None:
-        """Test open_sub_manual_acking() w/ delayed acking AND surpass
-        `ack_pending_limit`."""
-        all_recvd: List[Any] = []
-
-        async with Queue(
-            self.broker_client, name=queue_name, auth_token=auth_token
-        ).open_pub() as p:
-            for d in DATA_LIST:
-                await p.send(d)
-                _log_send(d)
-
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 1
-        async with sub.open_sub_manual_acking(2) as gen:
-            messages = []
-            with pytest.raises(TooManyMessagesPendingAckException):
-                async for i, msg in asl.enumerate(gen.iter_messages()):
-                    print(f"{i}: `{msg.data}`")
-                    print(f"{gen._ack_pending=}")
-                    all_recvd.append(_log_recv(msg.data))
-                    messages.append(msg)
-                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                    if i < 2:  # ack first two
-                        await gen.ack(msg)
-                        assert gen._ack_pending == 0
-                    else:
-                        # eventually a TooManyMessagesPendingAckException
-                        assert (
-                            gen._ack_pending == i - 1
-                        )  # i=2 has 1 pending (aka itself)
-
-        print(all_recvd)
-        assert not all_were_received(all_recvd)
