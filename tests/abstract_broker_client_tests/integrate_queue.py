@@ -875,9 +875,9 @@ class PubSubQueue:
                 all_recvd.append(_log_recv(msg.data))
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
 
-        for i, msg in enumerate(all_recvd):
-            print(f"ack {i}: `{msg.data}`")
-            await gen.ack(msg)
+            for i, msg in enumerate(all_recvd):
+                print(f"ack {i}: `{msg.data}`")
+                await gen.ack(msg)
 
         print(all_recvd)
         assert all_were_received(all_recvd)
