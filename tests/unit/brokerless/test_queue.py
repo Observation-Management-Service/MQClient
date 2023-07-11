@@ -7,6 +7,7 @@ from unittest.mock import call, patch, sentinel
 
 import pytest
 from mqclient.broker_client_interface import AckException, Message, NackException
+from mqclient.config import DEFAULT_RETRIES, DEFAULT_RETRY_DELAY
 from mqclient.queue import EmptyQueueException, Queue
 
 try:
@@ -221,18 +222,74 @@ async def test_nack_current() -> None:
         async for _ in stream:
             if i == 0:  # nack it
                 await stream.nack_current()
-                stream._sub.reject_message.assert_has_calls([call(msgs[0])])  # type: ignore[attr-defined]
+                stream._sub.reject_message.assert_has_calls(  # type: ignore[attr-defined]
+                    [
+                        call(
+                            msgs[0],
+                            retries=DEFAULT_RETRIES,
+                            retry_delay=DEFAULT_RETRY_DELAY,
+                        )
+                    ]
+                )
             elif i == 1:  # DON'T nack it
                 stream._sub.ack_message.assert_not_called()  # type: ignore[attr-defined]  # from i=0
             elif i == 2:  # nack it
-                stream._sub.reject_message.assert_has_calls([call(msgs[0])])  # type: ignore[attr-defined]
-                stream._sub.ack_message.assert_has_calls([call(msgs[1])])  # type: ignore[attr-defined]
+                stream._sub.reject_message.assert_has_calls(  # type: ignore[attr-defined]
+                    [
+                        call(
+                            msgs[0],
+                            retries=DEFAULT_RETRIES,
+                            retry_delay=DEFAULT_RETRY_DELAY,
+                        )
+                    ]
+                )
+                stream._sub.ack_message.assert_has_calls(  # type: ignore[attr-defined]
+                    [
+                        call(
+                            msgs[1],
+                            retries=DEFAULT_RETRIES,
+                            retry_delay=DEFAULT_RETRY_DELAY,
+                        )
+                    ]
+                )
                 await stream.nack_current()
                 stream._sub.reject_message.assert_has_calls(  # type: ignore[attr-defined]
-                    [call(msgs[0]), call(msgs[2])]
+                    [
+                        call(
+                            msgs[0],
+                            retries=DEFAULT_RETRIES,
+                            retry_delay=DEFAULT_RETRY_DELAY,
+                        ),
+                        call(
+                            msgs[2],
+                            retries=DEFAULT_RETRIES,
+                            retry_delay=DEFAULT_RETRY_DELAY,
+                        ),
+                    ]
                 )
             else:
                 assert 0
             i += 1
-        stream._sub.ack_message.assert_has_calls([call(msgs[1])])  # type: ignore[attr-defined]
-        stream._sub.reject_message.assert_has_calls([call(msgs[0]), call(msgs[2])])  # type: ignore[attr-defined]
+        stream._sub.ack_message.assert_has_calls(  # type: ignore[attr-defined]
+            [
+                call(
+                    msgs[1],
+                    retries=DEFAULT_RETRIES,
+                    retry_delay=DEFAULT_RETRY_DELAY,
+                )
+            ]
+        )
+        stream._sub.reject_message.assert_has_calls(  # type: ignore[attr-defined]
+            [
+                call(
+                    msgs[0],
+                    retries=DEFAULT_RETRIES,
+                    retry_delay=DEFAULT_RETRY_DELAY,
+                ),
+                call(
+                    msgs[2],
+                    retries=DEFAULT_RETRIES,
+                    retry_delay=DEFAULT_RETRY_DELAY,
+                ),
+            ]
+        )
