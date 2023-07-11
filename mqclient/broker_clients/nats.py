@@ -202,8 +202,8 @@ class NATSSub(NATS, Sub):
             nats_msgs: List[nats.aio.msg.Msg] = await utils.auto_retry_call(
                 func=functools.partial(
                     self._subscription.fetch,
-                    num_messages,
-                    int(math.ceil(timeout_millis / 1000)),
+                    batch=num_messages,
+                    timeout=int(math.ceil(timeout_millis / 1000)),
                 ),
                 retries=retries,
                 retry_delay=retry_delay,
@@ -341,7 +341,7 @@ class NATSSub(NATS, Sub):
         try:
             gen = self._gen_messages(
                 timeout * 1000,
-                self.prefetch,
+                self.prefetch + 1,  # prefetch + 1 = # of msgs pulled
                 retries,
                 retry_delay,
             )

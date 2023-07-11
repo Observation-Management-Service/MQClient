@@ -16,7 +16,7 @@ cffi==1.15.1
     # via cryptography
 charset-normalizer==3.2.0
     # via requests
-cryptography==41.0.1
+cryptography==41.0.2
     # via pyjwt
 dnspython==2.3.0
     # via pymongo
@@ -65,7 +65,7 @@ wipac-dev-tools==1.6.16
     #   oms-mqclient (setup.py)
     #   wipac-keycloak-rest-services
     #   wipac-rest-tools
-wipac-keycloak-rest-services==1.4.1
+wipac-keycloak-rest-services==1.4.2
     # via oms-mqclient (setup.py)
 wipac-rest-tools==1.4.20
     # via
