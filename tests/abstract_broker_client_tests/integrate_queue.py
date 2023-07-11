@@ -853,3 +853,31 @@ class PubSubQueue:
 
         print(all_recvd)
         assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    async def test_250__post_ack(self, queue_name: str, auth_token: str) -> None:
+        """Test open_sub_manual_acking() where messages aren't acked until
+        after all have been received."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                print(f"{i}: `{msg.data}`")
+                all_recvd.append(_log_recv(msg.data))
+                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+
+        for i, msg in enumerate(all_recvd):
+            print(f"ack {i}: `{msg.data}`")
+            await gen.ack(msg)
+
+        print(all_recvd)
+        assert all_were_received(all_recvd)
