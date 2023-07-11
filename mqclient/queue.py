@@ -23,6 +23,7 @@ from . import telemetry as wtt
 from .broker_client_interface import AckException, Message, NackException, Pub, Sub
 from .config import (
     DEFAULT_EXCEPT_ERRORS,
+    DEFAULT_PREFETCH,
     DEFAULT_RETRIES,
     DEFAULT_RETRY_DELAY,
     DEFAULT_TIMEOUT,
