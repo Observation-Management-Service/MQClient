@@ -876,6 +876,7 @@ class PubSubQueue:
             with pytest.raises(TooManyMessagesPendingAckException):
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
+                    print(f"{gen._ack_pending=}")
                     all_recvd.append(_log_recv(msg.data))
                     messages.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
@@ -906,6 +907,7 @@ class PubSubQueue:
             with pytest.raises(TooManyMessagesPendingAckException):
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
+                    print(f"{gen._ack_pending=}")
                     all_recvd.append(_log_recv(msg.data))
                     messages.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
@@ -914,7 +916,9 @@ class PubSubQueue:
                         assert gen._ack_pending == 0
                     else:
                         # eventually a TooManyMessagesPendingAckException
-                        assert gen._ack_pending == i - 2
+                        assert (
+                            gen._ack_pending == i - 1
+                        )  # i=2 has 1 pending (aka itself)
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
