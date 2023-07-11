@@ -882,6 +882,8 @@ class PubSubQueue:
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                     assert gen._ack_pending == i + 1
 
+                    await asyncio.sleep(0.1)  # let the prefetch refill
+
         print(all_recvd)
         assert not all_were_received(all_recvd)
 
@@ -919,6 +921,8 @@ class PubSubQueue:
                         assert (
                             gen._ack_pending == i - 1
                         )  # i=2 has 1 pending (aka itself)
+
+                    await asyncio.sleep(0.1)  # let the prefetch refill
 
         print(all_recvd)
         assert not all_were_received(all_recvd)
