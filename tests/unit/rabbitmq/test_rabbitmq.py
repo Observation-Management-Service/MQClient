@@ -7,10 +7,15 @@ from unittest.mock import MagicMock
 import pika  # type: ignore[import]
 import pytest
 from mqclient import broker_client_manager
-from mqclient.broker_client_interface import Message
+from mqclient.broker_client_interface import TIMEOUT_MILLIS_DEFAULT, Message
 from mqclient.broker_clients.rabbitmq import HUMAN_PATTERN, _get_credentials, _parse_url
 
 from ...abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
+
+TIMEOUT = 60
+PROPAGATE_ERROR = True
+RETRIES = 3  # TODO - grab these from Queue
+RETRY_DELAY = 1  # ' '
 
 
 class TestUnitRabbitMQ(BrokerClientUnitTest):
@@ -73,7 +78,11 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         pub = await self.broker_client.create_pub_queue(
             "localhost", queue_name, "", None
         )
-        await pub.send_message(b"foo, bar, baz")
+        await pub.send_message(
+            b"foo, bar, baz",
+            retries=RETRIES,
+            retry_delay=RETRY_DELAY,
+        )
         mock_con.return_value.channel.return_value.basic_publish.assert_called_with(
             exchange="", routing_key=queue_name, body=b"foo, bar, baz"
         )
@@ -90,7 +99,11 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         mock_con.return_value.channel.return_value.consume.return_value.__next__.side_effect = [
             fake_message
         ]
-        m = await sub.get_message()
+        m = await sub.get_message(
+            timeout_millis=TIMEOUT_MILLIS_DEFAULT,
+            retries=RETRIES,
+            retry_delay=RETRY_DELAY,
+        )
         assert m is not None
         assert m.msg_id == 12
         assert m.data == "foo, bar"
@@ -118,7 +131,14 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
             _MyException
         )
         with pytest.raises(_MyException):
-            _ = [m async for m in sub.message_generator(retries=retries)]
+            async for m in sub.message_generator(
+                timeout=TIMEOUT,
+                propagate_error=PROPAGATE_ERROR,
+                retries=retries,
+                retry_delay=RETRY_DELAY,
+            ):
+                pass
+
         # would be called by Queue one more time
         assert self._get_close_mock_fn(mock_con).call_count == retries
 
@@ -130,12 +150,14 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
             _MyException
         )
         with pytest.raises(_MyException):
-            _ = [
-                m
-                async for m in sub.message_generator(
-                    propagate_error=False, retries=retries
-                )
-            ]
+            async for m in sub.message_generator(
+                timeout=TIMEOUT,
+                propagate_error=False,
+                retries=retries,
+                retry_delay=RETRY_DELAY,
+            ):
+                pass
+
         # would be called by Queue one more time
         assert self._get_close_mock_fn(mock_con).call_count == retries
 

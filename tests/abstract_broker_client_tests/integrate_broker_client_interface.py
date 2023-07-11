@@ -21,6 +21,7 @@ from mqclient.broker_client_interface import (
 
 from .utils import DATA_LIST, _log_recv, _log_send
 
+PROPAGATE_ERROR = True
 RETRIES = 3  # TODO - grab these from Queue
 RETRY_DELAY = 1  # ' '
 
@@ -259,7 +260,12 @@ class PubSubBrokerClientInterface:
         last = 0
         recv_msg: Optional[Message]
         async for i, recv_msg in asl.enumerate(
-            sub.message_generator(timeout=self.timeout)
+            sub.message_generator(
+                timeout=self.timeout,
+                propagate_error=PROPAGATE_ERROR,
+                retries=RETRIES,
+                retry_delay=RETRY_DELAY,
+            )
         ):
             logging.info(i)
             _log_recv_message(recv_msg)

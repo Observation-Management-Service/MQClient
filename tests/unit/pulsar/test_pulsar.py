@@ -8,6 +8,11 @@ from mqclient.broker_client_interface import Message
 
 from ...abstract_broker_client_tests.unit_tests import BrokerClientUnitTest
 
+TIMEOUT = 60
+PROPAGATE_ERROR = True
+RETRIES = 3  # TODO - grab these from Queue
+RETRY_DELAY = 1  # ' '
+
 
 class TestUnitApachePulsar(BrokerClientUnitTest):
     """Unit test suite interface for Apache Pulsar broker_client."""
@@ -70,7 +75,11 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
         pub = await self.broker_client.create_pub_queue(
             "localhost", queue_name, "", None
         )
-        await pub.send_message(b"foo, bar, baz")
+        await pub.send_message(
+            b"foo, bar, baz",
+            retries=RETRIES,
+            retry_delay=RETRY_DELAY,
+        )
         mock_con.return_value.create_producer.return_value.send.assert_called_with(
             b"foo, bar, baz"
         )
@@ -87,7 +96,11 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
         mock_con.return_value.subscribe.return_value.receive.return_value.message_id.return_value = (
             12
         )
-        m = await sub.get_message()
+        m = await sub.get_message(
+            timeout_millis=TIMEOUT_MILLIS_DEFAULT,
+            retries=RETRIES,
+            retry_delay=RETRY_DELAY,
+        )
 
         assert m is not None
         assert m.msg_id == 12
@@ -115,7 +128,13 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
             _MyException()
         )
         with pytest.raises(_MyException):
-            _ = [m async for m in sub.message_generator(retries=retries)]
+            async for m in sub.message_generator(
+                timeout=TIMEOUT,
+                propagate_error=PROPAGATE_ERROR,
+                retries=retries,
+                retry_delay=RETRY_DELAY,
+            ):
+                pass
         # would be called by Queue one more time
         assert self._get_close_mock_fn(mock_con).call_count == retries
 
@@ -127,11 +146,12 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
             _MyException()
         )
         with pytest.raises(_MyException):
-            _ = [
-                m
-                async for m in sub.message_generator(
-                    propagate_error=False, retries=retries
-                )
-            ]
+            async for m in sub.message_generator(
+                timeout=TIMEOUT,
+                propagate_error=False,
+                retries=retries,
+                retry_delay=RETRY_DELAY,
+            ):
+                pass
         # would be called by Queue one more time
         assert self._get_close_mock_fn(mock_con).call_count == retries
