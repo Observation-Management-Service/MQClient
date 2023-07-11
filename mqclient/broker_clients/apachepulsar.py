@@ -177,7 +177,7 @@ class PulsarSub(Pulsar, Sub):
         self.consumer = self.client.subscribe(
             self.topic,
             self.subscription_name,
-            receiver_queue_size=self.prefetch,
+            receiver_queue_size=self.prefetch + 1,
             unacked_messages_timeout_ms=(
                 self.ack_timeout * 1000
                 if self.ack_timeout and self.ack_timeout > 10
