@@ -869,13 +869,15 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
+        to_ack = []
         async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 all_recvd.append(_log_recv(msg.data))
+                to_ack.append(msg)
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
 
-            for i, msg in enumerate(all_recvd):
+            for i, msg in enumerate(to_ack):
                 print(f"ack {i}: `{msg.data}`")
                 await gen.ack(msg)
 
