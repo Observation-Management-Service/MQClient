@@ -10,13 +10,13 @@ import nats
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    TIMEOUT_MILLIS_DEFAULT,
     ClosingFailedException,
     Message,
     Pub,
     RawQueue,
     Sub,
 )
+from ..config import DEFAULT_TIMEOUT_MILLIS
 from . import utils
 
 LOGGER = logging.getLogger("mqclient.nats")
@@ -62,7 +62,7 @@ class NATS(RawQueue):
         await super().connect()
         self._nats_client = await nats.connect(self.endpoint)  # type: ignore[arg-type]
         # Create JetStream context
-        self.js = self._nats_client.jetstream(timeout=TIMEOUT_MILLIS_DEFAULT // 1000)
+        self.js = self._nats_client.jetstream(timeout=DEFAULT_TIMEOUT_MILLIS // 1000)
         await self.js.add_stream(name=self.stream_id, subjects=[self.subject])
 
     async def close(self) -> None:
@@ -196,7 +196,7 @@ class NATSSub(NATS, Sub):
             raise RuntimeError("Subscriber is not connected")
 
         if not timeout_millis:
-            timeout_millis = TIMEOUT_MILLIS_DEFAULT
+            timeout_millis = DEFAULT_TIMEOUT_MILLIS
 
         try:
             nats_msgs: List[nats.aio.msg.Msg] = await utils.auto_retry_call(

@@ -7,8 +7,6 @@ from typing import Any, AsyncGenerator, Dict, Optional, Union
 
 MessageID = Union[int, str, bytes]
 
-TIMEOUT_MILLIS_DEFAULT = 1000  # milliseconds
-
 
 class ConnectingFailedException(Exception):
     """Raised when a `connect()` fails."""

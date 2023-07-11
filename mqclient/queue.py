@@ -21,6 +21,12 @@ from typing import (
 from . import broker_client_manager
 from . import telemetry as wtt
 from .broker_client_interface import AckException, Message, NackException, Pub, Sub
+from .config import (
+    DEFAULT_EXCEPT_ERRORS,
+    DEFAULT_RETRIES,
+    DEFAULT_RETRY_DELAY,
+    DEFAULT_TIMEOUT,
+)
 
 LOGGER = logging.getLogger("mqclient")
 
@@ -62,11 +68,11 @@ class Queue:
         address: str = "localhost",
         name: str = "",
         prefetch: int = 1,
-        timeout: int = 60,
+        timeout: int = DEFAULT_TIMEOUT,
         ack_timeout: Optional[int] = None,
-        retry_delay: int = 1,  # seconds
-        retries: int = 2,  # ex: 2 means 1 initial try and 2 retries
-        except_errors: bool = True,
+        retry_delay: int = DEFAULT_RETRY_DELAY,  # seconds
+        retries: int = DEFAULT_RETRIES,  # ex: 2 means 1 initial try and 2 retries
+        except_errors: bool = DEFAULT_EXCEPT_ERRORS,
         auth_token: str = "",
     ) -> None:
         self._broker_client = broker_client_manager.get_broker_client(broker_client)

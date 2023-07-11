@@ -13,17 +13,10 @@ from typing import List, Optional
 
 import asyncstdlib as asl
 import pytest
-from mqclient.broker_client_interface import (
-    TIMEOUT_MILLIS_DEFAULT,
-    BrokerClient,
-    Message,
-)
+from mqclient.broker_client_interface import BrokerClient, Message
+from mqclient.config import DEFAULT_RETRIES, DEFAULT_RETRY_DELAY, DEFAULT_TIMEOUT_MILLIS
 
 from .utils import DATA_LIST, _log_recv, _log_send
-
-PROPAGATE_ERROR = True
-RETRIES = 3  # TODO - grab these from Queue
-RETRY_DELAY = 1  # ' '
 
 
 def _log_recv_message(recv_msg: Optional[Message]) -> None:
@@ -57,8 +50,8 @@ class PubSubBrokerClientInterface:
             raw_data = Message.serialize(msg)
             await pub.send_message(
                 raw_data,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
             _log_send(msg)
 
@@ -68,9 +61,9 @@ class PubSubBrokerClientInterface:
             assert i <= len(DATA_LIST)
 
             recv_msg = await sub.get_message(
-                timeout_millis=TIMEOUT_MILLIS_DEFAULT,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                timeout_millis=DEFAULT_TIMEOUT_MILLIS,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
             _log_recv_message(recv_msg)
 
@@ -84,8 +77,8 @@ class PubSubBrokerClientInterface:
 
             await sub.ack_message(
                 recv_msg,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
 
         await pub.close()
@@ -109,8 +102,8 @@ class PubSubBrokerClientInterface:
             raw_data = Message.serialize(msg)
             await pub.send_message(
                 raw_data,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
             _log_send(msg)
 
@@ -128,9 +121,9 @@ class PubSubBrokerClientInterface:
                 break
 
             recv_msg = await sub.get_message(
-                timeout_millis=TIMEOUT_MILLIS_DEFAULT,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                timeout_millis=DEFAULT_TIMEOUT_MILLIS,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
             _log_recv_message(recv_msg)
 
@@ -146,16 +139,16 @@ class PubSubBrokerClientInterface:
                 redelivered_msgs.append(recv_msg)
                 await sub.ack_message(
                     recv_msg,
-                    retries=RETRIES,
-                    retry_delay=RETRY_DELAY,
+                    retries=DEFAULT_RETRIES,
+                    retry_delay=DEFAULT_RETRY_DELAY,
                 )
             # otherwise, nack message
             else:
                 nacked_msgs.append(recv_msg)
                 await sub.reject_message(
                     recv_msg,
-                    retries=RETRIES,
-                    retry_delay=RETRY_DELAY,
+                    retries=DEFAULT_RETRIES,
+                    retry_delay=DEFAULT_RETRY_DELAY,
                 )
                 logging.info("NACK!")
 
@@ -194,17 +187,17 @@ class PubSubBrokerClientInterface:
                 raw_data = Message.serialize(msg)
                 await pub.send_message(
                     raw_data,
-                    retries=RETRIES,
-                    retry_delay=RETRY_DELAY,
+                    retries=DEFAULT_RETRIES,
+                    retry_delay=DEFAULT_RETRY_DELAY,
                 )
                 _log_send(msg)
                 data_to_send.remove(msg)
 
             # get a message
             recv_msg = await sub.get_message(
-                timeout_millis=TIMEOUT_MILLIS_DEFAULT,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                timeout_millis=DEFAULT_TIMEOUT_MILLIS,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
             _log_recv_message(recv_msg)
 
@@ -220,16 +213,16 @@ class PubSubBrokerClientInterface:
                 redelivered_msgs.append(recv_msg)
                 await sub.ack_message(
                     recv_msg,
-                    retries=RETRIES,
-                    retry_delay=RETRY_DELAY,
+                    retries=DEFAULT_RETRIES,
+                    retry_delay=DEFAULT_RETRY_DELAY,
                 )
             # otherwise, nack message
             else:
                 nacked_msgs.append(recv_msg)
                 await sub.reject_message(
                     recv_msg,
-                    retries=RETRIES,
-                    retry_delay=RETRY_DELAY,
+                    retries=DEFAULT_RETRIES,
+                    retry_delay=DEFAULT_RETRY_DELAY,
                 )
                 logging.info("NACK!")
 
@@ -251,8 +244,8 @@ class PubSubBrokerClientInterface:
             raw_data = Message.serialize(msg)
             await pub.send_message(
                 raw_data,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
             _log_send(msg)
 
@@ -262,9 +255,9 @@ class PubSubBrokerClientInterface:
         async for i, recv_msg in asl.enumerate(
             sub.message_generator(
                 timeout=self.timeout,
-                propagate_error=PROPAGATE_ERROR,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                propagate_error=True,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
         ):
             logging.info(i)
@@ -274,8 +267,8 @@ class PubSubBrokerClientInterface:
             last = i
             await sub.ack_message(
                 recv_msg,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
 
         assert last == len(DATA_LIST) - 1

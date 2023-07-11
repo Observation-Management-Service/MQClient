@@ -9,14 +9,10 @@ from unittest.mock import Mock
 import asyncstdlib as asl
 import pytest
 from mqclient.broker_client_interface import BrokerClient, Message
+from mqclient.config import DEFAULT_RETRIES, DEFAULT_RETRY_DELAY, DEFAULT_TIMEOUT
 from mqclient.queue import Queue
 
 from .utils import is_inst_name
-
-TIMEOUT = 60
-PROPAGATE_ERROR = True
-RETRIES = 3  # TODO - grab these from Queue
-RETRY_DELAY = 1  # ' '
 
 
 class BrokerClientUnitTest:
@@ -92,8 +88,8 @@ class BrokerClientUnitTest:
             mock_con.return_value.is_closed = False
         await sub.ack_message(
             Message(12, b""),
-            retries=RETRIES,
-            retry_delay=RETRY_DELAY,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
         )
         self._get_ack_mock_fn(mock_con).assert_called_with(12)
 
@@ -109,8 +105,8 @@ class BrokerClientUnitTest:
             mock_con.return_value.is_closed = False
         await sub.reject_message(
             Message(12, b""),
-            retries=RETRIES,
-            retry_delay=RETRY_DELAY,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
         )
         self._get_nack_mock_fn(mock_con).assert_called_with(12)
 
@@ -134,10 +130,10 @@ class BrokerClientUnitTest:
         msg: Optional[Message]
         async for i, msg in asl.enumerate(
             sub.message_generator(
-                timeout=TIMEOUT,
-                propagate_error=PROPAGATE_ERROR,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=True,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
         ):
             logging.debug(i)
@@ -175,10 +171,10 @@ class BrokerClientUnitTest:
         msg: Optional[Message]
         async for i, msg in asl.enumerate(
             sub.message_generator(
-                timeout=TIMEOUT,
-                propagate_error=PROPAGATE_ERROR,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=True,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
         ):
             m = msg
@@ -209,10 +205,10 @@ class BrokerClientUnitTest:
         msg: Optional[Message]
         async for i, msg in asl.enumerate(
             sub.message_generator(
-                timeout=TIMEOUT,
-                propagate_error=PROPAGATE_ERROR,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                timeout=DEFAULT_TIMEOUT,
+                propagate_error=True,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             )
         ):
             assert i < 1
@@ -256,10 +252,10 @@ class BrokerClientUnitTest:
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
         gen = sub.message_generator(
-            timeout=TIMEOUT,
-            propagate_error=PROPAGATE_ERROR,
-            retries=RETRIES,
-            retry_delay=RETRY_DELAY,
+            timeout=DEFAULT_TIMEOUT,
+            propagate_error=True,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
         )
         i = 0
         async for msg in gen:
@@ -298,10 +294,10 @@ class BrokerClientUnitTest:
         )
 
         gen = sub.message_generator(
-            timeout=TIMEOUT,
-            propagate_error=PROPAGATE_ERROR,
-            retries=RETRIES,
-            retry_delay=RETRY_DELAY,
+            timeout=DEFAULT_TIMEOUT,
+            propagate_error=True,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
         )  # propagate_error=True
         i = 0
         async for msg in gen:
@@ -351,10 +347,10 @@ class BrokerClientUnitTest:
         await self._enqueue_mock_messages(mock_con, fake_data, fake_ids)
 
         gen = sub.message_generator(
-            timeout=TIMEOUT,
+            timeout=DEFAULT_TIMEOUT,
             propagate_error=False,
-            retries=RETRIES,
-            retry_delay=RETRY_DELAY,
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
         )
         i = 0
         async for msg in gen:
@@ -396,10 +392,10 @@ class BrokerClientUnitTest:
         excepted = False
         try:
             async for msg in sub.message_generator(
-                timeout=TIMEOUT,
+                timeout=DEFAULT_TIMEOUT,
                 propagate_error=False,
-                retries=RETRIES,
-                retry_delay=RETRY_DELAY,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
             ):
                 logging.debug(msg)
                 raise Exception
