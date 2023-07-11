@@ -146,9 +146,7 @@ class NATSSub(NATS, Sub):
         if not self.js:
             raise RuntimeError("JetStream is not connected.")
 
-        self._subscription: nats.js.client.PullSubscription = (
-            await self.js.pull_subscribe(self.subject, "psub")
-        )
+        self._subscription = await self.js.pull_subscribe(self.subject, "psub")
         LOGGER.debug(log_msgs.CONNECTED_SUB)
 
     async def close(self) -> None:
