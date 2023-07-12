@@ -161,8 +161,7 @@ class Queue:
         return await self._broker_client.create_sub_queue(
             self._address,
             self._name,
-            # 0 is okay
-            prefetch_override if prefetch_override is not None else self._prefetch,
+            prefetch_override if prefetch_override else self._prefetch,
             self._auth_token,
             self._ack_timeout,
         )
