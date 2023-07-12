@@ -715,8 +715,8 @@ class PubSubQueue:
             self.broker_client == "rabbitmq"
             and use_prefetch_value
             and sub_queue_prefetch  # int, >0
-        ):
-            assert len(all_recvd) == (sub_queue_prefetch + 1) * 2
+        ):  # acked every 1/2 before we got kicked out
+            assert len(all_recvd) == min(sub_queue_prefetch * 2, len(DATA_LIST))
         else:
             assert all_were_received(all_recvd)
 
@@ -772,8 +772,8 @@ class PubSubQueue:
             self.broker_client == "rabbitmq"
             and use_prefetch_value
             and sub_queue_prefetch  # int, >0
-        ):
-            assert len(all_recvd) == sub_queue_prefetch - 1
+        ):  # got kicked out when prefetch was met
+            assert len(all_recvd) == min(sub_queue_prefetch, len(DATA_LIST))
         else:
             assert all_were_received(all_recvd)
 
