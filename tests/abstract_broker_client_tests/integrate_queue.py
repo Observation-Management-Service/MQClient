@@ -702,9 +702,11 @@ class PubSubQueue:
                     pending.append(msg)
                     # assert msg.data == DATA_LIST[i]  # we don't guarantee order
                     if i % 2 == 0:  # ack every 1/2
+                        print(f"ack {i}: `{msg.data}`")
                         await gen.ack(msg)
                         pending.remove(msg)
                 except Exception:
+                    print(f"nack {i}: `{msg.data}`")
                     await gen.nack(msg)
 
             for msg in pending:  # messages with index not %2 nor %3, (1,5,7,...)
