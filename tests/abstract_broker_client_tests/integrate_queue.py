@@ -718,8 +718,16 @@ class PubSubQueue:
             and use_prefetch_value
             and sub_queue_prefetch  # int, >0
         ):  # acked every 1/2 before we got kicked out
-            indexes_unacked = [-1, 1, 5, 7, 11, 13]  # see above about "%2 nor %3"
-            assert i == indexes_unacked[sub_queue_prefetch]
+            try:
+                indexes_unacked = [
+                    x
+                    for x in range(len(all_recvd) * (3 / 2))
+                    if not x % 2 and not x % 3
+                ]
+                print(indexes_unacked)
+                assert i == indexes_unacked[sub_queue_prefetch + 1]  # 0-index
+            except IndexError:
+                assert i == len(all_recvd) * (3 / 2)
             assert len(all_recvd) == i - (i // 3)  # len == i - # of nacks
         else:
             assert all_were_received(all_recvd)
