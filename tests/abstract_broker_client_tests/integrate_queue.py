@@ -867,8 +867,11 @@ class PubSubQueue:
                 await p.send(d)
                 _log_send(d)
 
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub = Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token, prefetch=1
+        )
         sub.timeout = 1
+
         to_ack = []
         async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
