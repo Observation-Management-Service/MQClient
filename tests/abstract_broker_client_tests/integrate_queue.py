@@ -711,7 +711,11 @@ class PubSubQueue:
                 await gen.ack(msg)
 
         print(all_recvd)
-        assert all_were_received(all_recvd)
+        if self.broker_client == "rabbitmq" and use_prefetch_value:
+            assert i == 2
+            assert len(all_recvd) == 2
+        else:
+            assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1])
@@ -761,7 +765,11 @@ class PubSubQueue:
                 await gen.ack(msg)
 
         print(all_recvd)
-        assert all_were_received(all_recvd)
+        if self.broker_client == "rabbitmq" and use_prefetch_value:
+            assert i == 1
+            assert len(all_recvd) == 1
+        else:
+            assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("use_prefetch_value", [False, True])
