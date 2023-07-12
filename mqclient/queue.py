@@ -161,7 +161,8 @@ class Queue:
         return await self._broker_client.create_sub_queue(
             self._address,
             self._name,
-            prefetch_override if prefetch_override else self._prefetch,
+            # 0 is okay
+            prefetch_override if prefetch_override is not None else self._prefetch,
             self._auth_token,
             self._ack_timeout,
         )
@@ -300,7 +301,7 @@ class Queue:
         ]
     )
     async def open_sub_manual_acking(
-        self,
+        self, use_prefetch_value: bool
     ) -> AsyncGenerator["ManualQueueSubResource", None]:
         """Open a resource to receive messages from the queue as an iterator.
 
@@ -318,7 +319,12 @@ class Queue:
         **NOTE: unless you need to parallelize your message processing,
         use `open_sub()`**
 
-        NOTE: prefetching is disabled for this method
+        Arguments:
+            `use_prefetch_value` - whether to use the prefetch value; `False` uses prefetch=0
+                Prefetching may be useful for short-running tasks,
+                where the bottleneck would be network delay.
+                NOTE: rabbitmq will not deliver more messages if
+                there are N un-acked messages (N = prefetch, N > 0)
 
         Examples:
             async with queue.open_sub_manual_acking() as sub:
@@ -358,13 +364,12 @@ class Queue:
             ManualQueueSubResource -- context manager w/ iterator function
         """
         sub = await self._create_sub_queue(
-            # if prefetch=N (N>0), pika requires N acks/nacks before it gets more messages
+            # if prefetch=N (N>0), pika will not deliver more messages
+            #   if there are N un-acked messages
+            #
             #   We could implement logic that checks if this condition is met
-            #   but that would go against the intention of the "manual" usage,
-            #   e.g. a long running client with long running, parallel tasks
-            #   that finish at different times shouldn't have to wait for all
-            #   tasks to finish before getting more messages.
-            prefetch_override=0,
+            #   but that would go against the intention of the "manual" usage
+            prefetch_override=(None if use_prefetch_value else 0)
         )
 
         try:
