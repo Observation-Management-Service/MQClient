@@ -722,7 +722,7 @@ class PubSubQueue:
                 indexes_unacked = [
                     x
                     for x in range(int(len(all_recvd) * (3 / 2)))  # math.ceil?
-                    if not x % 2 and not x % 3
+                    if not (x % 2 == 0 or x % 3 == 0)
                 ]
                 print(indexes_unacked)
                 assert i == indexes_unacked[sub_queue_prefetch - 1]  # 0-index
