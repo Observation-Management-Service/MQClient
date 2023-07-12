@@ -605,18 +605,20 @@ class PubSubQueue:
     ###########################################################################
     # tests 200 - 299:
     #
-    # Tests for open_sub_manual_acking()
+    # Tests for open_sub_manual_acking(use_prefetch_value)
     ###########################################################################
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("prefetch_to_override", [None, 0, 1])
+    @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_200__ideal(
         self,
         queue_name: str,
         auth_token: str,
         prefetch_to_override: Optional[int],
+        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking() ideal scenario."""
+        """Test open_sub_manual_acking(use_prefetch_value) ideal scenario."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -640,7 +642,7 @@ class PubSubQueue:
                 auth_token=auth_token,
             )
         sub.timeout = 1
-        async with sub.open_sub_manual_acking() as gen:
+        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 all_recvd.append(_log_recv(msg.data))
@@ -652,14 +654,16 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("prefetch_to_override", [None, 0, 1])
+    @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_202__delayed_mixed_acking_nacking(
         self,
         queue_name: str,
         auth_token: str,
         prefetch_to_override: Optional[int],
+        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking() fail and immediate recovery with
-        multi-tasking, with mixed acking and nacking."""
+        """Test open_sub_manual_acking(use_prefetch_value) fail and immediate
+        recovery with multi-tasking, with mixed acking and nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -686,7 +690,7 @@ class PubSubQueue:
                 auth_token=auth_token,
             )
         sub.timeout = 1
-        async with sub.open_sub_manual_acking() as gen:
+        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
             pending = []
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 try:
@@ -711,14 +715,16 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("prefetch_to_override", [None, 0, 1])
+    @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_204__post_ack(
         self,
         queue_name: str,
         auth_token: str,
         prefetch_to_override: Optional[int],
+        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking() where messages aren't acked until
-        after all have been received."""
+        """Test open_sub_manual_acking(use_prefetch_value) where messages
+        aren't acked until after all have been received."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -743,7 +749,7 @@ class PubSubQueue:
             )
         sub.timeout = 1
         to_ack = []
-        async with sub.open_sub_manual_acking() as gen:
+        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 all_recvd.append(_log_recv(msg.data))
@@ -758,11 +764,15 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_210__immediate_recovery(
-        self, queue_name: str, auth_token: str
+        self,
+        queue_name: str,
+        auth_token: str,
+        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking() fail and immediate recovery, with
-        nacking."""
+        """Test open_sub_manual_acking(use_prefetch_value) fail and immediate
+        recovery, with nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -777,7 +787,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        async with sub.open_sub_manual_acking() as gen:
+        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 try:
                     # DO WORK!
@@ -795,11 +805,15 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_220__posthoc_recovery(
-        self, queue_name: str, auth_token: str
+        self,
+        queue_name: str,
+        auth_token: str,
+        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking() fail and post-hoc recovery, with
-        nacking."""
+        """Test open_sub_manual_acking(use_prefetch_value) fail and post-hoc
+        recovery, with nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -816,7 +830,7 @@ class PubSubQueue:
         excepted = False
         sub.timeout = 1
         # sub.except_errors = False  # has no effect
-        async with sub.open_sub_manual_acking() as gen:
+        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
             try:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
@@ -835,7 +849,7 @@ class PubSubQueue:
         # continue where we left off
         posthoc = False
         sub.timeout = 1
-        async with sub.open_sub_manual_acking() as gen:
+        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 posthoc = True
@@ -847,10 +861,15 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_221__posthoc_recovery__fail(
-        self, queue_name: str, auth_token: str
+        self,
+        queue_name: str,
+        auth_token: str,
+        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking() fail, post-hoc recovery, then fail.
+        """Test open_sub_manual_acking(use_prefetch_value) fail, post-hoc
+        recovery, then fail.
 
         Final fail is due to not nacking.
         """
@@ -870,7 +889,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         excepted = False
-        async with sub.open_sub_manual_acking() as gen:
+        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
             try:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
@@ -890,7 +909,7 @@ class PubSubQueue:
         # continue where we left off
         posthoc = False
         sub.timeout = 1
-        async with sub.open_sub_manual_acking() as gen:
+        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 posthoc = True
@@ -908,9 +927,15 @@ class PubSubQueue:
         )
 
     @pytest.mark.asyncio
-    async def test_230__fail_bad_usage(self, queue_name: str, auth_token: str) -> None:
-        """Failure-test open_sub_manual_acking() with reusing a
-        'QueueSubResource' instance."""
+    @pytest.mark.parametrize("use_prefetch_value", [False, True])
+    async def test_230__fail_bad_usage(
+        self,
+        queue_name: str,
+        auth_token: str,
+        use_prefetch_value: bool,
+    ) -> None:
+        """Failure-test open_sub_manual_acking(use_prefetch_value) with reusing
+        a 'QueueSubResource' instance."""
         async with Queue(
             self.broker_client, name=queue_name, auth_token=auth_token
         ).open_pub() as p:
@@ -920,7 +945,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        recv_gen = sub.open_sub_manual_acking()
+        recv_gen = sub.open_sub_manual_acking(use_prefetch_value)
         async with recv_gen as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
