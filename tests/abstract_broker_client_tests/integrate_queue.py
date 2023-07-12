@@ -727,7 +727,7 @@ class PubSubQueue:
                 print(indexes_unacked)
                 assert i == indexes_unacked[sub_queue_prefetch - 1]  # 0-index
             except IndexError:
-                assert i == len(all_recvd) * (3 / 2)
+                assert i + 1 == len(all_recvd) * (3 / 2)
             assert len(all_recvd) == i - (i // 3)  # len == i - # of nacks
         else:
             assert all_were_received(all_recvd)
