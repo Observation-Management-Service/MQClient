@@ -721,13 +721,13 @@ class PubSubQueue:
             try:
                 indexes_unacked = [
                     x
-                    for x in range(int(len(all_recvd) * (3 / 2)))  # math.ceil?
+                    for x in range(int(len(DATA_LIST) * (3 / 2)))  # math.ceil?
                     if not (x % 2 == 0 or x % 3 == 0)
                 ]
                 print(indexes_unacked)
                 assert i == indexes_unacked[sub_queue_prefetch - 1]  # 0-index
             except IndexError:
-                assert i + 1 == len(all_recvd) * (3 / 2)
+                assert i + 1 == len(DATA_LIST) * (3 / 2)
             assert len(all_recvd) == i - (i // 3)  # len == i - # of nacks
         else:
             assert all_were_received(all_recvd)
