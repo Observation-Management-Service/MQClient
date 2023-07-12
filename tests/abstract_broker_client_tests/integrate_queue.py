@@ -711,7 +711,11 @@ class PubSubQueue:
                 await gen.ack(msg)
 
         print(all_recvd)
-        if self.broker_client == "rabbitmq" and use_prefetch_value:
+        if (
+            self.broker_client == "rabbitmq"
+            and use_prefetch_value
+            and sub_queue_prefetch  # int, >0
+        ):
             assert i == 2
             assert len(all_recvd) == 2
         else:
@@ -765,7 +769,11 @@ class PubSubQueue:
                 await gen.ack(msg)
 
         print(all_recvd)
-        if self.broker_client == "rabbitmq" and use_prefetch_value:
+        if (
+            self.broker_client == "rabbitmq"
+            and use_prefetch_value
+            and sub_queue_prefetch  # int, >0
+        ):
             assert i == 1
             assert len(all_recvd) == 1
         else:
