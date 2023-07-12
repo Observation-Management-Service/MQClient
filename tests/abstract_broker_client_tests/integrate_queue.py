@@ -725,7 +725,7 @@ class PubSubQueue:
                     if not x % 2 and not x % 3
                 ]
                 print(indexes_unacked)
-                assert i == indexes_unacked[sub_queue_prefetch + 1]  # 0-index
+                assert i == indexes_unacked[sub_queue_prefetch - 1]  # 0-index
             except IndexError:
                 assert i == len(all_recvd) * (3 / 2)
             assert len(all_recvd) == i - (i // 3)  # len == i - # of nacks
