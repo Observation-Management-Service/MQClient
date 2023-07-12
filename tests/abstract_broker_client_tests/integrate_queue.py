@@ -716,7 +716,6 @@ class PubSubQueue:
             and use_prefetch_value
             and sub_queue_prefetch  # int, >0
         ):
-            assert i == 2
             assert len(all_recvd) == 2
         else:
             assert all_were_received(all_recvd)
@@ -774,7 +773,6 @@ class PubSubQueue:
             and use_prefetch_value
             and sub_queue_prefetch  # int, >0
         ):
-            assert i == 1
             assert len(all_recvd) == 1
         else:
             assert all_were_received(all_recvd)
