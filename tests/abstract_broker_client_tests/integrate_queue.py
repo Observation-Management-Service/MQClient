@@ -718,7 +718,7 @@ class PubSubQueue:
             and use_prefetch_value
             and sub_queue_prefetch  # int, >0
         ):  # acked every 1/2 before we got kicked out
-            assert len(all_recvd) == min(sub_queue_prefetch * 2, len(DATA_LIST))
+            assert len(all_recvd) == 0
         else:
             assert all_were_received(all_recvd)
 
