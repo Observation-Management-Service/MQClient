@@ -609,13 +609,13 @@ class PubSubQueue:
     ###########################################################################
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("prefetch_to_override", [None, 0, 1])
+    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1])
     @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_200__ideal(
         self,
         queue_name: str,
         auth_token: str,
-        prefetch_to_override: Optional[int],
+        sub_queue_prefetch: Optional[int],
         use_prefetch_value: bool,
     ) -> None:
         """Test open_sub_manual_acking(use_prefetch_value) ideal scenario."""
@@ -628,12 +628,12 @@ class PubSubQueue:
                 await p.send(d)
                 _log_send(d)
 
-        if prefetch_to_override is not None:
+        if sub_queue_prefetch is not None:
             sub = Queue(
                 self.broker_client,
                 name=queue_name,
                 auth_token=auth_token,
-                prefetch=prefetch_to_override,
+                prefetch=sub_queue_prefetch,
             )
         else:
             sub = Queue(
@@ -653,13 +653,13 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("prefetch_to_override", [None, 0, 1])
+    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1])
     @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_202__delayed_mixed_acking_nacking(
         self,
         queue_name: str,
         auth_token: str,
-        prefetch_to_override: Optional[int],
+        sub_queue_prefetch: Optional[int],
         use_prefetch_value: bool,
     ) -> None:
         """Test open_sub_manual_acking(use_prefetch_value) fail and immediate
@@ -676,12 +676,12 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        if prefetch_to_override is not None:
+        if sub_queue_prefetch is not None:
             sub = Queue(
                 self.broker_client,
                 name=queue_name,
                 auth_token=auth_token,
-                prefetch=prefetch_to_override,
+                prefetch=sub_queue_prefetch,
             )
         else:
             sub = Queue(
@@ -714,13 +714,13 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("prefetch_to_override", [None, 0, 1])
+    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1])
     @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_204__post_ack(
         self,
         queue_name: str,
         auth_token: str,
-        prefetch_to_override: Optional[int],
+        sub_queue_prefetch: Optional[int],
         use_prefetch_value: bool,
     ) -> None:
         """Test open_sub_manual_acking(use_prefetch_value) where messages
@@ -734,12 +734,12 @@ class PubSubQueue:
                 await p.send(d)
                 _log_send(d)
 
-        if prefetch_to_override is not None:
+        if sub_queue_prefetch is not None:
             sub = Queue(
                 self.broker_client,
                 name=queue_name,
                 auth_token=auth_token,
-                prefetch=prefetch_to_override,
+                prefetch=sub_queue_prefetch,
             )
         else:
             sub = Queue(
