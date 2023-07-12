@@ -609,7 +609,7 @@ class PubSubQueue:
     ###########################################################################
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1])
+    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 3])
     @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_200__ideal(
         self,
@@ -653,7 +653,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1])
+    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 3])
     @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_202__delayed_mixed_acking_nacking(
         self,
@@ -721,7 +721,7 @@ class PubSubQueue:
             assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1])
+    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 3])
     @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_204__post_ack(
         self,
