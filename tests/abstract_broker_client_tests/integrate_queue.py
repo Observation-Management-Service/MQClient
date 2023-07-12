@@ -609,7 +609,13 @@ class PubSubQueue:
     ###########################################################################
 
     @pytest.mark.asyncio
-    async def test_200__ideal(self, queue_name: str, auth_token: str) -> None:
+    @pytest.mark.parametrize("prefetch_to_override", [None, 0, 1])
+    async def test_200__ideal(
+        self,
+        queue_name: str,
+        auth_token: str,
+        prefetch_to_override: int,
+    ) -> None:
         """Test open_sub_manual_acking() ideal scenario."""
         all_recvd: List[Any] = []
 
@@ -620,13 +626,112 @@ class PubSubQueue:
                 await p.send(d)
                 _log_send(d)
 
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+        sub = Queue(
+            self.broker_client,
+            name=queue_name,
+            auth_token=auth_token,
+            prefetch=prefetch_to_override,
+        )
         sub.timeout = 1
         async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 all_recvd.append(_log_recv(msg.data))
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                await gen.ack(msg)
+
+        print(all_recvd)
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("prefetch_to_override", [None, 0, 1])
+    async def test_202__delayed_mixed_acking_nacking(
+        self,
+        queue_name: str,
+        auth_token: str,
+        prefetch_to_override: int,
+    ) -> None:
+        """Test open_sub_manual_acking() fail and immediate recovery with
+        multi-tasking, with mixed acking and nacking."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        class TestException(Exception):  # pylint: disable=C0115
+            pass
+
+        sub = Queue(
+            self.broker_client,
+            name=queue_name,
+            auth_token=auth_token,
+            prefetch=prefetch_to_override,
+        )
+        sub.timeout = 1
+        async with sub.open_sub_manual_acking() as gen:
+            pending = []
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                try:
+                    # DO WORK!
+                    print(f"{i}: `{msg.data}`")
+                    if i % 3 == 0:  # nack every 1/3
+                        raise TestException()
+                    all_recvd.append(_log_recv(msg.data))
+                    pending.append(msg)
+                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+                    if i % 2 == 0:  # ack every 1/2
+                        await gen.ack(msg)
+                        pending.remove(msg)
+                except Exception:
+                    await gen.nack(msg)
+
+            for msg in pending:  # messages with index not %2 nor %3, (1,5,7,...)
+                await gen.ack(msg)
+
+        print(all_recvd)
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("prefetch_to_override", [None, 0, 1])
+    async def test_204__post_ack(
+        self,
+        queue_name: str,
+        auth_token: str,
+        prefetch_to_override: int,
+    ) -> None:
+        """Test open_sub_manual_acking() where messages aren't acked until
+        after all have been received."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for d in DATA_LIST:
+                await p.send(d)
+                _log_send(d)
+
+        sub = Queue(
+            self.broker_client,
+            name=queue_name,
+            auth_token=auth_token,
+            prefetch=prefetch_to_override,
+        )
+        sub.timeout = 1
+
+        to_ack = []
+        async with sub.open_sub_manual_acking() as gen:
+            async for i, msg in asl.enumerate(gen.iter_messages()):
+                print(f"{i}: `{msg.data}`")
+                all_recvd.append(_log_recv(msg.data))
+                to_ack.append(msg)
+                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
+
+            for i, msg in enumerate(to_ack):
+                print(f"ack {i}: `{msg.data}`")
                 await gen.ack(msg)
 
         print(all_recvd)
@@ -810,79 +915,3 @@ class PubSubQueue:
             # RuntimeError: generator didn't yield
             async with recv_gen as gen:
                 assert 0  # we should never get here
-
-    @pytest.mark.asyncio
-    async def test_240__delayed_mixed_acking_nacking(
-        self, queue_name: str, auth_token: str
-    ) -> None:
-        """Test open_sub_manual_acking() fail and immediate recovery with
-        multi-tasking, with mixed acking and nacking."""
-        all_recvd: List[Any] = []
-
-        async with Queue(
-            self.broker_client, name=queue_name, auth_token=auth_token
-        ).open_pub() as p:
-            for d in DATA_LIST:
-                await p.send(d)
-                _log_send(d)
-
-        class TestException(Exception):  # pylint: disable=C0115
-            pass
-
-        sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-        sub.timeout = 1
-        async with sub.open_sub_manual_acking() as gen:
-            pending = []
-            async for i, msg in asl.enumerate(gen.iter_messages()):
-                try:
-                    # DO WORK!
-                    print(f"{i}: `{msg.data}`")
-                    if i % 3 == 0:  # nack every 1/3
-                        raise TestException()
-                    all_recvd.append(_log_recv(msg.data))
-                    pending.append(msg)
-                    # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-                    if i % 2 == 0:  # ack every 1/2
-                        await gen.ack(msg)
-                        pending.remove(msg)
-                except Exception:
-                    await gen.nack(msg)
-
-            for msg in pending:  # messages with index not %2 nor %3, (1,5,7,...)
-                await gen.ack(msg)
-
-        print(all_recvd)
-        assert all_were_received(all_recvd)
-
-    @pytest.mark.asyncio
-    async def test_250__post_ack(self, queue_name: str, auth_token: str) -> None:
-        """Test open_sub_manual_acking() where messages aren't acked until
-        after all have been received."""
-        all_recvd: List[Any] = []
-
-        async with Queue(
-            self.broker_client, name=queue_name, auth_token=auth_token
-        ).open_pub() as p:
-            for d in DATA_LIST:
-                await p.send(d)
-                _log_send(d)
-
-        sub = Queue(
-            self.broker_client, name=queue_name, auth_token=auth_token, prefetch=1
-        )
-        sub.timeout = 1
-
-        to_ack = []
-        async with sub.open_sub_manual_acking() as gen:
-            async for i, msg in asl.enumerate(gen.iter_messages()):
-                print(f"{i}: `{msg.data}`")
-                all_recvd.append(_log_recv(msg.data))
-                to_ack.append(msg)
-                # assert msg.data == DATA_LIST[i]  # we don't guarantee order
-
-            for i, msg in enumerate(to_ack):
-                print(f"ack {i}: `{msg.data}`")
-                await gen.ack(msg)
-
-        print(all_recvd)
-        assert all_were_received(all_recvd)
