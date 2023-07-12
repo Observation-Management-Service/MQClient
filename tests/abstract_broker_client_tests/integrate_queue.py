@@ -5,7 +5,7 @@
 import asyncio
 import logging
 from multiprocessing.dummy import Pool as ThreadPool
-from typing import Any, List
+from typing import Any, List, Optional
 
 import asyncstdlib as asl
 import pytest
@@ -614,7 +614,7 @@ class PubSubQueue:
         self,
         queue_name: str,
         auth_token: str,
-        prefetch_to_override: int,
+        prefetch_to_override: Optional[int],
     ) -> None:
         """Test open_sub_manual_acking() ideal scenario."""
         all_recvd: List[Any] = []
@@ -626,12 +626,19 @@ class PubSubQueue:
                 await p.send(d)
                 _log_send(d)
 
-        sub = Queue(
-            self.broker_client,
-            name=queue_name,
-            auth_token=auth_token,
-            prefetch=prefetch_to_override,
-        )
+        if prefetch_to_override is not None:
+            sub = Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+                prefetch=prefetch_to_override,
+            )
+        else:
+            sub = Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+            )
         sub.timeout = 1
         async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
@@ -649,7 +656,7 @@ class PubSubQueue:
         self,
         queue_name: str,
         auth_token: str,
-        prefetch_to_override: int,
+        prefetch_to_override: Optional[int],
     ) -> None:
         """Test open_sub_manual_acking() fail and immediate recovery with
         multi-tasking, with mixed acking and nacking."""
@@ -665,12 +672,19 @@ class PubSubQueue:
         class TestException(Exception):  # pylint: disable=C0115
             pass
 
-        sub = Queue(
-            self.broker_client,
-            name=queue_name,
-            auth_token=auth_token,
-            prefetch=prefetch_to_override,
-        )
+        if prefetch_to_override is not None:
+            sub = Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+                prefetch=prefetch_to_override,
+            )
+        else:
+            sub = Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+            )
         sub.timeout = 1
         async with sub.open_sub_manual_acking() as gen:
             pending = []
@@ -701,7 +715,7 @@ class PubSubQueue:
         self,
         queue_name: str,
         auth_token: str,
-        prefetch_to_override: int,
+        prefetch_to_override: Optional[int],
     ) -> None:
         """Test open_sub_manual_acking() where messages aren't acked until
         after all have been received."""
@@ -714,14 +728,20 @@ class PubSubQueue:
                 await p.send(d)
                 _log_send(d)
 
-        sub = Queue(
-            self.broker_client,
-            name=queue_name,
-            auth_token=auth_token,
-            prefetch=prefetch_to_override,
-        )
+        if prefetch_to_override is not None:
+            sub = Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+                prefetch=prefetch_to_override,
+            )
+        else:
+            sub = Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+            )
         sub.timeout = 1
-
         to_ack = []
         async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
