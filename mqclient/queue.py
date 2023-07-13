@@ -336,41 +336,14 @@ class Queue:
                     else:
                         await sub.ack(msg)
 
-            async with queue.open_sub_manual_acking(ack_pending_limit=5) as sub:
-                pending = []
-                async for msg in sub.iter_messages():
-                    try:
-                        process_message(msg.data)
-                        pending.append(msg)
-                    except Exception:
-                        await sub.nack(msg)
-
-                    if len(pending) == 3:
-                        for msg in pending:
-                            await sub.ack(msg)
-                        pending = []
-
-                for msg in pending:
-                    await sub.ack(msg)
-
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
-        sub = await self._create_sub_queue()
-
+        resource = ManualQueueSubResource(self)
         try:
-            yield ManualQueueSubResource(
-                functools.partial(
-                    sub.get_message,
-                    self.timeout * 1000,
-                    retries=self.retries,
-                    retry_delay=self.retry_delay,
-                ),
-                functools.partial(self._safe_ack, sub),
-                functools.partial(self._safe_nack, sub),
-            )
+            yield resource
         finally:
-            await sub.close()
+            await resource.close()
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
@@ -479,18 +452,12 @@ class QueuePubResource:
 class ManualQueueSubResource:
     """A manager class around `Sub.get_message()`."""
 
-    def __init__(
-        self,
-        get_message_function: Callable[[], Awaitable[Optional[Message]]],
-        ack_function: Callable[[Message], Awaitable[None]],
-        nack_function: Callable[[Message], Awaitable[None]],
-    ) -> None:
-        self._get_message = get_message_function
-        self._ack_function = ack_function
-        self._nack_function = nack_function
+    def __init__(self, queue: Queue) -> None:
+        self.queue = queue
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
+        self._sub = await self.queue._create_sub_queue()
 
         @wtt.spanned(
             kind=wtt.SpanKind.CONSUMER,
@@ -501,7 +468,11 @@ class ManualQueueSubResource:
             return msg
 
         while True:
-            raw_msg = await self._get_message()
+            raw_msg = await self._sub.get_message(
+                self.queue.timeout * 1000,
+                retries=self.queue.retries,
+                retry_delay=self.queue.retry_delay,
+            )
             if not raw_msg:  # no message -> close and exit
                 return
 
@@ -511,11 +482,15 @@ class ManualQueueSubResource:
 
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        await self._ack_function(msg)
+        await self.queue._safe_ack(self._sub, msg)
 
     async def nack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        await self._nack_function(msg)
+        await self.queue._safe_nack(self._sub, msg)
+
+    async def close(self) -> None:
+        """Close resource."""
+        await self._sub.close()
 
 
 class QueueSubResource:
