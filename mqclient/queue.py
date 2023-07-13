@@ -458,17 +458,24 @@ class ManualQueueSubResource:
             return msg
 
         while True:
-            raw_msg = await self._sub.get_message(
-                self.queue.timeout * 1000,
-                retries=self.queue.retries,
-                retry_delay=self.queue.retry_delay,
-            )
+            for s in [self._sub]:
+                raw_msg = await self._get(s)
+                if raw_msg:  # got message from sub -> done
+                    break
+
             if not raw_msg:  # no message -> close and exit
                 return
 
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
             LOGGER.info(f"Received Message: {_message_size_message(msg)}")
             yield msg
+
+    async def _get(self, sub: Sub) -> Optional[Message]:
+        return await sub.get_message(
+            self.queue.timeout * 1000,
+            retries=self.queue.retries,
+            retry_delay=self.queue.retry_delay,
+        )
 
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
