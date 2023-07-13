@@ -38,7 +38,7 @@ pycparser==2.21
     # via cffi
 pyjwt[crypto]==2.7.0
     # via wipac-rest-tools
-pymongo==4.4.0
+pymongo==4.4.1
     # via motor
 pypng==0.20220715.0
     # via qrcode
@@ -65,7 +65,7 @@ wipac-dev-tools==1.6.16
     #   oms-mqclient (setup.py)
     #   wipac-keycloak-rest-services
     #   wipac-rest-tools
-wipac-keycloak-rest-services==1.4.3
+wipac-keycloak-rest-services==1.4.6
     # via oms-mqclient (setup.py)
 wipac-rest-tools==1.4.20
     # via
