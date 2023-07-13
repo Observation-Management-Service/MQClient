@@ -3,6 +3,7 @@
 import functools
 import logging
 import urllib
+import uuid
 from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Tuple, Union
 
 import pika  # type: ignore
@@ -259,10 +260,11 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not method_frame or body is None:
             return None
 
+        # method_frame.delivery_tag is only unique within the channel
         if isinstance(body, str):
-            return Message(method_frame.delivery_tag, body.encode())
+            return Message(str(uuid.uuid4()), body.encode())
         else:
-            return Message(method_frame.delivery_tag, body)
+            return Message(str(uuid.uuid4()), body)
 
     async def _iter_messages(
         self,
