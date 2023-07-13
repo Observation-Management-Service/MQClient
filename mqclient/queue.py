@@ -447,7 +447,7 @@ class ManualQueueSubResource:
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
-        self._sub = await self.queue._create_sub_queue()
+        self._subs = [await self.queue._create_sub_queue()]
 
         @wtt.spanned(
             kind=wtt.SpanKind.CONSUMER,
@@ -458,10 +458,12 @@ class ManualQueueSubResource:
             return msg
 
         while True:
-            for s in [self._sub]:
+            for s in self._subs:
                 raw_msg = await self._get(s)
                 if raw_msg:  # got message from sub -> done
                     break
+            else:  # no sub gave a message (didn't break)
+                pass
 
             if not raw_msg:  # no message -> close and exit
                 return
@@ -479,15 +481,16 @@ class ManualQueueSubResource:
 
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        await self.queue._safe_ack(self._sub, msg)
+        await self.queue._safe_ack(self._subs[0], msg)
 
     async def nack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        await self.queue._safe_nack(self._sub, msg)
+        await self.queue._safe_nack(self._subs[0], msg)
 
     async def close(self) -> None:
         """Close resource."""
-        await self._sub.close()
+        for sub in self._subs:
+            await sub.close()
 
 
 class QueueSubResource:
