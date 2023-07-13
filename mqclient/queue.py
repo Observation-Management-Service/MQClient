@@ -301,7 +301,7 @@ class Queue:
         ]
     )
     async def open_sub_manual_acking(
-        self, use_prefetch_value: bool
+        self,
     ) -> AsyncGenerator["ManualQueueSubResource", None]:
         """Open a resource to receive messages from the queue as an iterator.
 
@@ -318,13 +318,6 @@ class Queue:
 
         **NOTE: unless you need to parallelize your message processing,
         use `open_sub()`**
-
-        Arguments:
-            `use_prefetch_value` - whether to use the prefetch value; `False` uses prefetch=0
-                Prefetching may be useful for short-running tasks,
-                where the bottleneck would be network delay.
-                NOTE: rabbitmq will not deliver more messages if
-                there are N un-acked messages (N = prefetch, N > 0)
 
         Examples:
             async with queue.open_sub_manual_acking() as sub:
@@ -363,14 +356,7 @@ class Queue:
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
-        sub = await self._create_sub_queue(
-            # if prefetch=N (N>0), pika will not deliver more messages
-            #   if there are N un-acked messages
-            #
-            #   We could implement logic that checks if this condition is met
-            #   but that would go against the intention of the "manual" usage
-            prefetch_override=(None if use_prefetch_value else 0)
-        )
+        sub = await self._create_sub_queue()
 
         try:
             yield ManualQueueSubResource(
