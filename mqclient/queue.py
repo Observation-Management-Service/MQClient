@@ -462,11 +462,13 @@ class ManualQueueSubResource:
                 raw_msg = await self._get(s)
                 if raw_msg:  # got message from sub -> done
                     break
-            else:  # no sub gave a message (didn't break)
-                pass
-
-            if not raw_msg:  # no message -> close and exit
-                return
+            else:  # no sub gave a message (didn't break) - try w/ new sub
+                newb = await self.queue._create_sub_queue()
+                raw_msg = await self._get(newb)
+                if not raw_msg:  # no message -> close and exit
+                    await newb.close()
+                    return
+                self._subs.append(newb)
 
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
             LOGGER.info(f"Received Message: {_message_size_message(msg)}")

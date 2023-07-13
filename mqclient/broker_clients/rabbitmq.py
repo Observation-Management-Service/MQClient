@@ -231,6 +231,10 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise ConnectingFailedException("No channel to configure connection.")
 
         self.channel.basic_qos(prefetch_count=self.prefetch)
+        # https://www.rabbitmq.com/consumer-prefetch.html
+        #    Meaning of prefetch_count in RabbitMQ w/ global_qos=False:
+        #    applied separately to each new consumer on the channel
+        #
         # global_qos=False b/c using quorum queues
         # https://www.rabbitmq.com/quorum-queues.html#global-qos
 
