@@ -1,22 +1,12 @@
 """Queue class encapsulating a pub-sub messaging system."""
 
 import contextlib
-import functools
 import logging
 import os
 import sys
 import types
 import uuid
-from typing import (
-    Any,
-    AsyncGenerator,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Dict,
-    Optional,
-    Type,
-)
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
 
 from . import broker_client_manager
 from . import telemetry as wtt
