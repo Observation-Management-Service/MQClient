@@ -475,8 +475,8 @@ class ManualQueueSubResource:
             else:  # no sub gave a message (didn't break) -> try w/ new sub
                 newb = await self.queue._create_sub_queue()
                 raw_msg = await self._get(newb)
-                if not raw_msg:  # no message -> close and exit
-                    await newb.close()
+                if not raw_msg:  # no message -> exit
+                    self._subs[newb] = []
                     return
                 self._subs[newb] = [raw_msg.msg_id]
 
