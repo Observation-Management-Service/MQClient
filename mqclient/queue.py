@@ -6,11 +6,18 @@ import os
 import sys
 import types
 import uuid
-from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, List, Optional, Type
 
 from . import broker_client_manager
 from . import telemetry as wtt
-from .broker_client_interface import AckException, Message, NackException, Pub, Sub
+from .broker_client_interface import (
+    AckException,
+    Message,
+    MessageID,
+    NackException,
+    Pub,
+    Sub,
+)
 from .config import (
     DEFAULT_EXCEPT_ERRORS,
     DEFAULT_PREFETCH,
@@ -444,10 +451,12 @@ class ManualQueueSubResource:
 
     def __init__(self, queue: Queue) -> None:
         self.queue = queue
+        self._subs: Dict[Sub, List[MessageID]] = {}
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
-        self._subs = [await self.queue._create_sub_queue()]
+        if not self._subs:
+            self._subs[await self.queue._create_sub_queue()] = []
 
         @wtt.spanned(
             kind=wtt.SpanKind.CONSUMER,
@@ -458,17 +467,18 @@ class ManualQueueSubResource:
             return msg
 
         while True:
-            for s in self._subs:
-                raw_msg = await self._get(s)
+            for sub in self._subs:
+                raw_msg = await self._get(sub)
                 if raw_msg:  # got message from sub -> done
+                    self._subs[sub].append(raw_msg.msg_id)
                     break
-            else:  # no sub gave a message (didn't break) - try w/ new sub
+            else:  # no sub gave a message (didn't break) -> try w/ new sub
                 newb = await self.queue._create_sub_queue()
                 raw_msg = await self._get(newb)
                 if not raw_msg:  # no message -> close and exit
                     await newb.close()
                     return
-                self._subs.append(newb)
+                self._subs[newb] = [raw_msg.msg_id]
 
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
             LOGGER.info(f"Received Message: {_message_size_message(msg)}")
@@ -483,11 +493,13 @@ class ManualQueueSubResource:
 
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        await self.queue._safe_ack(self._subs[0], msg)
+        sub = next(s for s, ids in self._subs.items() if msg.msg_id in ids)
+        await self.queue._safe_ack(sub, msg)
 
     async def nack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        await self.queue._safe_nack(self._subs[0], msg)
+        sub = next(s for s, ids in self._subs.items() if msg.msg_id in ids)
+        await self.queue._safe_nack(sub, msg)
 
     async def close(self) -> None:
         """Close resource."""
