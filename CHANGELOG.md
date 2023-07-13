@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.3.1 (2023-07-13)
+
+### Other
+
+* Prefetch Updates Follow-up ([#103](https://github.com/Observation-Management-Service/MQClient/issues/103)) ([`11ec98b`](https://github.com/Observation-Management-Service/MQClient/commit/11ec98b7c6f91fd2d04ae4ceafa46dd628f2193b))
+
 ## v2.3.0 (2023-07-11)
 
 
