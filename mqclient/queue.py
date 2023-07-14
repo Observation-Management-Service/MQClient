@@ -483,7 +483,7 @@ class ManualQueueSubResource:
         )
 
     def _get_sub(self, msg: Message) -> Sub:
-        subs = list(s for s, addrs in self._subs.items() if id(msg) in addrs)
+        subs = [s for s, addrs in self._subs.items() if id(msg) in addrs]
         if not subs:
             raise ValueError("message cannot be mapped to a sub")
         elif len(subs) != 1:
