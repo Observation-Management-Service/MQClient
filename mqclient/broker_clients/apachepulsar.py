@@ -132,11 +132,13 @@ class PulsarPub(Pulsar, Pub):
         if not self.producer:
             raise RuntimeError("queue is not connected")
 
+        def _send_msg():
+            if not self.producer:
+                raise RuntimeError("queue is not connected")
+            return self.producer.send(msg)
+
         await utils.auto_retry_call(
-            func=functools.partial(
-                self.producer.send,
-                msg,
-            ),
+            func=_send_msg,
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
@@ -232,12 +234,14 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
+        def _get_msg():
+            if not self.consumer:
+                raise RuntimeError("queue is not connected")
+            return self.consumer.receive(timeout_millis=timeout_millis)
+
         try:
             pulsar_msg = await utils.auto_retry_call(
-                func=functools.partial(
-                    self.consumer.receive,
-                    timeout_millis=timeout_millis,
-                ),
+                func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
                 close=self.close,
