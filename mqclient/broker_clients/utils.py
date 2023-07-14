@@ -35,15 +35,17 @@ async def auto_retry_call(
             else:
                 return ret  # type: ignore[return-value]
         except Exception as e:
-            logger.error(e)
+            logger.exception(e)
             if nonretriable_conditions and nonretriable_conditions(e):
                 raise
             elif i == retries:
-                logger.info(f"[auto_retry_call()] {e}. Reached max retries. Raising...")
+                logger.info(
+                    f"[auto_retry_call()] {type(e)}. Reached max retries. Raising..."
+                )
                 raise
             else:
                 logger.info(
-                    f"[auto_retry_call()] {e}. Trying again. (attempt #{i+2})..."
+                    f"[auto_retry_call()] {type(e)}. Trying again. (attempt #{i+2})..."
                 )
 
         # close, wait, reconnect
