@@ -133,6 +133,7 @@ class PulsarPub(Pulsar, Pub):
             raise RuntimeError("queue is not connected")
 
         def _send_msg():
+            # use wrapper function so connection references can be updated by reconnects
             if not self.producer:
                 raise RuntimeError("queue is not connected")
             return self.producer.send(msg)
@@ -235,6 +236,7 @@ class PulsarSub(Pulsar, Sub):
             raise RuntimeError("queue is not connected")
 
         def _get_msg():
+            # use wrapper function so connection references can be updated by reconnects
             if not self.consumer:
                 raise RuntimeError("queue is not connected")
             return self.consumer.receive(timeout_millis=timeout_millis)

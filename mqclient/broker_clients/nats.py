@@ -110,6 +110,7 @@ class NATSPub(NATS, Pub):
             raise RuntimeError("JetStream is not connected")
 
         async def _send_msg():
+            # use wrapper function so connection references can be updated by reconnects
             if not self.js:
                 raise RuntimeError("JetStream is not connected")
             return await self.js.publish(self.subject, msg)
@@ -200,6 +201,7 @@ class NATSSub(NATS, Sub):
             timeout_millis = DEFAULT_TIMEOUT_MILLIS
 
         async def _get_msg():
+            # use wrapper function so connection references can be updated by reconnects
             if not self._subscription:
                 raise RuntimeError("Subscriber is not connected")
             return await self._subscription.fetch(
@@ -291,6 +293,7 @@ class NATSSub(NATS, Sub):
             raise RuntimeError("subscriber is not connected")
 
         async def _ack_msg():
+            # use wrapper function so connection references can be updated by reconnects
             return await self._from_message(msg).ack()
 
         # Acknowledges the received messages so they will not be sent again.
@@ -316,6 +319,7 @@ class NATSSub(NATS, Sub):
             raise RuntimeError("subscriber is not connected")
 
         async def _nack_msg():
+            # use wrapper function so connection references can be updated by reconnects
             return await self._from_message(msg).nak()  # yes, it's "nak"
 
         await utils.auto_retry_call(

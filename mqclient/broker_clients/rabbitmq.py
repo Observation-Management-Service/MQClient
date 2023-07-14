@@ -187,6 +187,7 @@ class RabbitMQPub(RabbitMQ, Pub):
             raise RuntimeError("queue is not connected")
 
         def _send_msg():
+            # use wrapper function so connection references can be updated by reconnects
             if not self.channel:
                 raise RuntimeError("queue is not connected")
             return self.channel.basic_publish(
@@ -278,6 +279,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise RuntimeError("queue is not connected")
 
         def _get_msg():
+            # use wrapper function so connection references can be updated by reconnects
             if not self.channel:
                 raise RuntimeError("queue is not connected")
             return next(
