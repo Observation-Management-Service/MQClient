@@ -85,5 +85,5 @@ wipac-telemetry==0.2.7
     # via oms-mqclient (setup.py)
 wrapt==1.15.0
     # via deprecated
-zipp==3.16.1
+zipp==3.16.2
     # via importlib-metadata
