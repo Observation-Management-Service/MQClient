@@ -278,10 +278,13 @@ class RabbitMQSub(RabbitMQ, Sub):
             inactivity_timeout=timeout_millis / 1000.0 if timeout_millis else None,
         )
 
+        def _next_factory():
+            return functools.partial(next, iterator)
+
         while True:
             try:
                 pika_msg = await utils.auto_retry_call(
-                    func=functools.partial(next, iterator),
+                    func=_next_factory,
                     nonretriable_conditions=lambda e: isinstance(
                         e, (pika.exceptions.AMQPChannelError, StopIteration)
                     ),
