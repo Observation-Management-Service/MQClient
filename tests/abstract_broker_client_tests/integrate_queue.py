@@ -28,7 +28,7 @@ from .utils import (
 CI_TEST_RETRY_TRIGGER = "mqclient.broker_clients.utils._ci_test_retry_trigger"
 
 
-class FailFirstTryException:
+class FailFirstTryException(Exception):
     pass
 
 
