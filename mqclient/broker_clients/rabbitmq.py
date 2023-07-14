@@ -358,8 +358,6 @@ class RabbitMQSub(RabbitMQ, Sub):
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
@@ -389,8 +387,6 @@ class RabbitMQSub(RabbitMQ, Sub):
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")

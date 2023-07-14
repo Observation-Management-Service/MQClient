@@ -17,9 +17,9 @@ async def auto_retry_call(
     func: Callable[[], Union[T, Awaitable[T]]],
     retries: int,
     retry_delay: int,
-    close: Callable[[], Awaitable[None]],
-    connect: Callable[[], Awaitable[None]],
     logger: logging.Logger,
+    close: Optional[Callable[[], Awaitable[None]]] = None,
+    connect: Optional[Callable[[], Awaitable[None]]] = None,
     nonretriable_conditions: Optional[Callable[[Exception], bool]] = None,
 ) -> T:
     """Call `func` with auto-retries."""
@@ -49,12 +49,14 @@ async def auto_retry_call(
                 )
 
         # close, wait, reconnect
-        try:
-            await close()  # the previous error could've been due to a closed connection
-        except:  # noqa: E722
-            pass
+        if close:
+            try:
+                await close()  # the previous error could've been due to a closed connection
+            except:  # noqa: E722
+                pass
         await asyncio.sleep(retry_delay)
-        await connect()
+        if connect:
+            await connect()
 
     # fall through -- this should not be reached in any situation
     raise Exception("Max retries exceeded / connection error")
