@@ -448,8 +448,6 @@ class ManualQueueSubResource:
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
-        if not self._subs:
-            self._subs[await self.queue._create_sub_queue()] = []
 
         @wtt.spanned(
             kind=wtt.SpanKind.CONSUMER,
@@ -466,6 +464,9 @@ class ManualQueueSubResource:
                     break
             else:  # no sub gave a message (didn't break) -> try w/ new sub
                 newb = await self.queue._create_sub_queue()
+                newb.no_reconnect_on_retry = (
+                    True  # keep connection open for other unacked messages
+                )
                 if not (raw_msg := await self._get(newb)):  # no message -> close & exit
                     await newb.close()
                     return

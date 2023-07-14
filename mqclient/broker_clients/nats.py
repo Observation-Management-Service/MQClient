@@ -119,8 +119,8 @@ class NATSPub(NATS, Pub):
             func=_send_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=None if self.no_reconnect_on_retry else self.close,
+            connect=None if self.no_reconnect_on_retry else self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"Sent Message w/ Ack: {ack}")
@@ -214,8 +214,8 @@ class NATSSub(NATS, Sub):
                 func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
-                close=self.close,
-                connect=self.connect,
+                close=None if self.no_reconnect_on_retry else self.close,
+                connect=None if self.no_reconnect_on_retry else self.connect,
                 logger=LOGGER,
                 nonretriable_conditions=lambda e: isinstance(
                     e, nats.errors.TimeoutError
@@ -301,8 +301,8 @@ class NATSSub(NATS, Sub):
             func=_ack_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=None if self.no_reconnect_on_retry else self.close,
+            connect=None if self.no_reconnect_on_retry else self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
@@ -326,8 +326,8 @@ class NATSSub(NATS, Sub):
             func=_nack_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=None if self.no_reconnect_on_retry else self.close,
+            connect=None if self.no_reconnect_on_retry else self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")

@@ -106,7 +106,7 @@ class RawQueue:
     """Raw queue object, to hold queue state."""
 
     def __init__(self) -> None:
-        pass
+        self.no_reconnect_on_retry = False
 
     async def connect(self) -> None:
         """Set up connection."""

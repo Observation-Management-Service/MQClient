@@ -142,8 +142,8 @@ class PulsarPub(Pulsar, Pub):
             func=_send_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=None if self.no_reconnect_on_retry else self.close,
+            connect=None if self.no_reconnect_on_retry else self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(log_msgs.SENT_MESSAGE)
@@ -246,8 +246,8 @@ class PulsarSub(Pulsar, Sub):
                 func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
-                close=self.close,
-                connect=self.connect,
+                close=None if self.no_reconnect_on_retry else self.close,
+                connect=None if self.no_reconnect_on_retry else self.connect,
                 logger=LOGGER,
                 nonretriable_conditions=lambda e: str(e) == "Pulsar error: TimeOut",
             )
@@ -288,8 +288,8 @@ class PulsarSub(Pulsar, Sub):
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=None if self.no_reconnect_on_retry else self.close,
+            connect=None if self.no_reconnect_on_retry else self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg}).")
@@ -317,8 +317,8 @@ class PulsarSub(Pulsar, Sub):
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=None if self.no_reconnect_on_retry else self.close,
+            connect=None if self.no_reconnect_on_retry else self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg}).")
