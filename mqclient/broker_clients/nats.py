@@ -109,12 +109,13 @@ class NATSPub(NATS, Pub):
         if not self.js:
             raise RuntimeError("JetStream is not connected")
 
+        async def _send_msg():
+            if not self.js:
+                raise RuntimeError("JetStream is not connected")
+            return await self.js.publish(self.subject, msg)
+
         ack: nats.js.api.PubAck = await utils.auto_retry_call(
-            func=functools.partial(
-                self.js.publish,
-                self.subject,
-                msg,
-            ),
+            func=_send_msg,
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
@@ -198,13 +199,17 @@ class NATSSub(NATS, Sub):
         if not timeout_millis:
             timeout_millis = DEFAULT_TIMEOUT_MILLIS
 
+        async def _get_msg():
+            if not self._subscription:
+                raise RuntimeError("Subscriber is not connected")
+            return await self._subscription.fetch(
+                batch=num_messages,
+                timeout=int(math.ceil(timeout_millis / 1000)),
+            )
+
         try:
             nats_msgs: List[nats.aio.msg.Msg] = await utils.auto_retry_call(
-                func=functools.partial(
-                    self._subscription.fetch,
-                    batch=num_messages,
-                    timeout=int(math.ceil(timeout_millis / 1000)),
-                ),
+                func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
                 close=self.close,
