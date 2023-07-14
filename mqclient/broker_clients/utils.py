@@ -59,4 +59,4 @@ async def auto_retry_call(
             await connect()
 
     # fall through -- this should not be reached in any situation
-    raise Exception("Max retries exceeded / connection error")
+    raise RuntimeError("unknown error in auto_retry_call()")
