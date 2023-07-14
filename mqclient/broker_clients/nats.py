@@ -1,7 +1,6 @@
 """Back-end using NATS."""
 
 
-import functools
 import logging
 import math
 from typing import Any, AsyncGenerator, List, Optional, TypeVar, cast
