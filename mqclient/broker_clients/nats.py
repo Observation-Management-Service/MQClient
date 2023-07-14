@@ -290,9 +290,12 @@ class NATSSub(NATS, Sub):
         if not self._subscription:
             raise RuntimeError("subscriber is not connected")
 
+        async def _ack_msg():
+            return await self._from_message(msg).ack()
+
         # Acknowledges the received messages so they will not be sent again.
         await utils.auto_retry_call(
-            func=self._from_message(msg).ack,  # type: ignore[arg-type]
+            func=_ack_msg,
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
@@ -312,8 +315,11 @@ class NATSSub(NATS, Sub):
         if not self._subscription:
             raise RuntimeError("subscriber is not connected")
 
+        async def _nack_msg():
+            return await self._from_message(msg).nak()  # yes, it's "nak"
+
         await utils.auto_retry_call(
-            func=self._from_message(msg).nak,  # type: ignore[arg-type]  # yes, it's "nak"
+            func=_nack_msg,
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
