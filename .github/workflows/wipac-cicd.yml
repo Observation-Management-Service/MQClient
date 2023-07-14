@@ -223,7 +223,7 @@ jobs:
 
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }},integration]
-          pytest -vvv tests/integrate/test_${{ matrix.broker_client }}.py
+          pytest -vvv --exitfirst tests/integrate/test_${{ matrix.broker_client }}.py
 
       - name: broker output
         if: always()
