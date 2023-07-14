@@ -61,7 +61,7 @@ class Queue:
         prefetch: int = DEFAULT_PREFETCH,
         timeout: int = DEFAULT_TIMEOUT,
         ack_timeout: Optional[int] = None,
-        retry_delay: int = DEFAULT_RETRY_DELAY,  # seconds
+        retry_delay: float = DEFAULT_RETRY_DELAY,  # seconds
         retries: int = DEFAULT_RETRIES,  # ex: 2 means 1 initial try and 2 retries
         except_errors: bool = DEFAULT_EXCEPT_ERRORS,
         auth_token: str = "",
@@ -85,7 +85,7 @@ class Queue:
         self.timeout = timeout
         self._retries = -1
         self.retries = retries
-        self._retry_delay = -1
+        self._retry_delay = -1.0
         self.retry_delay = retry_delay
 
         # publics
@@ -124,14 +124,14 @@ class Queue:
         self._retries = val
 
     @property
-    def retry_delay(self) -> int:
+    def retry_delay(self) -> float:
         """Get the retry_delay value."""
         return self._retry_delay
 
     @retry_delay.setter
-    def retry_delay(self, val: int) -> None:
+    def retry_delay(self, val: float) -> None:
         LOGGER.debug(f"Setting retry_delay to {val}")
-        if val < 1:
+        if val <= 0:
             raise ValueError("retry_delay must be positive")
         self._retry_delay = val
 
@@ -422,7 +422,7 @@ class EmptyQueueException(Exception):
 class QueuePubResource:
     """A manager class around `Pub.send_message()`."""
 
-    def __init__(self, pub: Pub, retries: int, retry_delay: int):
+    def __init__(self, pub: Pub, retries: int, retry_delay: float):
         self.pub = pub
         self.retries = retries
         self.retry_delay = retry_delay

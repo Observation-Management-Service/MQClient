@@ -102,7 +102,7 @@ class NATSPub(NATS, Pub):
         self,
         msg: bytes,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Send a message (publish)."""
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
@@ -186,7 +186,7 @@ class NATSSub(NATS, Sub):
         timeout_millis: Optional[int],
         num_messages: int,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> List[Message]:
         """Get n messages.
 
@@ -236,7 +236,7 @@ class NATSSub(NATS, Sub):
         self,
         timeout_millis: Optional[int],
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> Optional[Message]:
         """Get a message."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
@@ -261,7 +261,7 @@ class NATSSub(NATS, Sub):
         timeout_millis: Optional[int],
         num_messages: int,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncGenerator[Message, None]:
         """Continuously generate messages until there are no more."""
         if not self._subscription:
@@ -283,7 +283,7 @@ class NATSSub(NATS, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
@@ -305,7 +305,7 @@ class NATSSub(NATS, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
@@ -327,7 +327,7 @@ class NATSSub(NATS, Sub):
         timeout: int,
         propagate_error: bool,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 

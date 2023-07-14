@@ -16,14 +16,14 @@ def _ci_test_retry_trigger(i: int) -> None:
 async def auto_retry_call(
     func: Callable[[], Union[T, Awaitable[T]]],
     retries: int,
-    retry_delay: int,
+    retry_delay: float,
     logger: logging.Logger,
     close: Optional[Callable[[], Awaitable[None]]] = None,
     connect: Optional[Callable[[], Awaitable[None]]] = None,
     nonretriable_conditions: Optional[Callable[[Exception], bool]] = None,
 ) -> T:
     """Call `func` with auto-retries."""
-    retry_delay = max(retry_delay, 1)
+    retry_delay = max(retry_delay, 0.01)
     retries = max(retries, 0)
 
     for i in range(retries + 1):

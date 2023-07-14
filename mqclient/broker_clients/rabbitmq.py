@@ -171,7 +171,7 @@ class RabbitMQPub(RabbitMQ, Pub):
         self,
         msg: bytes,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Send a message on a queue.
 
@@ -272,7 +272,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         self,
         timeout_millis: Optional[int],
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncIterator[Optional[Message]]:
         if not self.channel:
             raise RuntimeError("queue is not connected")
@@ -317,7 +317,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         self,
         timeout_millis: Optional[int],
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> Optional[Message]:
         """Get a message from a queue."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
@@ -337,7 +337,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Ack a message from the queue.
 
@@ -366,7 +366,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Reject (nack) a message from the queue.
 
@@ -396,7 +396,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         timeout: int,
         propagate_error: bool,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 
