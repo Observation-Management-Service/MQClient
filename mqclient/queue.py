@@ -444,7 +444,7 @@ class ManualQueueSubResource:
 
     def __init__(self, queue: Queue) -> None:
         self.queue = queue
-        self._subs: Dict[Sub, List[Message]] = {}
+        self._subs: Dict[Sub, List[int]] = {}
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
@@ -463,7 +463,7 @@ class ManualQueueSubResource:
             for sub in self._subs:
                 raw_msg = await self._get(sub)
                 if raw_msg:  # got message from sub -> done
-                    self._subs[sub].append(raw_msg)
+                    self._subs[sub].append(id(raw_msg))
                     break
             else:  # no sub gave a message (didn't break) -> try w/ new sub
                 newb = await self.queue._create_sub_queue()
@@ -471,7 +471,7 @@ class ManualQueueSubResource:
                 if not raw_msg:  # no message -> exit
                     self._subs[newb] = []
                     return
-                self._subs[newb] = [raw_msg]
+                self._subs[newb] = [id(raw_msg)]
 
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
             LOGGER.info(f"Received Message: {_message_size_message(msg)}")
@@ -486,7 +486,7 @@ class ManualQueueSubResource:
 
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        subs = list(s for s, msgs in self._subs.items() if msg in msgs)
+        subs = list(s for s, addrs in self._subs.items() if id(msg) in addrs)
         LOGGER.info(self._subs)
         print(msg)
         assert len(subs) == 1
@@ -494,7 +494,7 @@ class ManualQueueSubResource:
 
     async def nack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        subs = list(s for s, msgs in self._subs.items() if msg in msgs)
+        subs = list(s for s, addrs in self._subs.items() if id(msg) in addrs)
         LOGGER.info(self._subs)
         print(msg)
         assert len(subs) == 1
