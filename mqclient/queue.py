@@ -461,15 +461,13 @@ class ManualQueueSubResource:
 
         while True:
             for sub in self._subs:
-                raw_msg = await self._get(sub)
-                if raw_msg:  # got message from sub -> done
+                if raw_msg := await self._get(sub):  # got message from sub -> done
                     self._subs[sub].append(id(raw_msg))
                     break
             else:  # no sub gave a message (didn't break) -> try w/ new sub
                 newb = await self.queue._create_sub_queue()
-                raw_msg = await self._get(newb)
-                if not raw_msg:  # no message -> exit
-                    self._subs[newb] = []
+                if not (raw_msg := await self._get(newb)):  # no message -> close & exit
+                    await newb.close()
                     return
                 self._subs[newb] = [id(raw_msg)]
 
@@ -484,21 +482,24 @@ class ManualQueueSubResource:
             retry_delay=self.queue.retry_delay,
         )
 
+    def _get_sub(self, msg: Message) -> Sub:
+        subs = list(s for s, addrs in self._subs.items() if id(msg) in addrs)
+        if not subs:
+            raise ValueError("message cannot be mapped to a sub")
+        elif len(subs) != 1:
+            raise RuntimeError("message found in more than one sub")
+        else:
+            return subs[0]
+
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        subs = list(s for s, addrs in self._subs.items() if id(msg) in addrs)
-        LOGGER.info(self._subs)
-        print(msg)
-        assert len(subs) == 1
-        await self.queue._safe_ack(subs[0], msg)
+        sub = self._get_sub(msg)
+        await self.queue._safe_ack(sub, msg)
 
     async def nack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        subs = list(s for s, addrs in self._subs.items() if id(msg) in addrs)
-        LOGGER.info(self._subs)
-        print(msg)
-        assert len(subs) == 1
-        await self.queue._safe_nack(subs[0], msg)
+        sub = self._get_sub(msg)
+        await self.queue._safe_nack(sub, msg)
 
     async def close(self) -> None:
         """Close resource."""
