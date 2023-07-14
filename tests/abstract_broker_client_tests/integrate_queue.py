@@ -6,6 +6,7 @@ import asyncio
 import logging
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List, Optional
+from unittest.mock import patch
 
 import asyncstdlib as asl
 import pytest
@@ -18,6 +19,27 @@ from .utils import (
     _log_send,
     all_were_received,
 )
+
+#
+# retry stuff
+#
+
+
+CI_TEST_RETRY_TRIGGER = "mqclient.broker_clients.utils._ci_test_retry_trigger"
+
+
+class FailFirstTryException:
+    pass
+
+
+def fail_first_try(attempt: int) -> None:
+    if attempt == 0:
+        raise FailFirstTryException()
+
+
+#
+# tests
+#
 
 
 class PubSubQueue:
@@ -33,6 +55,7 @@ class PubSubQueue:
     ###########################################################################
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_010(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, one sub."""
         all_recvd: List[Any] = []
@@ -61,6 +84,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_011(self, queue_name: str, auth_token: str) -> None:
         """Test an individual pub and an individual sub."""
         all_recvd: List[Any] = []
@@ -90,6 +114,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_012(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, two subs (one subscribed to wrong queue)."""
         all_recvd: List[Any] = []
@@ -114,6 +139,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]])
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_020(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, ordered/alternatingly."""
         all_recvd: List[Any] = []
@@ -162,6 +188,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_021_fewer(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
@@ -170,6 +197,7 @@ class PubSubQueue:
         await self._test_021(queue_name, len(DATA_LIST) // 2, auth_token)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_021_same(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
@@ -178,6 +206,7 @@ class PubSubQueue:
         await self._test_021(queue_name, len(DATA_LIST), auth_token)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_021_more(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
@@ -186,6 +215,7 @@ class PubSubQueue:
         await self._test_021(queue_name, len(DATA_LIST) ** 2, auth_token)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_022(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
@@ -216,6 +246,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_023(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, and too many subs.
 
@@ -251,6 +282,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_030(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, ordered/alternatingly."""
         all_recvd: List[Any] = []
@@ -276,6 +308,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_031(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
@@ -296,6 +329,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_040(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, ordered/alternatingly.
 
@@ -322,6 +356,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_041(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
@@ -345,6 +380,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_042(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
@@ -368,6 +404,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_043(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
@@ -392,6 +429,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_050(self, queue_name: str, auth_token: str) -> None:
         """Test_20 with variable prefetching.
 
@@ -421,6 +459,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, DATA_LIST * ((len(DATA_LIST) * 2) - 1))
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_051(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, with prefetching.
 
@@ -461,6 +500,7 @@ class PubSubQueue:
     ###########################################################################
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_100(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() fail and recovery, with multiple open_sub()
         calls."""
@@ -502,6 +542,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_101(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() fail and recovery, with error propagation."""
         all_recvd: List[Any] = []
@@ -547,6 +588,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_110__fail(self, queue_name: str, auth_token: str) -> None:
         """Failure-test open_sub() with reusing a 'QueueSubResource'
         instance."""
@@ -573,6 +615,7 @@ class PubSubQueue:
                 assert 0  # we should never get here
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_120_break(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() with a `break` statement."""
         async with Queue(
@@ -609,6 +652,7 @@ class PubSubQueue:
     ###########################################################################
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
     async def test_200__ideal(
         self,
@@ -651,6 +695,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
     async def test_202__delayed_mixed_acking_nacking(
         self,
@@ -712,6 +757,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
     async def test_204__post_ack(
         self,
@@ -760,6 +806,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_210__immediate_recovery(
         self,
         queue_name: str,
@@ -799,6 +846,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_220__posthoc_recovery(
         self,
         queue_name: str,
@@ -853,6 +901,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_221__posthoc_recovery__fail(
         self,
         queue_name: str,
@@ -916,6 +965,7 @@ class PubSubQueue:
         )
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new_callable=lambda i: fail_first_try(i))
     async def test_230__fail_bad_usage(
         self,
         queue_name: str,

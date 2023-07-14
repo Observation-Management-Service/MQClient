@@ -11,6 +11,10 @@ from .. import log_msgs
 T = TypeVar("T")  # the callable/awaitable return type
 
 
+def _ci_test_retry_trigger(i: int) -> None:
+    pass
+
+
 async def auto_retry_call(
     func: Callable[[], Union[T, Awaitable[T]]],
     retries: int,
@@ -31,6 +35,7 @@ async def auto_retry_call(
             )
 
         try:
+            _ci_test_retry_trigger(i)  # only used for testing
             ret = func()
             if inspect.isawaitable(ret):
                 return await ret  # type: ignore[no-any-return]
