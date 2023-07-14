@@ -497,7 +497,7 @@ class ManualQueueSubResource:
         await self.queue._safe_ack(sub, msg)
 
     async def nack(self, msg: Message) -> None:
-        """Acknowledge the message."""
+        """Reject/nack the message."""
         sub = self._get_sub(msg)
         await self.queue._safe_nack(sub, msg)
 
