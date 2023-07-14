@@ -273,19 +273,21 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
+        def _get_msg():
+            return next(
+                # pika smartly handles re-invocations
+                self.channel.consume(  # type: ignore[union-attr]
+                    self.queue,
+                    inactivity_timeout=timeout_millis / 1000.0
+                    if timeout_millis
+                    else None,
+                )
+            )
+
         while True:
             try:
                 pika_msg = await utils.auto_retry_call(
-                    factory=lambda: functools.partial(
-                        next,
-                        functools.partial(
-                            self.channel.consume,
-                            self.queue,
-                            inactivity_timeout=timeout_millis / 1000.0
-                            if timeout_millis
-                            else None,
-                        ),
-                    ),
+                    factory=lambda: _get_msg,
                     nonretriable_conditions=lambda e: isinstance(
                         e, (pika.exceptions.AMQPChannelError, StopIteration)
                     ),
