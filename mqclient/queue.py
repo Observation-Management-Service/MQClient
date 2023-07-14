@@ -486,13 +486,19 @@ class ManualQueueSubResource:
 
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        sub = next(s for s, msgs in self._subs.items() if msg in msgs)
-        await self.queue._safe_ack(sub, msg)
+        subs = list(s for s, msgs in self._subs.items() if msg in msgs)
+        LOGGER.info(self._subs)
+        print(msg)
+        assert len(subs) == 1
+        await self.queue._safe_ack(subs[0], msg)
 
     async def nack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        sub = next(s for s, msgs in self._subs.items() if msg in msgs)
-        await self.queue._safe_nack(sub, msg)
+        subs = list(s for s, msgs in self._subs.items() if msg in msgs)
+        LOGGER.info(self._subs)
+        print(msg)
+        assert len(subs) == 1
+        await self.queue._safe_nack(subs[0], msg)
 
     async def close(self) -> None:
         """Close resource."""
