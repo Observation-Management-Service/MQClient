@@ -14,7 +14,7 @@ def _ci_test_retry_trigger(i: int) -> None:
 
 
 async def auto_retry_call(
-    factory: Callable[[], Union[T, Awaitable[T]]],
+    func: Callable[[], Union[T, Awaitable[T]]],
     retries: int,
     retry_delay: int,
     close: Callable[[], Awaitable[None]],
@@ -27,7 +27,6 @@ async def auto_retry_call(
     retries = max(retries, 0)
 
     for i in range(retries + 1):
-        func = factory()
         try:
             _ci_test_retry_trigger(i)  # only used for testing
             ret = func()

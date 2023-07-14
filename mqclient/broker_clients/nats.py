@@ -110,7 +110,7 @@ class NATSPub(NATS, Pub):
             raise RuntimeError("JetStream is not connected")
 
         ack: nats.js.api.PubAck = await utils.auto_retry_call(
-            factory=functools.partial(
+            func=functools.partial(
                 self.js.publish,
                 self.subject,
                 msg,
@@ -200,7 +200,7 @@ class NATSSub(NATS, Sub):
 
         try:
             nats_msgs: List[nats.aio.msg.Msg] = await utils.auto_retry_call(
-                factory=functools.partial(
+                func=functools.partial(
                     self._subscription.fetch,
                     batch=num_messages,
                     timeout=int(math.ceil(timeout_millis / 1000)),
@@ -287,7 +287,7 @@ class NATSSub(NATS, Sub):
 
         # Acknowledges the received messages so they will not be sent again.
         await utils.auto_retry_call(
-            factory=self._from_message(msg).ack,  # type: ignore[arg-type]
+            func=self._from_message(msg).ack,  # type: ignore[arg-type]
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
@@ -308,7 +308,7 @@ class NATSSub(NATS, Sub):
             raise RuntimeError("subscriber is not connected")
 
         await utils.auto_retry_call(
-            factory=self._from_message(msg).nak,  # type: ignore[arg-type]  # yes, it's "nak"
+            func=self._from_message(msg).nak,  # type: ignore[arg-type]  # yes, it's "nak"
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,

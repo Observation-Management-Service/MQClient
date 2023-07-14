@@ -133,7 +133,7 @@ class PulsarPub(Pulsar, Pub):
             raise RuntimeError("queue is not connected")
 
         await utils.auto_retry_call(
-            factory=functools.partial(
+            func=functools.partial(
                 self.producer.send,
                 msg,
             ),
@@ -234,7 +234,7 @@ class PulsarSub(Pulsar, Sub):
 
         try:
             pulsar_msg = await utils.auto_retry_call(
-                factory=functools.partial(
+                func=functools.partial(
                     self.consumer.receive,
                     timeout_millis=timeout_millis,
                 ),
@@ -276,7 +276,7 @@ class PulsarSub(Pulsar, Sub):
             pulsar_msg = msg.msg_id
 
         await utils.auto_retry_call(
-            factory=functools.partial(
+            func=functools.partial(
                 self.consumer.acknowledge,
                 pulsar_msg,
             ),
@@ -305,7 +305,7 @@ class PulsarSub(Pulsar, Sub):
             pulsar_msg = msg.msg_id
 
         await utils.auto_retry_call(
-            factory=functools.partial(
+            func=functools.partial(
                 self.consumer.negative_acknowledge,
                 pulsar_msg,
             ),
