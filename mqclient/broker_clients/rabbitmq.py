@@ -187,7 +187,7 @@ class RabbitMQPub(RabbitMQ, Pub):
             raise RuntimeError("queue is not connected")
 
         await utils.auto_retry_call(
-            func=functools.partial(
+            factory=functools.partial(
                 self.channel.basic_publish,
                 exchange="",
                 routing_key=self.queue,
@@ -284,7 +284,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         while True:
             try:
                 pika_msg = await utils.auto_retry_call(
-                    func=_next_factory,
+                    factory=_next_factory,
                     nonretriable_conditions=lambda e: isinstance(
                         e, (pika.exceptions.AMQPChannelError, StopIteration)
                     ),
@@ -340,7 +340,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise RuntimeError("queue is not connected")
 
         await utils.auto_retry_call(
-            func=functools.partial(
+            factory=functools.partial(
                 self.channel.basic_ack,
                 msg.msg_id,
             ),
@@ -371,7 +371,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise RuntimeError("queue is not connected")
 
         await utils.auto_retry_call(
-            func=functools.partial(
+            factory=functools.partial(
                 self.channel.basic_nack,
                 msg.msg_id,
             ),
