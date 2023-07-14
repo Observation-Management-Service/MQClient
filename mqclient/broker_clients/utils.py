@@ -6,8 +6,6 @@ import inspect
 import logging
 from typing import Awaitable, Callable, Optional, TypeVar, Union
 
-from .. import log_msgs
-
 T = TypeVar("T")  # the callable/awaitable return type
 
 
@@ -29,11 +27,6 @@ async def auto_retry_call(
     retries = max(retries, 0)
 
     for i in range(retries + 1):
-        if i > 0:
-            logger.debug(
-                f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-            )
-
         try:
             _ci_test_retry_trigger(i)  # only used for testing
             ret = func()
@@ -46,10 +39,12 @@ async def auto_retry_call(
             if nonretriable_conditions and nonretriable_conditions(e):
                 raise
             elif i == retries:
-                logger.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
+                logger.info(f"[auto_retry_call()] {e}. Reached max retries. Raising...")
                 raise
             else:
-                pass
+                logger.info(
+                    f"[auto_retry_call()] {e}. Trying again. (attempt #{i+2})..."
+                )
 
         # close, wait, reconnect
         try:
@@ -60,5 +55,4 @@ async def auto_retry_call(
         await connect()
 
     # fall through -- this should not be reached in any situation
-    logger.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
     raise Exception("Max retries exceeded / connection error")
