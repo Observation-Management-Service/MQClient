@@ -4,6 +4,7 @@
 
 import asyncio
 import logging
+import random
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List, Optional
 from unittest.mock import patch
@@ -798,8 +799,10 @@ class PubSubQueue:
                 to_ack.append(msg)
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
 
-            for i, msg in enumerate(to_ack):
-                print(f"ack {i}: `{msg.data}`")
+            iter_em = list(enumerate(to_ack))
+            random.shuffle(iter_em)
+            for i, msg in iter_em:
+                print(f"ack {i} (shuffled): `{msg.data}`")
                 await gen.ack(msg)
 
         print(all_recvd)
