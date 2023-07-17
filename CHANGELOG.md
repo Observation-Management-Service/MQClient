@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.3.2 (2023-07-17)
+
+### Other
+
+* Prefetch Updates: `open_sub_manual_acking()` ([#104](https://github.com/Observation-Management-Service/MQClient/issues/104)) ([`9ccf889`](https://github.com/Observation-Management-Service/MQClient/commit/9ccf8899de5a6e3bdf04b4bd41d1303c33e1ed48))
+
 ## v2.3.1 (2023-07-13)
 
 ### Other
