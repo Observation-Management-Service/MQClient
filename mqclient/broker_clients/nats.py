@@ -120,6 +120,7 @@ class NATSPub(NATS, Pub):
             retry_delay=retry_delay,
             close=None if self.no_reconnect_on_retry else self.close,
             connect=None if self.no_reconnect_on_retry else self.connect,
+            nonretriable_conditions=None,
             logger=LOGGER,
         )
         LOGGER.debug(f"Sent Message w/ Ack: {ack}")
@@ -302,6 +303,7 @@ class NATSSub(NATS, Sub):
             retry_delay=retry_delay,
             close=None if self.no_reconnect_on_retry else self.close,
             connect=None if self.no_reconnect_on_retry else self.connect,
+            nonretriable_conditions=None,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
@@ -327,6 +329,7 @@ class NATSSub(NATS, Sub):
             retry_delay=retry_delay,
             close=None if self.no_reconnect_on_retry else self.close,
             connect=None if self.no_reconnect_on_retry else self.connect,
+            nonretriable_conditions=None,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
