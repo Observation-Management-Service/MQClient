@@ -118,8 +118,8 @@ class NATSPub(NATS, Pub):
             func=_send_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=None if self.no_reconnect_on_retry else self.close,
-            connect=None if self.no_reconnect_on_retry else self.connect,
+            close=self.close,
+            connect=self.connect,
             nonretriable_conditions=None,
             logger=LOGGER,
         )
@@ -214,8 +214,8 @@ class NATSSub(NATS, Sub):
                 func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
-                close=None if self.no_reconnect_on_retry else self.close,
-                connect=None if self.no_reconnect_on_retry else self.connect,
+                close=self.close,
+                connect=self.connect,
                 logger=LOGGER,
                 nonretriable_conditions=lambda e: isinstance(
                     e, nats.errors.TimeoutError
@@ -301,8 +301,8 @@ class NATSSub(NATS, Sub):
             func=_ack_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=None if self.no_reconnect_on_retry else self.close,
-            connect=None if self.no_reconnect_on_retry else self.connect,
+            close=self.close,
+            connect=self.connect,
             nonretriable_conditions=None,
             logger=LOGGER,
         )
@@ -327,8 +327,8 @@ class NATSSub(NATS, Sub):
             func=_nack_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=None if self.no_reconnect_on_retry else self.close,
-            connect=None if self.no_reconnect_on_retry else self.connect,
+            close=self.close,
+            connect=self.connect,
             nonretriable_conditions=None,
             logger=LOGGER,
         )
