@@ -171,7 +171,7 @@ class RabbitMQPub(RabbitMQ, Pub):
         self,
         msg: bytes,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Send a message on a queue.
 
@@ -186,20 +186,33 @@ class RabbitMQPub(RabbitMQ, Pub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        await utils.auto_retry_call(
-            func=functools.partial(
-                self.channel.basic_publish,
+        def _send_msg():
+            # use wrapper function so connection references can be updated by reconnects
+            if not self.channel:
+                raise RuntimeError("queue is not connected")
+            return self.channel.basic_publish(
                 exchange="",
                 routing_key=self.queue,
                 body=msg,
-            ),
+            )
+
+        await utils.auto_retry_call(
+            func=_send_msg,
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=(
+                None
+                if self.connection_can_have_multiple_unacked_messages
+                else self.close
+            ),
+            connect=(
+                None
+                if self.connection_can_have_multiple_unacked_messages
+                else self.connect
+            ),
             logger=LOGGER,
         )
         LOGGER.debug(log_msgs.SENT_MESSAGE)
@@ -231,6 +244,10 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise ConnectingFailedException("No channel to configure connection.")
 
         self.channel.basic_qos(prefetch_count=self.prefetch)
+        # https://www.rabbitmq.com/consumer-prefetch.html
+        #    Meaning of prefetch_count in RabbitMQ w/ global_qos=False:
+        #    applied separately to each new consumer on the channel
+        #
         # global_qos=False b/c using quorum queues
         # https://www.rabbitmq.com/quorum-queues.html#global-qos
 
@@ -264,27 +281,44 @@ class RabbitMQSub(RabbitMQ, Sub):
         self,
         timeout_millis: Optional[int],
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncIterator[Optional[Message]]:
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        iterator = self.channel.consume(
-            self.queue,
-            inactivity_timeout=timeout_millis / 1000.0 if timeout_millis else None,
-        )
+        def _get_msg():
+            # use wrapper function so connection references can be updated by reconnects
+            if not self.channel:
+                raise RuntimeError("queue is not connected")
+            return next(
+                # pika smartly handles re-invocations
+                self.channel.consume(
+                    self.queue,
+                    inactivity_timeout=timeout_millis / 1000.0
+                    if timeout_millis
+                    else None,
+                )
+            )
 
         while True:
             try:
                 pika_msg = await utils.auto_retry_call(
-                    func=functools.partial(next, iterator),
+                    func=_get_msg,
                     nonretriable_conditions=lambda e: isinstance(
                         e, (pika.exceptions.AMQPChannelError, StopIteration)
                     ),
                     retries=retries,
                     retry_delay=retry_delay,
-                    close=self.close,
-                    connect=self.connect,
+                    close=(
+                        None
+                        if self.connection_can_have_multiple_unacked_messages
+                        else self.close
+                    ),
+                    connect=(
+                        None
+                        if self.connection_can_have_multiple_unacked_messages
+                        else self.connect
+                    ),
                     logger=LOGGER,
                 )
             except StopIteration:
@@ -301,7 +335,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         self,
         timeout_millis: Optional[int],
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> Optional[Message]:
         """Get a message from a queue."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
@@ -321,7 +355,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Ack a message from the queue.
 
@@ -337,13 +371,13 @@ class RabbitMQSub(RabbitMQ, Sub):
                 self.channel.basic_ack,
                 msg.msg_id,
             ),
+            connect=None,
+            close=None,
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
@@ -352,7 +386,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Reject (nack) a message from the queue.
 
@@ -368,13 +402,13 @@ class RabbitMQSub(RabbitMQ, Sub):
                 self.channel.basic_nack,
                 msg.msg_id,
             ),
+            close=None,
+            connect=None,
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
@@ -384,7 +418,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         timeout: int,
         propagate_error: bool,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 

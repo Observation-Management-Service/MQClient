@@ -1,7 +1,6 @@
 """Back-end using NATS."""
 
 
-import functools
 import logging
 import math
 from typing import Any, AsyncGenerator, List, Optional, TypeVar, cast
@@ -102,23 +101,26 @@ class NATSPub(NATS, Pub):
         self,
         msg: bytes,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Send a message (publish)."""
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
         if not self.js:
             raise RuntimeError("JetStream is not connected")
 
+        async def _send_msg():
+            # use wrapper function so connection references can be updated by reconnects
+            if not self.js:
+                raise RuntimeError("JetStream is not connected")
+            return await self.js.publish(self.subject, msg)
+
         ack: nats.js.api.PubAck = await utils.auto_retry_call(
-            func=functools.partial(
-                self.js.publish,
-                self.subject,
-                msg,
-            ),
+            func=_send_msg,
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
             connect=self.connect,
+            nonretriable_conditions=None,
             logger=LOGGER,
         )
         LOGGER.debug(f"Sent Message w/ Ack: {ack}")
@@ -185,7 +187,7 @@ class NATSSub(NATS, Sub):
         timeout_millis: Optional[int],
         num_messages: int,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> List[Message]:
         """Get n messages.
 
@@ -198,13 +200,18 @@ class NATSSub(NATS, Sub):
         if not timeout_millis:
             timeout_millis = DEFAULT_TIMEOUT_MILLIS
 
+        async def _get_msg():
+            # use wrapper function so connection references can be updated by reconnects
+            if not self._subscription:
+                raise RuntimeError("Subscriber is not connected")
+            return await self._subscription.fetch(
+                batch=num_messages,
+                timeout=int(math.ceil(timeout_millis / 1000)),
+            )
+
         try:
             nats_msgs: List[nats.aio.msg.Msg] = await utils.auto_retry_call(
-                func=functools.partial(
-                    self._subscription.fetch,
-                    batch=num_messages,
-                    timeout=int(math.ceil(timeout_millis / 1000)),
-                ),
+                func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
                 close=self.close,
@@ -231,7 +238,7 @@ class NATSSub(NATS, Sub):
         self,
         timeout_millis: Optional[int],
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> Optional[Message]:
         """Get a message."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
@@ -256,7 +263,7 @@ class NATSSub(NATS, Sub):
         timeout_millis: Optional[int],
         num_messages: int,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncGenerator[Message, None]:
         """Continuously generate messages until there are no more."""
         if not self._subscription:
@@ -278,20 +285,25 @@ class NATSSub(NATS, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
         if not self._subscription:
             raise RuntimeError("subscriber is not connected")
 
+        async def _ack_msg():
+            # use wrapper function so connection references can be updated by reconnects
+            return await self._from_message(msg).ack()
+
         # Acknowledges the received messages so they will not be sent again.
         await utils.auto_retry_call(
-            func=self._from_message(msg).ack,  # type: ignore[arg-type]
+            func=_ack_msg,
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
             connect=self.connect,
+            nonretriable_conditions=None,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
@@ -300,19 +312,24 @@ class NATSSub(NATS, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
         if not self._subscription:
             raise RuntimeError("subscriber is not connected")
 
+        async def _nack_msg():
+            # use wrapper function so connection references can be updated by reconnects
+            return await self._from_message(msg).nak()  # yes, it's "nak"
+
         await utils.auto_retry_call(
-            func=self._from_message(msg).nak,  # type: ignore[arg-type]  # yes, it's "nak"
+            func=_nack_msg,
             retries=retries,
             retry_delay=retry_delay,
             close=self.close,
             connect=self.connect,
+            nonretriable_conditions=None,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
@@ -322,7 +339,7 @@ class NATSSub(NATS, Sub):
         timeout: int,
         propagate_error: bool,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 

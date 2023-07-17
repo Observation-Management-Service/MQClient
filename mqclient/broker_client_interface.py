@@ -106,7 +106,13 @@ class RawQueue:
     """Raw queue object, to hold queue state."""
 
     def __init__(self) -> None:
-        pass
+        # `connection_can_have_multiple_unacked_messages=True` signifies
+        # that a sub is not acking/nacking a previous message before
+        # getting another (these previous messages are 'unacked').
+        # - By default, set this to `False`. This can be changed by
+        #     the encompassing `Queue` if unacked messages are expected.
+        # - Each broker client handles this setting slightly different.
+        self.connection_can_have_multiple_unacked_messages = False
 
     async def connect(self) -> None:
         """Set up connection."""
@@ -122,7 +128,7 @@ class Pub(RawQueue):
         self,
         msg: bytes,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Send a message on a queue."""
         raise NotImplementedError()
@@ -146,7 +152,7 @@ class Sub(RawQueue):
         self,
         timeout_millis: Optional[int],
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> Optional[Message]:
         """Get a single message from a queue."""
         raise NotImplementedError()
@@ -155,7 +161,7 @@ class Sub(RawQueue):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Ack a message from the queue."""
         raise NotImplementedError()
@@ -164,7 +170,7 @@ class Sub(RawQueue):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Reject (nack) a message from the queue."""
         raise NotImplementedError()
@@ -174,7 +180,7 @@ class Sub(RawQueue):
         timeout: int,
         propagate_error: bool,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 

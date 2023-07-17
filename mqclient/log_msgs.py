@@ -46,19 +46,3 @@ MSGGEN_EXCEPTED_DOWNSTREAM_ERROR = (
 MSGGEN_GENERATOR_EXITING = "[message_generator()] Exiting generator..."
 MSGGEN_GENERATOR_EXITED = "[message_generator()] Exited generator."
 MSGGEN_CLOSED_QUEUE = "[message_generator()] Closed queue."
-
-TRYCALL_CONNECTION_CLOSED_BY_BROKER = "[try_call()] ConnectionClosedByBroker..."
-TRYCALL_AMQP_CONNECTION_ERROR = "[try_call()] AMQPConnectionError..."
-TRYCALL_RAISE_AMQP_CHANNEL_ERROR = "[try_call()] AMQPChannelError. Raising Exception."
-TRYCALL_CONNECTION_ERROR_TRY_AGAIN = "[try_call()] Connection error. Trying again."
-TRYCALL_CONNECTION_ERROR_MAX_RETRIES = (
-    "[try_call()] Connection error. Reached max retries. Raising Exception."
-)
-
-TRYYIELD_CONNECTION_CLOSED_BY_BROKER = "[try_yield()] ConnectionClosedByBroker..."
-TRYYIELD_AMQP_CONNECTION_ERROR = "[try_yield()] AMQPConnectionError..."
-TRYYIELD_RAISE_AMQP_CHANNEL_ERROR = "[try_yield()] AMQPChannelError. Raising Exception."
-TRYYIELD_CONNECTION_ERROR_TRY_AGAIN = "[try_yield()] Connection error. Trying again."
-TRYYIELD_CONNECTION_ERROR_MAX_RETRIES = (
-    "[try_yield()] Connection error. Reached max retries. Raising Exception."
-)

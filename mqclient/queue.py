@@ -1,22 +1,12 @@
 """Queue class encapsulating a pub-sub messaging system."""
 
 import contextlib
-import functools
 import logging
 import os
 import sys
 import types
 import uuid
-from typing import (
-    Any,
-    AsyncGenerator,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Dict,
-    Optional,
-    Type,
-)
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, List, Optional, Type
 
 from . import broker_client_manager
 from . import telemetry as wtt
@@ -71,7 +61,7 @@ class Queue:
         prefetch: int = DEFAULT_PREFETCH,
         timeout: int = DEFAULT_TIMEOUT,
         ack_timeout: Optional[int] = None,
-        retry_delay: int = DEFAULT_RETRY_DELAY,  # seconds
+        retry_delay: float = DEFAULT_RETRY_DELAY,  # seconds
         retries: int = DEFAULT_RETRIES,  # ex: 2 means 1 initial try and 2 retries
         except_errors: bool = DEFAULT_EXCEPT_ERRORS,
         auth_token: str = "",
@@ -95,7 +85,7 @@ class Queue:
         self.timeout = timeout
         self._retries = -1
         self.retries = retries
-        self._retry_delay = -1
+        self._retry_delay = -1.0
         self.retry_delay = retry_delay
 
         # publics
@@ -134,14 +124,14 @@ class Queue:
         self._retries = val
 
     @property
-    def retry_delay(self) -> int:
+    def retry_delay(self) -> float:
         """Get the retry_delay value."""
         return self._retry_delay
 
     @retry_delay.setter
-    def retry_delay(self, val: int) -> None:
+    def retry_delay(self, val: float) -> None:
         LOGGER.debug(f"Setting retry_delay to {val}")
-        if val < 1:
+        if val <= 0:
             raise ValueError("retry_delay must be positive")
         self._retry_delay = val
 
@@ -301,7 +291,7 @@ class Queue:
         ]
     )
     async def open_sub_manual_acking(
-        self, use_prefetch_value: bool
+        self,
     ) -> AsyncGenerator["ManualQueueSubResource", None]:
         """Open a resource to receive messages from the queue as an iterator.
 
@@ -318,13 +308,6 @@ class Queue:
 
         **NOTE: unless you need to parallelize your message processing,
         use `open_sub()`**
-
-        Arguments:
-            `use_prefetch_value` - whether to use the prefetch value; `False` uses prefetch=0
-                Prefetching may be useful for short-running tasks,
-                where the bottleneck would be network delay.
-                NOTE: rabbitmq will not deliver more messages if
-                there are N un-acked messages (N = prefetch, N > 0)
 
         Examples:
             async with queue.open_sub_manual_acking() as sub:
@@ -343,48 +326,14 @@ class Queue:
                     else:
                         await sub.ack(msg)
 
-            async with queue.open_sub_manual_acking(ack_pending_limit=5) as sub:
-                pending = []
-                async for msg in sub.iter_messages():
-                    try:
-                        process_message(msg.data)
-                        pending.append(msg)
-                    except Exception:
-                        await sub.nack(msg)
-
-                    if len(pending) == 3:
-                        for msg in pending:
-                            await sub.ack(msg)
-                        pending = []
-
-                for msg in pending:
-                    await sub.ack(msg)
-
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
-        sub = await self._create_sub_queue(
-            # if prefetch=N (N>0), pika will not deliver more messages
-            #   if there are N un-acked messages
-            #
-            #   We could implement logic that checks if this condition is met
-            #   but that would go against the intention of the "manual" usage
-            prefetch_override=(None if use_prefetch_value else 0)
-        )
-
+        resource = ManualQueueSubResource(self)
         try:
-            yield ManualQueueSubResource(
-                functools.partial(
-                    sub.get_message,
-                    self.timeout * 1000,
-                    retries=self.retries,
-                    retry_delay=self.retry_delay,
-                ),
-                functools.partial(self._safe_ack, sub),
-                functools.partial(self._safe_nack, sub),
-            )
+            yield resource
         finally:
-            await sub.close()
+            await resource.close()
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
@@ -473,7 +422,7 @@ class EmptyQueueException(Exception):
 class QueuePubResource:
     """A manager class around `Pub.send_message()`."""
 
-    def __init__(self, pub: Pub, retries: int, retry_delay: int):
+    def __init__(self, pub: Pub, retries: int, retry_delay: float):
         self.pub = pub
         self.retries = retries
         self.retry_delay = retry_delay
@@ -493,15 +442,9 @@ class QueuePubResource:
 class ManualQueueSubResource:
     """A manager class around `Sub.get_message()`."""
 
-    def __init__(
-        self,
-        get_message_function: Callable[[], Awaitable[Optional[Message]]],
-        ack_function: Callable[[Message], Awaitable[None]],
-        nack_function: Callable[[Message], Awaitable[None]],
-    ) -> None:
-        self._get_message = get_message_function
-        self._ack_function = ack_function
-        self._nack_function = nack_function
+    def __init__(self, queue: Queue) -> None:
+        self.queue = queue
+        self._subs: Dict[Sub, List[int]] = {}
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
@@ -515,21 +458,53 @@ class ManualQueueSubResource:
             return msg
 
         while True:
-            raw_msg = await self._get_message()
-            if not raw_msg:  # no message -> close and exit
-                return
+            for sub in self._subs:
+                if raw_msg := await self._get(sub):  # got message from sub -> done
+                    self._subs[sub].append(id(raw_msg))
+                    break
+            else:  # no sub gave a message (didn't break) -> try w/ new sub
+                newb = await self.queue._create_sub_queue()
+                # keep connection open for other unacked messages
+                newb.connection_can_have_multiple_unacked_messages = True
+                if not (raw_msg := await self._get(newb)):  # no message -> close & exit
+                    await newb.close()
+                    return
+                self._subs[newb] = [id(raw_msg)]
 
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
             LOGGER.info(f"Received Message: {_message_size_message(msg)}")
             yield msg
 
+    async def _get(self, sub: Sub) -> Optional[Message]:
+        return await sub.get_message(
+            self.queue.timeout * 1000,
+            retries=self.queue.retries,
+            retry_delay=self.queue.retry_delay,
+        )
+
+    def _get_sub(self, msg: Message) -> Sub:
+        subs = [s for s, addrs in self._subs.items() if id(msg) in addrs]
+        if not subs:
+            raise ValueError("message cannot be mapped to a sub")
+        elif len(subs) != 1:
+            raise RuntimeError("message found in more than one sub")
+        else:
+            return subs[0]
+
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        await self._ack_function(msg)
+        sub = self._get_sub(msg)
+        await self.queue._safe_ack(sub, msg)
 
     async def nack(self, msg: Message) -> None:
-        """Acknowledge the message."""
-        await self._nack_function(msg)
+        """Reject/nack the message."""
+        sub = self._get_sub(msg)
+        await self.queue._safe_nack(sub, msg)
+
+    async def close(self) -> None:
+        """Close resource."""
+        for sub in self._subs:
+            await sub.close()
 
 
 class QueueSubResource:

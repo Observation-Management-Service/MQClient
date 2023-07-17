@@ -125,22 +125,34 @@ class PulsarPub(Pulsar, Pub):
         self,
         msg: bytes,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Send a message on a queue."""
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
         if not self.producer:
             raise RuntimeError("queue is not connected")
 
+        def _send_msg():
+            # use wrapper function so connection references can be updated by reconnects
+            if not self.producer:
+                raise RuntimeError("queue is not connected")
+            return self.producer.send(msg)
+
         await utils.auto_retry_call(
-            func=functools.partial(
-                self.producer.send,
-                msg,
-            ),
+            func=_send_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=(
+                None
+                if self.connection_can_have_multiple_unacked_messages
+                else self.close
+            ),
+            connect=(
+                None
+                if self.connection_can_have_multiple_unacked_messages
+                else self.connect
+            ),
+            nonretriable_conditions=None,
             logger=LOGGER,
         )
         LOGGER.debug(log_msgs.SENT_MESSAGE)
@@ -221,7 +233,7 @@ class PulsarSub(Pulsar, Sub):
         self,
         timeout_millis: Optional[int],
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> Optional[Message]:
         """Get a single message from a queue.
 
@@ -232,16 +244,27 @@ class PulsarSub(Pulsar, Sub):
         if not self.consumer:
             raise RuntimeError("queue is not connected")
 
+        def _get_msg():
+            # use wrapper function so connection references can be updated by reconnects
+            if not self.consumer:
+                raise RuntimeError("queue is not connected")
+            return self.consumer.receive(timeout_millis=timeout_millis)
+
         try:
             pulsar_msg = await utils.auto_retry_call(
-                func=functools.partial(
-                    self.consumer.receive,
-                    timeout_millis=timeout_millis,
-                ),
+                func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
-                close=self.close,
-                connect=self.connect,
+                close=(
+                    None
+                    if self.connection_can_have_multiple_unacked_messages
+                    else self.close
+                ),
+                connect=(
+                    None
+                    if self.connection_can_have_multiple_unacked_messages
+                    else self.connect
+                ),
                 logger=LOGGER,
                 nonretriable_conditions=lambda e: str(e) == "Pulsar error: TimeOut",
             )
@@ -263,7 +286,7 @@ class PulsarSub(Pulsar, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
@@ -282,8 +305,9 @@ class PulsarSub(Pulsar, Sub):
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=None,
+            connect=None,
+            nonretriable_conditions=None,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg}).")
@@ -292,7 +316,7 @@ class PulsarSub(Pulsar, Sub):
         self,
         msg: Message,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> None:
         """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
@@ -311,8 +335,9 @@ class PulsarSub(Pulsar, Sub):
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=self.close,
-            connect=self.connect,
+            close=None,
+            connect=None,
+            nonretriable_conditions=None,
             logger=LOGGER,
         )
         LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg}).")
@@ -322,7 +347,7 @@ class PulsarSub(Pulsar, Sub):
         timeout: int,
         propagate_error: bool,
         retries: int,
-        retry_delay: int,
+        retry_delay: float,
     ) -> AsyncGenerator[Optional[Message], None]:
         """Yield Messages.
 

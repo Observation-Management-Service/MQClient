@@ -6,54 +6,57 @@ import inspect
 import logging
 from typing import Awaitable, Callable, Optional, TypeVar, Union
 
-from .. import log_msgs
-
 T = TypeVar("T")  # the callable/awaitable return type
+
+
+def _ci_test_retry_trigger(i: int) -> None:
+    pass
 
 
 async def auto_retry_call(
     func: Callable[[], Union[T, Awaitable[T]]],
     retries: int,
-    retry_delay: int,
-    close: Callable[[], Awaitable[None]],
-    connect: Callable[[], Awaitable[None]],
+    retry_delay: float,
     logger: logging.Logger,
-    nonretriable_conditions: Optional[Callable[[Exception], bool]] = None,
+    close: Optional[Callable[[], Awaitable[None]]],
+    connect: Optional[Callable[[], Awaitable[None]]],
+    nonretriable_conditions: Optional[Callable[[Exception], bool]],
 ) -> T:
     """Call `func` with auto-retries."""
-    retry_delay = max(retry_delay, 1)
+    retry_delay = max(retry_delay, 0.01)
     retries = max(retries, 0)
 
     for i in range(retries + 1):
-        if i > 0:
-            logger.debug(
-                f"{log_msgs.TRYCALL_CONNECTION_ERROR_TRY_AGAIN} (attempt #{i+1})..."
-            )
-
         try:
+            _ci_test_retry_trigger(i)  # only used for testing
             ret = func()
             if inspect.isawaitable(ret):
                 return await ret  # type: ignore[no-any-return]
             else:
                 return ret  # type: ignore[return-value]
         except Exception as e:
-            logger.error(e)
+            logger.exception(e)
             if nonretriable_conditions and nonretriable_conditions(e):
                 raise
             elif i == retries:
-                logger.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
+                logger.info(
+                    f"[auto_retry_call()] {type(e)}. Reached max retries. Raising..."
+                )
                 raise
             else:
-                pass
+                logger.info(
+                    f"[auto_retry_call()] {type(e)}. Trying again. (attempt #{i+2})..."
+                )
 
         # close, wait, reconnect
-        try:
-            await close()  # the previous error could've been due to a closed connection
-        except:  # noqa: E722
-            pass
+        if close:
+            try:
+                await close()  # the previous error could've been due to a closed connection
+            except:  # noqa: E722
+                pass
         await asyncio.sleep(retry_delay)
-        await connect()
+        if connect:
+            await connect()
 
     # fall through -- this should not be reached in any situation
-    logger.debug(log_msgs.TRYCALL_CONNECTION_ERROR_MAX_RETRIES)
-    raise Exception("Max retries exceeded / connection error")
+    raise RuntimeError("unknown error in auto_retry_call()")

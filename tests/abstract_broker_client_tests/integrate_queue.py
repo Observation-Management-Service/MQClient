@@ -4,8 +4,10 @@
 
 import asyncio
 import logging
+import random
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Any, List, Optional
+from unittest.mock import patch
 
 import asyncstdlib as asl
 import pytest
@@ -18,6 +20,27 @@ from .utils import (
     _log_send,
     all_were_received,
 )
+
+#
+# retry stuff
+#
+
+
+CI_TEST_RETRY_TRIGGER = "mqclient.broker_clients.utils._ci_test_retry_trigger"
+
+
+class FailFirstTryException(Exception):
+    pass
+
+
+def fail_first_try(attempt: int) -> None:
+    if attempt == 0:
+        raise FailFirstTryException()
+
+
+#
+# tests
+#
 
 
 class PubSubQueue:
@@ -33,6 +56,7 @@ class PubSubQueue:
     ###########################################################################
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_010(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, one sub."""
         all_recvd: List[Any] = []
@@ -61,6 +85,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_011(self, queue_name: str, auth_token: str) -> None:
         """Test an individual pub and an individual sub."""
         all_recvd: List[Any] = []
@@ -90,6 +115,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]] + DATA_LIST)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_012(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, two subs (one subscribed to wrong queue)."""
         all_recvd: List[Any] = []
@@ -114,6 +140,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, [DATA_LIST[0]])
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_020(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, ordered/alternatingly."""
         all_recvd: List[Any] = []
@@ -162,6 +189,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_021_fewer(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
@@ -170,6 +198,7 @@ class PubSubQueue:
         await self._test_021(queue_name, len(DATA_LIST) // 2, auth_token)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_021_same(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
@@ -178,6 +207,7 @@ class PubSubQueue:
         await self._test_021(queue_name, len(DATA_LIST), auth_token)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_021_more(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
@@ -186,6 +216,7 @@ class PubSubQueue:
         await self._test_021(queue_name, len(DATA_LIST) ** 2, auth_token)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_022(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
@@ -216,6 +247,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_023(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, and too many subs.
 
@@ -251,6 +283,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_030(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, ordered/alternatingly."""
         all_recvd: List[Any] = []
@@ -276,6 +309,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_031(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
@@ -296,6 +330,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_040(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, ordered/alternatingly.
 
@@ -322,6 +357,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_041(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
@@ -345,6 +381,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_042(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
@@ -368,6 +405,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_043(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
@@ -392,6 +430,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_050(self, queue_name: str, auth_token: str) -> None:
         """Test_20 with variable prefetching.
 
@@ -421,6 +460,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd, DATA_LIST * ((len(DATA_LIST) * 2) - 1))
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_051(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, with prefetching.
 
@@ -461,6 +501,7 @@ class PubSubQueue:
     ###########################################################################
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_100(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() fail and recovery, with multiple open_sub()
         calls."""
@@ -502,6 +543,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_101(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() fail and recovery, with error propagation."""
         all_recvd: List[Any] = []
@@ -547,6 +589,7 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_110__fail(self, queue_name: str, auth_token: str) -> None:
         """Failure-test open_sub() with reusing a 'QueueSubResource'
         instance."""
@@ -573,6 +616,7 @@ class PubSubQueue:
                 assert 0  # we should never get here
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_120_break(self, queue_name: str, auth_token: str) -> None:
         """Test open_sub() with a `break` statement."""
         async with Queue(
@@ -605,20 +649,19 @@ class PubSubQueue:
     ###########################################################################
     # tests 200 - 299:
     #
-    # Tests for open_sub_manual_acking(use_prefetch_value)
+    # Tests for open_sub_manual_acking()
     ###########################################################################
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
-    @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_200__ideal(
         self,
         queue_name: str,
         auth_token: str,
         sub_queue_prefetch: Optional[int],
-        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking(use_prefetch_value) ideal scenario."""
+        """Test open_sub_manual_acking() ideal scenario."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -642,7 +685,7 @@ class PubSubQueue:
                 auth_token=auth_token,
             )
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
+        async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 all_recvd.append(_log_recv(msg.data))
@@ -653,17 +696,16 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
-    @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_202__delayed_mixed_acking_nacking(
         self,
         queue_name: str,
         auth_token: str,
         sub_queue_prefetch: Optional[int],
-        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking(use_prefetch_value) fail and immediate
-        recovery with multi-tasking, with mixed acking and nacking."""
+        """Test open_sub_manual_acking() fail and immediate recovery with
+        multi-tasking, with mixed acking and nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -690,7 +732,7 @@ class PubSubQueue:
                 auth_token=auth_token,
             )
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
+        async with sub.open_sub_manual_acking() as gen:
             pending = []
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 try:
@@ -713,37 +755,19 @@ class PubSubQueue:
                 await gen.ack(msg)
 
         print(all_recvd)
-        if (
-            self.broker_client == "rabbitmq"
-            and use_prefetch_value
-            and sub_queue_prefetch  # int, >0
-        ):  # acked every 1/2 before we got kicked out
-            try:
-                indexes_unacked = [
-                    x
-                    for x in range(int(len(DATA_LIST) * (3 / 2)))  # math.ceil?
-                    if not (x % 2 == 0 or x % 3 == 0)
-                ]
-                print(indexes_unacked)
-                assert i == indexes_unacked[sub_queue_prefetch - 1]  # 0-index
-            except IndexError:
-                assert i + 1 == len(DATA_LIST) * (3 / 2)
-            assert len(all_recvd) == i - (i // 3)  # len == i - # of nacks
-        else:
-            assert all_were_received(all_recvd)
+        assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
-    @pytest.mark.parametrize("use_prefetch_value", [False, True])
     async def test_204__post_ack(
         self,
         queue_name: str,
         auth_token: str,
         sub_queue_prefetch: Optional[int],
-        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking(use_prefetch_value) where messages
-        aren't acked until after all have been received."""
+        """Test open_sub_manual_acking() where messages aren't acked until
+        after all have been received."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -768,37 +792,31 @@ class PubSubQueue:
             )
         sub.timeout = 1
         to_ack = []
-        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
+        async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 all_recvd.append(_log_recv(msg.data))
                 to_ack.append(msg)
                 # assert msg.data == DATA_LIST[i]  # we don't guarantee order
 
-            for i, msg in enumerate(to_ack):
-                print(f"ack {i}: `{msg.data}`")
+            iter_em = list(enumerate(to_ack))
+            random.shuffle(iter_em)
+            for i, msg in iter_em:
+                print(f"ack {i} (shuffled): `{msg.data}`")
                 await gen.ack(msg)
 
         print(all_recvd)
-        if (
-            self.broker_client == "rabbitmq"
-            and use_prefetch_value
-            and sub_queue_prefetch  # int, >0
-        ):  # got kicked out when prefetch was met
-            assert len(all_recvd) == min(sub_queue_prefetch, len(DATA_LIST))
-        else:
-            assert all_were_received(all_recvd)
+        assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("use_prefetch_value", [False, True])
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_210__immediate_recovery(
         self,
         queue_name: str,
         auth_token: str,
-        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking(use_prefetch_value) fail and immediate
-        recovery, with nacking."""
+        """Test open_sub_manual_acking() fail and immediate recovery, with
+        nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -813,7 +831,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
+        async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 try:
                     # DO WORK!
@@ -831,15 +849,14 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("use_prefetch_value", [False, True])
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_220__posthoc_recovery(
         self,
         queue_name: str,
         auth_token: str,
-        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking(use_prefetch_value) fail and post-hoc
-        recovery, with nacking."""
+        """Test open_sub_manual_acking() fail and post-hoc recovery, with
+        nacking."""
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -856,7 +873,7 @@ class PubSubQueue:
         excepted = False
         sub.timeout = 1
         # sub.except_errors = False  # has no effect
-        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
+        async with sub.open_sub_manual_acking() as gen:
             try:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
@@ -875,7 +892,7 @@ class PubSubQueue:
         # continue where we left off
         posthoc = False
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
+        async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 posthoc = True
@@ -887,15 +904,13 @@ class PubSubQueue:
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("use_prefetch_value", [False, True])
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_221__posthoc_recovery__fail(
         self,
         queue_name: str,
         auth_token: str,
-        use_prefetch_value: bool,
     ) -> None:
-        """Test open_sub_manual_acking(use_prefetch_value) fail, post-hoc
-        recovery, then fail.
+        """Test open_sub_manual_acking() fail, post-hoc recovery, then fail.
 
         Final fail is due to not nacking.
         """
@@ -915,7 +930,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         excepted = False
-        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
+        async with sub.open_sub_manual_acking() as gen:
             try:
                 async for i, msg in asl.enumerate(gen.iter_messages()):
                     print(f"{i}: `{msg.data}`")
@@ -935,7 +950,7 @@ class PubSubQueue:
         # continue where we left off
         posthoc = False
         sub.timeout = 1
-        async with sub.open_sub_manual_acking(use_prefetch_value) as gen:
+        async with sub.open_sub_manual_acking() as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
                 posthoc = True
@@ -953,15 +968,14 @@ class PubSubQueue:
         )
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("use_prefetch_value", [False, True])
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
     async def test_230__fail_bad_usage(
         self,
         queue_name: str,
         auth_token: str,
-        use_prefetch_value: bool,
     ) -> None:
-        """Failure-test open_sub_manual_acking(use_prefetch_value) with reusing
-        a 'QueueSubResource' instance."""
+        """Failure-test open_sub_manual_acking() with reusing a
+        'QueueSubResource' instance."""
         async with Queue(
             self.broker_client, name=queue_name, auth_token=auth_token
         ).open_pub() as p:
@@ -971,7 +985,7 @@ class PubSubQueue:
 
         sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
         sub.timeout = 1
-        recv_gen = sub.open_sub_manual_acking(use_prefetch_value)
+        recv_gen = sub.open_sub_manual_acking()
         async with recv_gen as gen:
             async for i, msg in asl.enumerate(gen.iter_messages()):
                 print(f"{i}: `{msg.data}`")
