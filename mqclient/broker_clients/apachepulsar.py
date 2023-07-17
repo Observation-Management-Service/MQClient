@@ -142,8 +142,16 @@ class PulsarPub(Pulsar, Pub):
             func=_send_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=None if self.no_reconnect_on_retry else self.close,
-            connect=None if self.no_reconnect_on_retry else self.connect,
+            close=(
+                None
+                if self.connection_can_have_multiple_unacked_messages
+                else self.close
+            ),
+            connect=(
+                None
+                if self.connection_can_have_multiple_unacked_messages
+                else self.connect
+            ),
             nonretriable_conditions=None,
             logger=LOGGER,
         )
@@ -247,8 +255,16 @@ class PulsarSub(Pulsar, Sub):
                 func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
-                close=None if self.no_reconnect_on_retry else self.close,
-                connect=None if self.no_reconnect_on_retry else self.connect,
+                close=(
+                    None
+                    if self.connection_can_have_multiple_unacked_messages
+                    else self.close
+                ),
+                connect=(
+                    None
+                    if self.connection_can_have_multiple_unacked_messages
+                    else self.connect
+                ),
                 logger=LOGGER,
                 nonretriable_conditions=lambda e: str(e) == "Pulsar error: TimeOut",
             )

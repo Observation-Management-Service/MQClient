@@ -106,7 +106,8 @@ class RawQueue:
     """Raw queue object, to hold queue state."""
 
     def __init__(self) -> None:
-        self.no_reconnect_on_retry = False
+        # can be changed by Queue per situation, then broker client handles accordingly
+        self.connection_can_have_multiple_unacked_messages = False
 
     async def connect(self) -> None:
         """Set up connection."""

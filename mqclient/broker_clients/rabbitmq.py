@@ -203,8 +203,16 @@ class RabbitMQPub(RabbitMQ, Pub):
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=None if self.no_reconnect_on_retry else self.close,
-            connect=None if self.no_reconnect_on_retry else self.connect,
+            close=(
+                None
+                if self.connection_can_have_multiple_unacked_messages
+                else self.close
+            ),
+            connect=(
+                None
+                if self.connection_can_have_multiple_unacked_messages
+                else self.connect
+            ),
             logger=LOGGER,
         )
         LOGGER.debug(log_msgs.SENT_MESSAGE)
@@ -301,8 +309,16 @@ class RabbitMQSub(RabbitMQ, Sub):
                     ),
                     retries=retries,
                     retry_delay=retry_delay,
-                    close=None if self.no_reconnect_on_retry else self.close,
-                    connect=None if self.no_reconnect_on_retry else self.connect,
+                    close=(
+                        None
+                        if self.connection_can_have_multiple_unacked_messages
+                        else self.close
+                    ),
+                    connect=(
+                        None
+                        if self.connection_can_have_multiple_unacked_messages
+                        else self.connect
+                    ),
                     logger=LOGGER,
                 )
             except StopIteration:

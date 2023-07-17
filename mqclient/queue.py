@@ -464,9 +464,8 @@ class ManualQueueSubResource:
                     break
             else:  # no sub gave a message (didn't break) -> try w/ new sub
                 newb = await self.queue._create_sub_queue()
-                newb.no_reconnect_on_retry = (
-                    True  # keep connection open for other unacked messages
-                )
+                # keep connection open for other unacked messages
+                newb.connection_can_have_multiple_unacked_messages = True
                 if not (raw_msg := await self._get(newb)):  # no message -> close & exit
                     await newb.close()
                     return
