@@ -289,8 +289,8 @@ class PulsarSub(Pulsar, Sub):
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=None if self.no_reconnect_on_retry else self.close,
-            connect=None if self.no_reconnect_on_retry else self.connect,
+            close=None,
+            connect=None,
             nonretriable_conditions=None,
             logger=LOGGER,
         )
@@ -319,8 +319,8 @@ class PulsarSub(Pulsar, Sub):
             ),
             retries=retries,
             retry_delay=retry_delay,
-            close=None if self.no_reconnect_on_retry else self.close,
-            connect=None if self.no_reconnect_on_retry else self.connect,
+            close=None,
+            connect=None,
             nonretriable_conditions=None,
             logger=LOGGER,
         )
