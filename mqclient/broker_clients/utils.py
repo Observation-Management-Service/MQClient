@@ -18,9 +18,9 @@ async def auto_retry_call(
     retries: int,
     retry_delay: float,
     logger: logging.Logger,
-    close: Optional[Callable[[], Awaitable[None]]],
-    connect: Optional[Callable[[], Awaitable[None]]],
-    nonretriable_conditions: Optional[Callable[[Exception], bool]],
+    close: Optional[Callable[[], Awaitable[None]]] = None,
+    connect: Optional[Callable[[], Awaitable[None]]] = None,
+    nonretriable_conditions: Optional[Callable[[Exception], bool]] = None,
 ) -> T:
     """Call `func` with auto-retries."""
     retry_delay = max(retry_delay, 0.01)

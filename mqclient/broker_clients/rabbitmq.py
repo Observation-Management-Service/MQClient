@@ -355,8 +355,6 @@ class RabbitMQSub(RabbitMQ, Sub):
                 self.channel.basic_ack,
                 msg.msg_id,
             ),
-            close=None,
-            connect=None,
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
             ),
@@ -386,8 +384,6 @@ class RabbitMQSub(RabbitMQ, Sub):
                 self.channel.basic_nack,
                 msg.msg_id,
             ),
-            close=None,
-            connect=None,
             nonretriable_conditions=lambda e: isinstance(
                 e, pika.exceptions.AMQPChannelError
             ),

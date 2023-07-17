@@ -247,8 +247,8 @@ class PulsarSub(Pulsar, Sub):
                 func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
-                close=None,
-                connect=None,
+                close=None if self.no_reconnect_on_retry else self.close,
+                connect=None if self.no_reconnect_on_retry else self.connect,
                 logger=LOGGER,
                 nonretriable_conditions=lambda e: str(e) == "Pulsar error: TimeOut",
             )
