@@ -137,7 +137,7 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
             ):
                 pass
         # would be called by Queue one more time
-        assert self._get_close_mock_fn(mock_con).call_count == retries
+        assert self._get_close_mock_fn(mock_con).call_count == 0  # no close for pulsar
 
         # reset for next call
         self._get_close_mock_fn(mock_con).reset_mock()
@@ -155,4 +155,4 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
             ):
                 pass
         # would be called by Queue one more time
-        assert self._get_close_mock_fn(mock_con).call_count == retries
+        assert self._get_close_mock_fn(mock_con).call_count == 0  # no close for pulsar
