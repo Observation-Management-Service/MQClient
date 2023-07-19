@@ -74,14 +74,14 @@ typing-extensions==4.7.1
     # via
     #   qrcode
     #   wipac-dev-tools
-urllib3==2.0.3
+urllib3==2.0.4
     # via requests
 wipac-dev-tools==1.6.16
     # via
     #   oms-mqclient (setup.py)
     #   wipac-keycloak-rest-services
     #   wipac-rest-tools
-wipac-keycloak-rest-services==1.4.8
+wipac-keycloak-rest-services==1.4.9
     # via oms-mqclient (setup.py)
 wipac-rest-tools==1.4.20
     # via
