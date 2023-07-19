@@ -62,6 +62,7 @@ jobs:
         uses: WIPACrepo/wipac-dev-py-setup-action@docker-time
         with:
           base-keywords: "WIPAC IceCube"
+          docker_image: icecube/skymap_scanner
 
   example:
     needs: [py-versions]
