@@ -172,7 +172,10 @@ class PubSubQueue:
         ],
     )
     async def test_011(self, queue_name: str, auth_token: str, num_subs: int) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending)."""
+        """Test one pub, multiple subs, unordered (front-loaded sending).
+
+        Uses `open_sub()`
+        """
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -194,7 +197,9 @@ class PubSubQueue:
 
         for i in range(len(DATA_LIST)):
             async with subs[i % num_subs].open_sub() as gen:
-                all_recvd.extend([_log_recv(m) async for m in gen])
+                received = [_log_recv(m) async for m in gen]
+                assert received
+                all_recvd.extend(received)
 
         assert all_were_received(all_recvd)
 
@@ -204,6 +209,8 @@ class PubSubQueue:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Use the same number of subs as number of messages.
+
+        Uses `open_sub_one()`
         """
         all_recvd: List[Any] = []
 
@@ -237,6 +244,8 @@ class PubSubQueue:
 
         More subs than messages with `open_sub_one()` will raise an
         exception.
+
+        Uses `open_sub_one()`
         """
         all_recvd: List[Any] = []
 
@@ -281,7 +290,10 @@ class PubSubQueue:
     async def test_021__threaded(
         self, queue_name: str, auth_token: str, num_subs: int
     ) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending)."""
+        """Test one pub, multiple subs, unordered (front-loaded sending).
+
+        Uses `open_sub()`
+        """
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -296,6 +308,7 @@ class PubSubQueue:
             sub.timeout = 1
             async with sub.open_sub() as gen:
                 recv_data_list = [m async for m in gen]
+            assert recv_data_list
             return _log_recv_multiple(recv_data_list)
 
         def start_recv_thread(num_id: int) -> Any:
@@ -313,6 +326,8 @@ class PubSubQueue:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Use the same number of subs as number of messages.
+
+        Uses `open_sub_one()`
         """
         all_recvd: List[Any] = []
 
@@ -345,6 +360,8 @@ class PubSubQueue:
 
         More subs than messages with `open_sub_one()` will raise an
         exception.
+
+        Uses `open_sub_one()`
         """
         all_recvd: List[Any] = []
 
@@ -441,6 +458,7 @@ class PubSubQueue:
             sub.timeout = 1
             async with sub.open_sub() as gen:
                 received_data = [m async for m in gen]
+            assert received_data
             all_recvd.extend(_log_recv_multiple(received_data))
 
             assert len(received_data) == 1
