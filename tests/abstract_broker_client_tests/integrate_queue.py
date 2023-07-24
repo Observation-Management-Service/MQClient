@@ -188,15 +188,17 @@ class PubSubQueue:
                 await p.send(data)
                 _log_send(data)
 
-        subs = [
-            Queue(
-                self.broker_client,
-                name=queue_name,
-                auth_token=auth_token,
-                timeout=1,
+        subs = []
+        for _ in range(num_subs):
+            subs.append(
+                Queue(
+                    self.broker_client,
+                    name=queue_name,
+                    auth_token=auth_token,
+                    timeout=1,
+                )
             )
-            for _ in range(num_subs)
-        ]
+            await asyncio.sleep(0.1)
 
         for i, sub in enumerate(subs):
             async with sub.open_sub() as gen:
