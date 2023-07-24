@@ -174,7 +174,7 @@ class PubSubQueue:
             len(DATA_LIST) ** 2,
         ],
     )
-    async def test_011(self, queue_name: str, auth_token: str, num_subs: int) -> None:
+    async def test_020(self, queue_name: str, auth_token: str, num_subs: int) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Uses `open_sub()`
@@ -211,7 +211,55 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_012(self, queue_name: str, auth_token: str) -> None:
+    @pytest.mark.parametrize(
+        "num_subs",
+        [
+            len(DATA_LIST) // 2,
+            len(DATA_LIST),
+            len(DATA_LIST) ** 2,
+        ],
+    )
+    async def test_021__threaded(
+        self, queue_name: str, auth_token: str, num_subs: int
+    ) -> None:
+        """Test one pub, multiple subs, unordered (front-loaded sending).
+
+        Uses `open_sub()`
+        """
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for data in DATA_LIST:
+                await p.send(data)
+                _log_send(data)
+
+        async def recv_thread(i: int) -> List[Any]:
+            sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
+            sub.timeout = 1
+            async with sub.open_sub() as gen:
+                recv_data_list = [m async for m in gen]
+            return _log_recv_multiple(recv_data_list)
+
+        def start_recv_thread(num_id: int) -> Any:
+            return asyncio.run(recv_thread(num_id))
+
+        with ThreadPool(num_subs) as pool:
+            received_data = pool.map(start_recv_thread, range(num_subs))
+
+        non_empty_ct = 0
+        for sublist in received_data:
+            non_empty_ct += 1
+            all_recvd.extend(m for m in sublist)
+        # since threads are mixed, can't test like test_020
+        assert non_empty_ct >= len(DATA_LIST)
+
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
+    async def test_030(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Use the same number of subs as number of messages.
@@ -245,7 +293,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_013(self, queue_name: str, auth_token: str) -> None:
+    async def test_031(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, and too many subs.
 
         More subs than messages with `open_sub_one()` will raise an
@@ -285,53 +333,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    @pytest.mark.parametrize(
-        "num_subs",
-        [
-            len(DATA_LIST) // 2,
-            len(DATA_LIST),
-            len(DATA_LIST) ** 2,
-        ],
-    )
-    async def test_021__threaded(
-        self, queue_name: str, auth_token: str, num_subs: int
-    ) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending).
-
-        Uses `open_sub()`
-        """
-        all_recvd: List[Any] = []
-
-        async with Queue(
-            self.broker_client, name=queue_name, auth_token=auth_token
-        ).open_pub() as p:
-            for data in DATA_LIST:
-                await p.send(data)
-                _log_send(data)
-
-        async def recv_thread(i: int) -> List[Any]:
-            sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
-            sub.timeout = 1
-            async with sub.open_sub() as gen:
-                recv_data_list = [m async for m in gen]
-            if i < len(DATA_LIST):
-                assert recv_data_list
-            else:
-                assert not recv_data_list
-            return _log_recv_multiple(recv_data_list)
-
-        def start_recv_thread(num_id: int) -> Any:
-            return asyncio.run(recv_thread(num_id))
-
-        with ThreadPool(num_subs) as pool:
-            received_data = pool.map(start_recv_thread, range(num_subs))
-        all_recvd.extend(item for sublist in received_data for item in sublist)
-
-        assert all_were_received(all_recvd)
-
-    @pytest.mark.asyncio
-    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_022__threaded(self, queue_name: str, auth_token: str) -> None:
+    async def test_032__threaded(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Use the same number of subs as number of messages.
@@ -364,7 +366,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_023__threaded(self, queue_name: str, auth_token: str) -> None:
+    async def test_033__threaded(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, and too many subs.
 
         More subs than messages with `open_sub_one()` will raise an
@@ -402,7 +404,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_030(self, queue_name: str, auth_token: str) -> None:
+    async def test_060(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, ordered/alternatingly."""
         all_recvd: List[Any] = []
 
@@ -428,7 +430,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_031(self, queue_name: str, auth_token: str) -> None:
+    async def test_061(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
 
@@ -449,7 +451,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_040(self, queue_name: str, auth_token: str) -> None:
+    async def test_080(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, ordered/alternatingly.
 
         Use the same number of pubs as subs.
@@ -477,7 +479,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_041(self, queue_name: str, auth_token: str) -> None:
+    async def test_081(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the same number of pubs as subs.
@@ -501,7 +503,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_042(self, queue_name: str, auth_token: str) -> None:
+    async def test_082(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the more pubs than subs.
@@ -525,7 +527,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_043(self, queue_name: str, auth_token: str) -> None:
+    async def test_083(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the fewer pubs than subs.
@@ -550,7 +552,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_050(self, queue_name: str, auth_token: str) -> None:
+    async def test_090(self, queue_name: str, auth_token: str) -> None:
         """Test_20 with variable prefetching.
 
         One pub, multiple subs.
@@ -580,7 +582,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_051(self, queue_name: str, auth_token: str) -> None:
+    async def test_091(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, with prefetching.
 
         Prefetching should have no visible affect.
