@@ -5,6 +5,8 @@ import pickle
 from enum import Enum, auto
 from typing import Any, AsyncGenerator, Dict, Optional, Union
 
+from .config import MIN_PREFETCH
+
 MessageID = Union[int, str, bytes]
 
 

@@ -17,6 +17,7 @@ from .config import (
     DEFAULT_RETRIES,
     DEFAULT_RETRY_DELAY,
     DEFAULT_TIMEOUT,
+    MIN_PREFETCH,
 )
 
 LOGGER = logging.getLogger("mqclient")
@@ -70,8 +71,8 @@ class Queue:
         self._address = address
         self._name = name if name else Queue.make_name()
 
-        if prefetch < 0:
-            raise ValueError("prefetch must be non-negative")
+        if prefetch < MIN_PREFETCH:
+            raise ValueError(f"prefetch must be >= {MIN_PREFETCH}")
         self._prefetch = prefetch
 
         self._auth_token = auth_token
