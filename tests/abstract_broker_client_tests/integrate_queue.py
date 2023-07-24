@@ -198,10 +198,13 @@ class PubSubQueue:
             for _ in range(num_subs)
         ]
 
-        for i in range(len(DATA_LIST)):
-            async with subs[i % num_subs].open_sub() as gen:
-                received = [_log_recv(m) async for m in gen]
-                assert received
+        for i, sub in enumerate(subs):
+            async with sub.open_sub() as gen:
+                recv_data_list = [_log_recv(m) async for m in gen]
+                if i < len(DATA_LIST):
+                    assert recv_data_list
+                else:
+                    assert not recv_data_list
                 all_recvd.extend(received)
 
         assert all_were_received(all_recvd)
@@ -306,12 +309,15 @@ class PubSubQueue:
                 await p.send(data)
                 _log_send(data)
 
-        async def recv_thread(_: int) -> List[Any]:
+        async def recv_thread(i: int) -> List[Any]:
             sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
             sub.timeout = 1
             async with sub.open_sub() as gen:
                 recv_data_list = [m async for m in gen]
-            assert recv_data_list
+            if i < len(DATA_LIST):
+                assert recv_data_list
+            else:
+                assert not recv_data_list
             return _log_recv_multiple(recv_data_list)
 
         def start_recv_thread(num_id: int) -> Any:
