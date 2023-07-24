@@ -161,7 +161,17 @@ class PubSubQueue:
 
         assert all_were_received(all_recvd)
 
-    async def _test_021(self, queue_name: str, num_subs: int, auth_token: str) -> None:
+    @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
+    @pytest.mark.parametrize(
+        "num_subs",
+        [
+            len(DATA_LIST) // 2,
+            len(DATA_LIST),
+            len(DATA_LIST) ** 2,
+        ],
+    )
+    async def test_021(self, queue_name: str, auth_token: str, num_subs: int) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
 
@@ -187,33 +197,6 @@ class PubSubQueue:
         all_recvd.extend(item for sublist in received_data for item in sublist)
 
         assert all_were_received(all_recvd)
-
-    @pytest.mark.asyncio
-    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_021_fewer(self, queue_name: str, auth_token: str) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending).
-
-        Fewer subs than messages.
-        """
-        await self._test_021(queue_name, len(DATA_LIST) // 2, auth_token)
-
-    @pytest.mark.asyncio
-    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_021_same(self, queue_name: str, auth_token: str) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending).
-
-        Same number of subs as messages.
-        """
-        await self._test_021(queue_name, len(DATA_LIST), auth_token)
-
-    @pytest.mark.asyncio
-    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_021_more(self, queue_name: str, auth_token: str) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending).
-
-        More subs than messages.
-        """
-        await self._test_021(queue_name, len(DATA_LIST) ** 2, auth_token)
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
