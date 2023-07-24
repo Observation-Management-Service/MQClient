@@ -205,7 +205,7 @@ class PubSubQueue:
                     assert recv_data_list
                 else:
                     assert not recv_data_list
-                all_recvd.extend(received)
+                all_recvd.extend(recv_data_list)
 
         assert all_were_received(all_recvd)
 
