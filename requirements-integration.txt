@@ -4,7 +4,7 @@
 #
 #    pip-compile --extra=integration --output-file=requirements-integration.txt
 #
-aio-pika==9.1.4
+aio-pika==9.1.5
     # via wipac-keycloak-rest-services
 aiormq==6.7.6
     # via aio-pika
@@ -12,7 +12,7 @@ anyio==3.7.1
     # via httpcore
 cachetools==5.3.1
     # via wipac-rest-tools
-certifi==2023.5.7
+certifi==2023.7.22
     # via
     #   httpcore
     #   requests
@@ -81,7 +81,7 @@ wipac-dev-tools==1.6.16
     #   oms-mqclient (setup.py)
     #   wipac-keycloak-rest-services
     #   wipac-rest-tools
-wipac-keycloak-rest-services==1.4.10
+wipac-keycloak-rest-services==1.4.13
     # via oms-mqclient (setup.py)
 wipac-rest-tools==1.4.20
     # via
