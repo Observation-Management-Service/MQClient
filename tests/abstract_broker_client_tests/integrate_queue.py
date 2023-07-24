@@ -248,12 +248,15 @@ class PubSubQueue:
         with ThreadPool(num_subs) as pool:
             received_data = pool.map(start_recv_thread, range(num_subs))
 
-        non_empty_ct = 0
+        n_subs_that_got_msgs = 0
         for sublist in received_data:
-            non_empty_ct += 1
+            n_subs_that_got_msgs += 1
             all_recvd.extend(m for m in sublist)
         # since threads are mixed, can't test like test_020
-        assert non_empty_ct >= len(DATA_LIST)
+        if num_subs < len(DATA_LIST):
+            assert n_subs_that_got_msgs == num_subs
+        else:
+            assert n_subs_that_got_msgs == len(DATA_LIST)
 
         assert all_were_received(all_recvd)
 
