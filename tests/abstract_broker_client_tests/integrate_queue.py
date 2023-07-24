@@ -256,6 +256,7 @@ class PubSubQueue:
         if num_subs < len(DATA_LIST):
             assert n_subs_that_got_msgs == num_subs
         else:
+            logging.debug(f"{n_subs_that_got_msgs=}")
             assert n_subs_that_got_msgs == len(DATA_LIST)
 
         assert all_were_received(all_recvd)
