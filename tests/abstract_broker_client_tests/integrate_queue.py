@@ -236,7 +236,7 @@ class PubSubQueue:
 
         for sub in subs:
             async with sub.open_sub_one() as m:
-                all_recvd.extend(_log_recv(m))
+                all_recvd.append(_log_recv(m))
 
         assert all_were_received(all_recvd)
 
@@ -273,10 +273,10 @@ class PubSubQueue:
             if i == len(DATA_LIST):
                 with pytest.raises(EmptyQueueException):
                     async with sub.open_sub_one() as m:
-                        all_recvd.extend(_log_recv(m))
+                        all_recvd.append(_log_recv(m))
             else:
                 async with sub.open_sub_one() as m:
-                    all_recvd.extend(_log_recv(m))
+                    all_recvd.append(_log_recv(m))
 
         assert all_were_received(all_recvd)
 
