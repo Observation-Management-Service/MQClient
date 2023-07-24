@@ -142,9 +142,15 @@ class RabbitMQPub(RabbitMQ, Pub):
         Pub
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        LOGGER.debug(f"{log_msgs.INIT_PUB} ({args}; {kwargs})")
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        address: str,
+        name: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
+    ) -> None:
+        LOGGER.debug(f"{log_msgs.INIT_PUB} ({address}; {name})")
+        super().__init__(address, name, auth_token, ack_timeout)
 
     async def connect(self) -> None:
         """Set up connection, channel, and queue.
@@ -226,9 +232,16 @@ class RabbitMQSub(RabbitMQ, Sub):
         Sub
     """
 
-    def __init__(self, *args: Any, prefetch: int, **kwargs: Any) -> None:
-        LOGGER.debug(f"{log_msgs.INIT_SUB} ({args}; {kwargs})")
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        address: str,
+        name: str,
+        auth_token: str,
+        ack_timeout: Optional[int],
+        prefetch: int,
+    ) -> None:
+        LOGGER.debug(f"{log_msgs.INIT_SUB} ({address}; {name})")
+        super().__init__(address, name, auth_token, ack_timeout)
         self.consumer_id = None
         self._prefetch = prefetch  # see `Sub.prefetch` property
 
