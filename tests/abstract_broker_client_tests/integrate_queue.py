@@ -171,7 +171,9 @@ class PubSubQueue:
             len(DATA_LIST) ** 2,
         ],
     )
-    async def test_020(self, queue_name: str, auth_token: str, num_subs: int) -> None:
+    async def test_021__threaded(
+        self, queue_name: str, auth_token: str, num_subs: int
+    ) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
 
@@ -200,7 +202,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_021(self, queue_name: str, auth_token: str) -> None:
+    async def test_022__threaded(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Use the same number of subs as number of messages.
@@ -231,7 +233,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_022(self, queue_name: str, auth_token: str) -> None:
+    async def test_023__threaded(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, and too many subs.
 
         More subs than messages with `open_sub_one()` will raise an
