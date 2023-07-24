@@ -43,6 +43,9 @@ def fail_first_try(attempt: int) -> None:
 #
 
 
+PREFETCH_TEST_VALUES = [None, 1, 2, len(DATA_LIST), 50]
+
+
 class PubSubQueue:
     """Integration test suite for Queue objects."""
 
@@ -764,7 +767,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
+    @pytest.mark.parametrize("sub_queue_prefetch", PREFETCH_TEST_VALUES)
     async def test_200__ideal(
         self,
         queue_name: str,
@@ -807,7 +810,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
+    @pytest.mark.parametrize("sub_queue_prefetch", PREFETCH_TEST_VALUES)
     async def test_202__delayed_mixed_acking_nacking(
         self,
         queue_name: str,
@@ -869,7 +872,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
+    @pytest.mark.parametrize("sub_queue_prefetch", PREFETCH_TEST_VALUES)
     async def test_204__post_ack(
         self,
         queue_name: str,
