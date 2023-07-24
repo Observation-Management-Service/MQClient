@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import asyncstdlib as asl
 import pytest
-from mqclient.queue import Queue
+from mqclient.queue import EmptyQueueException, Queue
 
 from .utils import (
     DATA_LIST,
@@ -171,6 +171,113 @@ class PubSubQueue:
             len(DATA_LIST) ** 2,
         ],
     )
+    async def test_011(self, queue_name: str, auth_token: str, num_subs: int) -> None:
+        """Test one pub, multiple subs, unordered (front-loaded sending)."""
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for data in DATA_LIST:
+                await p.send(data)
+                _log_send(data)
+
+        subs = [
+            Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+                timeout=1,
+            )
+            for _ in range(num_subs)
+        ]
+
+        for i in range(len(DATA_LIST)):
+            async with subs[i % num_subs].open_sub() as gen:
+                all_recvd.extend([_log_recv(m) async for m in gen])
+
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
+    async def test_012(self, queue_name: str, auth_token: str) -> None:
+        """Test one pub, multiple subs, unordered (front-loaded sending).
+
+        Use the same number of subs as number of messages.
+        """
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for data in DATA_LIST:
+                await p.send(data)
+                _log_send(data)
+
+        subs = [
+            Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+                timeout=1,
+            )
+            for _ in range(len(DATA_LIST))
+        ]
+
+        for sub in subs:
+            async with sub.open_sub_one() as m:
+                all_recvd.extend(_log_recv(m))
+
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
+    async def test_013(self, queue_name: str, auth_token: str) -> None:
+        """Failure-test one pub, and too many subs.
+
+        More subs than messages with `open_sub_one()` will raise an
+        exception.
+        """
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for data in DATA_LIST:
+                await p.send(data)
+                _log_send(data)
+
+        subs = [
+            Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+                timeout=1,
+            )
+            for _ in range(len(DATA_LIST) + 1)
+        ]
+
+        for i, sub in enumerate(subs):
+            if i == len(DATA_LIST):
+                with pytest.raises(EmptyQueueException):
+                    async with sub.open_sub_one() as m:
+                        all_recvd.extend(_log_recv(m))
+            else:
+                async with sub.open_sub_one() as m:
+                    all_recvd.extend(_log_recv(m))
+
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
+    @pytest.mark.parametrize(
+        "num_subs",
+        [
+            len(DATA_LIST) // 2,
+            len(DATA_LIST),
+            len(DATA_LIST) ** 2,
+        ],
+    )
     async def test_021__threaded(
         self, queue_name: str, auth_token: str, num_subs: int
     ) -> None:
@@ -262,7 +369,7 @@ class PubSubQueue:
             all_recvd = pool.map(start_recv_thread, range(len(DATA_LIST)))
 
         # Extra Sub
-        with pytest.raises(Exception):
+        with pytest.raises(EmptyQueueException):
             await recv_thread(-1)
 
         assert all_were_received(all_recvd)
