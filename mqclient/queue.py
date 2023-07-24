@@ -44,7 +44,7 @@ class Queue:
         broker_client: the broker_client to use
         address: address of queue
         name: name of queue
-        prefetch: size of prefetch buffer for receiving messages
+        prefetch: size of prefetch buffer for receiving messages (min 1)
         timeout: seconds to wait for a message to be delivered
         ack_timeout: max time (seconds) to acknowledge a message
                      before broker considers it lost (and re-queues)
