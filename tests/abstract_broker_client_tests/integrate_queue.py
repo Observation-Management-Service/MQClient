@@ -250,8 +250,9 @@ class PubSubQueue:
 
         n_subs_that_got_msgs = 0
         for sublist in received_data:
-            n_subs_that_got_msgs += 1
-            all_recvd.extend(m for m in sublist)
+            if sublist:
+                n_subs_that_got_msgs += 1
+                all_recvd.extend(sublist)
         # since threads are mixed, can't test like test_020
         if num_subs < len(DATA_LIST):
             assert n_subs_that_got_msgs == num_subs
