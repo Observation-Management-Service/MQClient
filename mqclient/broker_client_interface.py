@@ -144,7 +144,7 @@ class Sub(RawQueue):
         """Get prefetch."""
         return self._prefetch
 
-    @property.setter
+    @prefetch.setter
     def prefetch(self, val: int) -> None:
         """Set prefetch."""
         if val < MIN_PREFETCH:
