@@ -243,7 +243,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         LOGGER.debug(f"{log_msgs.INIT_SUB} ({address}; {name})")
         super().__init__(address, name, auth_token, ack_timeout)
         self.consumer_id = None
-        self._prefetch = prefetch  # see `Sub.prefetch` property
+        self.prefetch = prefetch
 
     async def connect(self) -> None:
         """Set up connection, channel, and queue.
