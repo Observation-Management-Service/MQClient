@@ -4,7 +4,7 @@
 #
 #    pip-compile --extra=integration --output-file=dependencies-integration.log
 #
-aio-pika==9.1.4
+aio-pika==9.1.5
     # via wipac-keycloak-rest-services
 aiormq==6.7.6
     # via aio-pika
@@ -79,7 +79,7 @@ wipac-dev-tools==1.6.16
     #   oms-mqclient (setup.py)
     #   wipac-keycloak-rest-services
     #   wipac-rest-tools
-wipac-keycloak-rest-services==1.4.10
+wipac-keycloak-rest-services==1.4.16
     # via oms-mqclient (setup.py)
 wipac-rest-tools==1.4.20
     # via
