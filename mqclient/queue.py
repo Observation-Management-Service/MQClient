@@ -17,6 +17,7 @@ from .config import (
     DEFAULT_RETRIES,
     DEFAULT_RETRY_DELAY,
     DEFAULT_TIMEOUT,
+    MIN_PREFETCH,
 )
 
 LOGGER = logging.getLogger("mqclient")
@@ -43,7 +44,7 @@ class Queue:
         broker_client: the broker_client to use
         address: address of queue
         name: name of queue
-        prefetch: size of prefetch buffer for receiving messages
+        prefetch: size of prefetch buffer for receiving messages (min 1)
         timeout: seconds to wait for a message to be delivered
         ack_timeout: max time (seconds) to acknowledge a message
                      before broker considers it lost (and re-queues)
@@ -70,8 +71,8 @@ class Queue:
         self._address = address
         self._name = name if name else Queue.make_name()
 
-        if prefetch < 0:
-            raise ValueError("prefetch must be non-negative")
+        if prefetch < MIN_PREFETCH:
+            raise ValueError(f"prefetch must be >= {MIN_PREFETCH}")
         self._prefetch = prefetch
 
         self._auth_token = auth_token

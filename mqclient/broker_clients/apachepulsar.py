@@ -179,7 +179,7 @@ class PulsarSub(Pulsar, Sub):
         super().__init__(address, topic, auth_token, ack_timeout)
         self.consumer: pulsar.Consumer = None
         self.subscription_name = subscription_name
-        self._prefetch = prefetch  # see `Sub.prefetch` property
+        self.prefetch = prefetch
 
     async def connect(self) -> None:
         """Connect to subscriber."""

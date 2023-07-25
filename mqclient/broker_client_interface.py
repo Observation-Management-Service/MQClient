@@ -5,6 +5,8 @@ import pickle
 from enum import Enum, auto
 from typing import Any, AsyncGenerator, Dict, Optional, Union
 
+from .config import MIN_PREFETCH
+
 MessageID = Union[int, str, bytes]
 
 
@@ -140,7 +142,14 @@ class Sub(RawQueue):
     @property
     def prefetch(self) -> int:
         """Get prefetch."""
-        return self._prefetch  # type: ignore[attr-defined, no-any-return]
+        return self._prefetch
+
+    @prefetch.setter
+    def prefetch(self, val: int) -> None:
+        """Set prefetch."""
+        if val < MIN_PREFETCH:
+            raise ValueError(f"prefetch must be >= {MIN_PREFETCH}")
+        self._prefetch = val
 
     @staticmethod
     def _to_message(*args: Any) -> Optional[Message]:

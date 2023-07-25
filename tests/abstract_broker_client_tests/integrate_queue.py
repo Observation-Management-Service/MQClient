@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import asyncstdlib as asl
 import pytest
-from mqclient.queue import Queue
+from mqclient.queue import EmptyQueueException, Queue
 
 from .utils import (
     DATA_LIST,
@@ -43,6 +43,9 @@ def fail_first_try(attempt: int) -> None:
 #
 
 
+PREFETCH_TEST_VALUES = [None, 1, 2, len(DATA_LIST), 50]
+
+
 class PubSubQueue:
     """Integration test suite for Queue objects."""
 
@@ -57,7 +60,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_010(self, queue_name: str, auth_token: str) -> None:
+    async def test_000(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, one sub."""
         all_recvd: List[Any] = []
 
@@ -86,7 +89,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_011(self, queue_name: str, auth_token: str) -> None:
+    async def test_001(self, queue_name: str, auth_token: str) -> None:
         """Test an individual pub and an individual sub."""
         all_recvd: List[Any] = []
 
@@ -116,7 +119,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_012(self, queue_name: str, auth_token: str) -> None:
+    async def test_002(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, two subs (one subscribed to wrong queue)."""
         all_recvd: List[Any] = []
 
@@ -141,7 +144,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_020(self, queue_name: str, auth_token: str) -> None:
+    async def test_010(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, ordered/alternatingly."""
         all_recvd: List[Any] = []
 
@@ -161,8 +164,21 @@ class PubSubQueue:
 
         assert all_were_received(all_recvd)
 
-    async def _test_021(self, queue_name: str, num_subs: int, auth_token: str) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending)."""
+    @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
+    @pytest.mark.parametrize(
+        "num_subs",
+        [
+            len(DATA_LIST) // 2,
+            len(DATA_LIST),
+            len(DATA_LIST) ** 2,
+        ],
+    )
+    async def test_020(self, queue_name: str, auth_token: str, num_subs: int) -> None:
+        """Test one pub, multiple subs, unordered (front-loaded sending).
+
+        Uses `open_sub()`
+        """
         all_recvd: List[Any] = []
 
         async with Queue(
@@ -172,7 +188,56 @@ class PubSubQueue:
                 await p.send(data)
                 _log_send(data)
 
-        async def recv_thread(_: int) -> List[Any]:
+        subs = []
+        for _ in range(num_subs):
+            subs.append(
+                Queue(
+                    self.broker_client,
+                    name=queue_name,
+                    auth_token=auth_token,
+                    timeout=1,
+                )
+            )
+            await asyncio.sleep(0.1)
+
+        for i, sub in enumerate(subs):
+            async with sub.open_sub() as gen:
+                recv_data_list = [_log_recv(m) async for m in gen]
+                if i < len(DATA_LIST):
+                    assert recv_data_list
+                else:
+                    assert not recv_data_list
+                all_recvd.extend(recv_data_list)
+
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
+    @pytest.mark.parametrize(
+        "num_subs",
+        [
+            len(DATA_LIST) // 2,
+            len(DATA_LIST),
+            len(DATA_LIST) ** 2,
+        ],
+    )
+    async def test_021__threaded(
+        self, queue_name: str, auth_token: str, num_subs: int
+    ) -> None:
+        """Test one pub, multiple subs, unordered (front-loaded sending).
+
+        Uses `open_sub()`
+        """
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for data in DATA_LIST:
+                await p.send(data)
+                _log_send(data)
+
+        async def recv_thread(i: int) -> List[Any]:
             sub = Queue(self.broker_client, name=queue_name, auth_token=auth_token)
             sub.timeout = 1
             async with sub.open_sub() as gen:
@@ -184,43 +249,103 @@ class PubSubQueue:
 
         with ThreadPool(num_subs) as pool:
             received_data = pool.map(start_recv_thread, range(num_subs))
-        all_recvd.extend(item for sublist in received_data for item in sublist)
+
+        n_subs_that_got_msgs = 0
+        for sublist in received_data:
+            if sublist:
+                n_subs_that_got_msgs += 1
+                all_recvd.extend(sublist)
+        # since threads are mixed, can't test like test_020
+        if num_subs < len(DATA_LIST):
+            assert n_subs_that_got_msgs == num_subs
+        else:
+            logging.debug(f"{n_subs_that_got_msgs=}")
+            assert n_subs_that_got_msgs == len(DATA_LIST)
 
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_021_fewer(self, queue_name: str, auth_token: str) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending).
-
-        Fewer subs than messages.
-        """
-        await self._test_021(queue_name, len(DATA_LIST) // 2, auth_token)
-
-    @pytest.mark.asyncio
-    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_021_same(self, queue_name: str, auth_token: str) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending).
-
-        Same number of subs as messages.
-        """
-        await self._test_021(queue_name, len(DATA_LIST), auth_token)
-
-    @pytest.mark.asyncio
-    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_021_more(self, queue_name: str, auth_token: str) -> None:
-        """Test one pub, multiple subs, unordered (front-loaded sending).
-
-        More subs than messages.
-        """
-        await self._test_021(queue_name, len(DATA_LIST) ** 2, auth_token)
-
-    @pytest.mark.asyncio
-    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_022(self, queue_name: str, auth_token: str) -> None:
+    async def test_030(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, unordered (front-loaded sending).
 
         Use the same number of subs as number of messages.
+
+        Uses `open_sub_one()`
+        """
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for data in DATA_LIST:
+                await p.send(data)
+                _log_send(data)
+
+        subs = [
+            Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+                timeout=1,
+            )
+            for _ in range(len(DATA_LIST))
+        ]
+
+        for sub in subs:
+            async with sub.open_sub_one() as m:
+                all_recvd.append(_log_recv(m))
+
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
+    async def test_031(self, queue_name: str, auth_token: str) -> None:
+        """Failure-test one pub, and too many subs.
+
+        More subs than messages with `open_sub_one()` will raise an
+        exception.
+
+        Uses `open_sub_one()`
+        """
+        all_recvd: List[Any] = []
+
+        async with Queue(
+            self.broker_client, name=queue_name, auth_token=auth_token
+        ).open_pub() as p:
+            for data in DATA_LIST:
+                await p.send(data)
+                _log_send(data)
+
+        subs = [
+            Queue(
+                self.broker_client,
+                name=queue_name,
+                auth_token=auth_token,
+                timeout=1,
+            )
+            for _ in range(len(DATA_LIST) + 1)
+        ]
+
+        for i, sub in enumerate(subs):
+            if i == len(DATA_LIST):
+                with pytest.raises(EmptyQueueException):
+                    async with sub.open_sub_one() as m:
+                        all_recvd.append(_log_recv(m))
+            else:
+                async with sub.open_sub_one() as m:
+                    all_recvd.append(_log_recv(m))
+
+        assert all_were_received(all_recvd)
+
+    @pytest.mark.asyncio
+    @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
+    async def test_032__threaded(self, queue_name: str, auth_token: str) -> None:
+        """Test one pub, multiple subs, unordered (front-loaded sending).
+
+        Use the same number of subs as number of messages.
+
+        Uses `open_sub_one()`
         """
         all_recvd: List[Any] = []
 
@@ -248,11 +373,13 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_023(self, queue_name: str, auth_token: str) -> None:
+    async def test_033__threaded(self, queue_name: str, auth_token: str) -> None:
         """Failure-test one pub, and too many subs.
 
         More subs than messages with `open_sub_one()` will raise an
         exception.
+
+        Uses `open_sub_one()`
         """
         all_recvd: List[Any] = []
 
@@ -277,14 +404,14 @@ class PubSubQueue:
             all_recvd = pool.map(start_recv_thread, range(len(DATA_LIST)))
 
         # Extra Sub
-        with pytest.raises(Exception):
+        with pytest.raises(EmptyQueueException):
             await recv_thread(-1)
 
         assert all_were_received(all_recvd)
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_030(self, queue_name: str, auth_token: str) -> None:
+    async def test_060(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, ordered/alternatingly."""
         all_recvd: List[Any] = []
 
@@ -310,7 +437,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_031(self, queue_name: str, auth_token: str) -> None:
+    async def test_061(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, one sub, unordered (front-loaded sending)."""
         all_recvd: List[Any] = []
 
@@ -331,7 +458,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_040(self, queue_name: str, auth_token: str) -> None:
+    async def test_080(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, ordered/alternatingly.
 
         Use the same number of pubs as subs.
@@ -349,6 +476,7 @@ class PubSubQueue:
             sub.timeout = 1
             async with sub.open_sub() as gen:
                 received_data = [m async for m in gen]
+            assert received_data
             all_recvd.extend(_log_recv_multiple(received_data))
 
             assert len(received_data) == 1
@@ -358,7 +486,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_041(self, queue_name: str, auth_token: str) -> None:
+    async def test_081(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the same number of pubs as subs.
@@ -382,7 +510,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_042(self, queue_name: str, auth_token: str) -> None:
+    async def test_082(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the more pubs than subs.
@@ -406,7 +534,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_043(self, queue_name: str, auth_token: str) -> None:
+    async def test_083(self, queue_name: str, auth_token: str) -> None:
         """Test multiple pubs, multiple subs, unordered (front-loaded sending).
 
         Use the fewer pubs than subs.
@@ -431,7 +559,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_050(self, queue_name: str, auth_token: str) -> None:
+    async def test_090(self, queue_name: str, auth_token: str) -> None:
         """Test_20 with variable prefetching.
 
         One pub, multiple subs.
@@ -461,7 +589,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    async def test_051(self, queue_name: str, auth_token: str) -> None:
+    async def test_091(self, queue_name: str, auth_token: str) -> None:
         """Test one pub, multiple subs, with prefetching.
 
         Prefetching should have no visible affect.
@@ -654,7 +782,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
+    @pytest.mark.parametrize("sub_queue_prefetch", PREFETCH_TEST_VALUES)
     async def test_200__ideal(
         self,
         queue_name: str,
@@ -697,7 +825,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
+    @pytest.mark.parametrize("sub_queue_prefetch", PREFETCH_TEST_VALUES)
     async def test_202__delayed_mixed_acking_nacking(
         self,
         queue_name: str,
@@ -759,7 +887,7 @@ class PubSubQueue:
 
     @pytest.mark.asyncio
     @patch(CI_TEST_RETRY_TRIGGER, new=fail_first_try)
-    @pytest.mark.parametrize("sub_queue_prefetch", [None, 0, 1, 2, 50])
+    @pytest.mark.parametrize("sub_queue_prefetch", PREFETCH_TEST_VALUES)
     async def test_204__post_ack(
         self,
         queue_name: str,
