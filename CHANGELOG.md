@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.3.4 (2023-07-25)
+
+### Other
+
+* Bump `wipac-dev-py-setup-action` & `wipac-dev-mypy-action` ([#105](https://github.com/Observation-Management-Service/MQClient/issues/105)) ([`1e28c48`](https://github.com/Observation-Management-Service/MQClient/commit/1e28c48a00e0cce0680d2ec8c572cd335e400c0b))
+
 ## v2.3.3 (2023-07-25)
 
 ### Other
