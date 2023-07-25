@@ -104,3 +104,6 @@ venv.bak/
 .mypy_cache/
 
 tokens/
+
+# wipac-dev-py-setup-action
+!dependencies*.log
