@@ -4,7 +4,7 @@
 #
 #    pip-compile --extra=nats --output-file=requirements-nats.txt
 #
-certifi==2023.5.7
+certifi==2023.7.22
     # via requests
 charset-normalizer==3.2.0
     # via requests
@@ -20,7 +20,7 @@ requests==2.31.0
     # via wipac-dev-tools
 typing-extensions==4.7.1
     # via wipac-dev-tools
-urllib3==2.0.3
+urllib3==2.0.4
     # via requests
 wipac-dev-tools==1.6.16
     # via oms-mqclient (setup.py)
