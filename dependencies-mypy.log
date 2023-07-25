@@ -39,6 +39,8 @@ dnspython==2.4.0
     # via pymongo
 ed25519==1.5
     # via nkeys
+execnet==2.0.2
+    # via pytest-xdist
 googleapis-common-protos==1.56.2
     # via
     #   opentelemetry-exporter-jaeger-proto-grpc
@@ -135,9 +137,12 @@ pytest==7.4.0
     #   oms-mqclient (setup.py)
     #   pytest-asyncio
     #   pytest-mock
+    #   pytest-xdist
 pytest-asyncio==0.21.1
     # via oms-mqclient (setup.py)
 pytest-mock==3.11.1
+    # via oms-mqclient (setup.py)
+pytest-xdist==3.3.1
     # via oms-mqclient (setup.py)
 qrcode==7.4.2
     # via wipac-rest-tools
