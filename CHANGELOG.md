@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.3.3 (2023-07-25)
+
+### Other
+
+* RabbitMQ Prefetch Redux ([#106](https://github.com/Observation-Management-Service/MQClient/issues/106)) ([`e0cb207`](https://github.com/Observation-Management-Service/MQClient/commit/e0cb207ff2219cc4ecb9205500295d4a9a6491b2))
+
 ## v2.3.2 (2023-07-17)
 
 ### Other
