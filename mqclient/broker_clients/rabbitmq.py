@@ -95,7 +95,11 @@ class RabbitMQ(RawQueue):
         resp = requests.get(
             f"http://{cp_args['host']}"
             f"{(':'+cp_args['port']) if 'port' in cp_args else ''}"
-            f"/api/vhosts"
+            f"/api/vhosts",
+            auth=requests.auth.HTTPBasicAuth(
+                creds.username if creds else "guest",
+                creds.password if creds else "guest",
+            ),
         )
         # auth
         print(resp)
