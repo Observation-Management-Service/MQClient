@@ -3,6 +3,7 @@
 import asyncio
 import functools
 import logging
+import os
 from typing import AsyncGenerator, Optional
 
 import pulsar  # type: ignore
@@ -33,7 +34,6 @@ class Pulsar(RawQueue):
         address: str,
         topic: str,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> None:
         """Set address, topic, and client.
 
@@ -52,7 +52,6 @@ class Pulsar(RawQueue):
         self.client: pulsar.Client = None
         self.auth = pulsar.AuthenticationToken(auth_token) if auth_token else None
         self._auth_token = auth_token
-        self.ack_timeout = ack_timeout
 
     async def connect(self) -> None:
         """Set up client."""
@@ -86,10 +85,9 @@ class PulsarPub(Pulsar, Pub):
         address: str,
         topic: str,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_PUB} ({address}; {topic})")
-        super().__init__(address, topic, auth_token, ack_timeout)
+        super().__init__(address, topic, auth_token)
         self.producer: pulsar.Producer = None
 
     async def connect(self) -> None:
@@ -104,7 +102,6 @@ class PulsarPub(Pulsar, Pub):
             self.topic,
             BrokerClient.SUBSCRIPTION_NAME,
             self._auth_token,
-            self.ack_timeout,
             prefetch=1,
         )
         await inner_sub.connect()
@@ -172,11 +169,10 @@ class PulsarSub(Pulsar, Sub):
         topic: str,
         subscription_name: str,
         auth_token: str,
-        ack_timeout: Optional[int],
         prefetch: int,
     ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_SUB} ({address}; {topic})")
-        super().__init__(address, topic, auth_token, ack_timeout)
+        super().__init__(address, topic, auth_token)
         self.consumer: pulsar.Consumer = None
         self.subscription_name = subscription_name
         self.prefetch = prefetch
@@ -186,16 +182,19 @@ class PulsarSub(Pulsar, Sub):
         LOGGER.debug(log_msgs.CONNECTING_SUB)
         await super().connect()
 
+        try:
+            ack_timeout = int(os.environ["PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC"])
+            if ack_timeout < 10:
+                ack_timeout = None
+        except:  # noqa: E722
+            ack_timeout = None
+
         self.consumer = self.client.subscribe(
             self.topic,
             self.subscription_name,
             # Neither receive with timeout nor partitioned topics can be used if the consumer queue size is zero.
             receiver_queue_size=max(self.prefetch, 1),
-            unacked_messages_timeout_ms=(
-                self.ack_timeout * 1000
-                if self.ack_timeout and self.ack_timeout > 10
-                else None
-            ),
+            unacked_messages_timeout_ms=ack_timeout,
             consumer_type=pulsar.ConsumerType.Shared,
             initial_position=pulsar.InitialPosition.Earliest,
             negative_ack_redelivery_delay_ms=0,
@@ -419,14 +418,12 @@ class BrokerClient(broker_client_interface.BrokerClient):
         address: str,
         name: str,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> PulsarPub:
         """Create a publishing queue."""
         q = PulsarPub(  # pylint: disable=invalid-name
             address,
             name,
             auth_token,
-            ack_timeout,
         )
         await q.connect()
         return q
@@ -437,7 +434,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
         name: str,
         prefetch: int,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> PulsarSub:
         """Create a subscription queue."""
         q = PulsarSub(  # pylint: disable=invalid-name
@@ -445,7 +441,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
             name,
             BrokerClient.SUBSCRIPTION_NAME,
             auth_token,
-            ack_timeout,
             prefetch,
         )
         await q.connect()

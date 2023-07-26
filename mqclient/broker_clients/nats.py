@@ -415,17 +415,11 @@ class BrokerClient(broker_client_interface.BrokerClient):
         address: str,
         name: str,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> NATSPub:
         """Create a publishing queue.
 
         # NOTE - `auth_token` is not used currently
         """
-
-        if ack_timeout is not None:
-            LOGGER.warning(
-                f"NATS broker client does not use 'ack_timeout' ({ack_timeout})"
-            )
         if auth_token:
             LOGGER.warning("NATS broker client does not use 'auth_token'")
 
@@ -443,17 +437,11 @@ class BrokerClient(broker_client_interface.BrokerClient):
         name: str,
         prefetch: int,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> NATSSub:
         """Create a subscription queue.
 
         # NOTE - `auth_token` is not used currently
         """
-
-        if ack_timeout is not None:
-            LOGGER.warning(
-                f"NATS broker client does not use 'ack_timeout' ({ack_timeout})"
-            )
         if auth_token:
             LOGGER.warning("NATS broker client does not use 'auth_token'")
 
