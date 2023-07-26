@@ -93,7 +93,7 @@ class RabbitMQ(RawQueue):
 
         # TODO: get broker's consumer_timeout & confirm with ack_timeout
         resp = requests.get(
-            f"http://{cp_args['host']}:15672/api/global-parameters/consumer_timeout",
+            f"http://{cp_args['host']}:15672/api/global-parameters/%2F/consumer_timeout",
             auth=requests.auth.HTTPBasicAuth(
                 creds.username if creds else "guest",
                 creds.password if creds else "guest",
