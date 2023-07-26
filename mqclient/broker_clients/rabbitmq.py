@@ -6,7 +6,6 @@ import urllib
 from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Tuple, Union
 
 import pika  # type: ignore
-import requests
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
