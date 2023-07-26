@@ -98,7 +98,7 @@ class RabbitMQ(RawQueue):
                 creds.username if creds else "guest",
                 creds.password if creds else "guest",
             ),
-        )
+        ).json()
         # auth
         print(resp)
         LOGGER.info(f"{resp=}")
