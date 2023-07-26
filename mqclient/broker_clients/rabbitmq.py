@@ -92,7 +92,11 @@ class RabbitMQ(RawQueue):
             cp_args["credentials"] = creds
 
         # TODO: get broker's consumer_timeout & confirm with ack_timeout
-        resp = requests.get(f"http://{cp_args['host']}:{cp_args['port']}/api/vhosts")
+        resp = requests.get(
+            f"http://{cp_args['host']}"
+            f"{(':'+cp_args['port']) if 'port' in cp_args else ''}"
+            f"/api/vhosts"
+        )
         # auth
         print(resp)
         LOGGER.info(f"{resp=}")
