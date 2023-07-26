@@ -510,6 +510,13 @@ class BrokerClient(broker_client_interface.BrokerClient):
             RawQueue: queue
         """
         # pylint: disable=invalid-name
+
+        if ack_timeout is not None:
+            LOGGER.warning(
+                f"RabbitMQ broker client does not use 'ack_timeout' ({ack_timeout}) "
+                "-- this is set on the broker server ('consumer_timeout')"
+            )
+
         q = RabbitMQPub(address, name, auth_token)
         await q.connect()
         return q
@@ -532,6 +539,13 @@ class BrokerClient(broker_client_interface.BrokerClient):
             RawQueue: queue
         """
         # pylint: disable=invalid-name
+
+        if ack_timeout is not None:
+            LOGGER.warning(
+                f"RabbitMQ broker client does not use 'ack_timeout' ({ack_timeout}) "
+                "-- this is set on the broker server ('consumer_timeout')"
+            )
+
         q = RabbitMQSub(address, name, auth_token, prefetch)
         await q.connect()
         return q

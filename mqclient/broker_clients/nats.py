@@ -421,6 +421,14 @@ class BrokerClient(broker_client_interface.BrokerClient):
 
         # NOTE - `auth_token` is not used currently
         """
+
+        if ack_timeout is not None:
+            LOGGER.warning(
+                f"NATS broker client does not use 'ack_timeout' ({ack_timeout})"
+            )
+        if auth_token:
+            LOGGER.warning("NATS broker client does not use 'auth_token'")
+
         q = NATSPub(  # pylint: disable=invalid-name
             address,
             name + "-stream",
@@ -441,6 +449,14 @@ class BrokerClient(broker_client_interface.BrokerClient):
 
         # NOTE - `auth_token` is not used currently
         """
+
+        if ack_timeout is not None:
+            LOGGER.warning(
+                f"NATS broker client does not use 'ack_timeout' ({ack_timeout})"
+            )
+        if auth_token:
+            LOGGER.warning("NATS broker client does not use 'auth_token'")
+
         q = NATSSub(  # pylint: disable=invalid-name
             address,
             name + "-stream",
