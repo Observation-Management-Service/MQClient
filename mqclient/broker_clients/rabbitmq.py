@@ -6,6 +6,7 @@ import urllib
 from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Tuple, Union
 
 import pika  # type: ignore
+import requests
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
@@ -91,6 +92,10 @@ class RabbitMQ(RawQueue):
             cp_args["credentials"] = creds
 
         # TODO: get broker's consumer_timeout & confirm with ack_timeout
+        resp = requests.get(f"http://{cp_args['host']}:{cp_args['port']}/api/vhosts")
+        # auth
+        print(resp)
+        LOGGER.info(f"{resp=}")
 
         self.parameters = pika.connection.ConnectionParameters(**cp_args)
 
