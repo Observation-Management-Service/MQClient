@@ -182,6 +182,7 @@ class PulsarSub(Pulsar, Sub):
         LOGGER.debug(log_msgs.CONNECTING_SUB)
         await super().connect()
 
+        ack_timeout: Optional[int]  # for mypy
         try:
             ack_timeout = int(os.environ["PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC"])
             if ack_timeout < 10:
