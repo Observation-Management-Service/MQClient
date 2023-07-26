@@ -89,8 +89,9 @@ class RabbitMQ(RawQueue):
         # set up connection parameters
         if creds := _get_credentials(username, password, auth_token):
             cp_args["credentials"] = creds
-        if ack_timeout:
-            cp_args["heartbeat"] = ack_timeout
+
+        # TODO: get broker's consumer_timeout & confirm with ack_timeout
+
         self.parameters = pika.connection.ConnectionParameters(**cp_args)
 
         self.queue = queue
