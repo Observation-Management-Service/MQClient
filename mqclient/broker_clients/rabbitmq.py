@@ -85,10 +85,10 @@ class RabbitMQ(RawQueue):
     ) -> None:
         super().__init__()
         LOGGER.info(f"Requested MQClient for queue '{queue}' @ {address}")
-        cp_args, username, password = _parse_url(address)
+        cp_args, _user, _pass = _parse_url(address)
 
         # set up connection parameters
-        if creds := _get_credentials(username, password, auth_token):
+        if creds := _get_credentials(_user, _pass, auth_token):
             cp_args["credentials"] = creds
 
         # TODO: get broker's consumer_timeout & confirm with ack_timeout
