@@ -213,7 +213,6 @@ class BrokerClient:
         address: str,
         name: str,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> Pub:
         """Create a publishing queue."""
         raise NotImplementedError()
@@ -224,7 +223,6 @@ class BrokerClient:
         name: str,
         prefetch: int,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> Sub:
         """Create a subscription queue."""
         raise NotImplementedError()

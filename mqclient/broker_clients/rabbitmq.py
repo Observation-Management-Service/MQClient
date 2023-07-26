@@ -80,17 +80,15 @@ class RabbitMQ(RawQueue):
         address: str,
         queue: str,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> None:
         super().__init__()
         LOGGER.info(f"Requested MQClient for queue '{queue}' @ {address}")
-        cp_args, username, password = _parse_url(address)
+        cp_args, _user, _pass = _parse_url(address)
 
         # set up connection parameters
-        if creds := _get_credentials(username, password, auth_token):
+        if creds := _get_credentials(_user, _pass, auth_token):
             cp_args["credentials"] = creds
-        if ack_timeout:
-            cp_args["heartbeat"] = ack_timeout
+
         self.parameters = pika.connection.ConnectionParameters(**cp_args)
 
         self.queue = queue
@@ -147,10 +145,9 @@ class RabbitMQPub(RabbitMQ, Pub):
         address: str,
         name: str,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_PUB} ({address}; {name})")
-        super().__init__(address, name, auth_token, ack_timeout)
+        super().__init__(address, name, auth_token)
 
     async def connect(self) -> None:
         """Set up connection, channel, and queue.
@@ -237,11 +234,10 @@ class RabbitMQSub(RabbitMQ, Sub):
         address: str,
         name: str,
         auth_token: str,
-        ack_timeout: Optional[int],
         prefetch: int,
     ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_SUB} ({address}; {name})")
-        super().__init__(address, name, auth_token, ack_timeout)
+        super().__init__(address, name, auth_token)
         self.consumer_id = None
         self.prefetch = prefetch
 
@@ -501,7 +497,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
         address: str,
         name: str,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> RabbitMQPub:
         """Create a publishing queue.
 
@@ -513,7 +508,7 @@ class BrokerClient(broker_client_interface.BrokerClient):
             RawQueue: queue
         """
         # pylint: disable=invalid-name
-        q = RabbitMQPub(address, name, auth_token, ack_timeout)
+        q = RabbitMQPub(address, name, auth_token)
         await q.connect()
         return q
 
@@ -523,7 +518,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
         name: str,
         prefetch: int,
         auth_token: str,
-        ack_timeout: Optional[int],
     ) -> RabbitMQSub:
         """Create a subscription queue.
 
@@ -535,6 +529,6 @@ class BrokerClient(broker_client_interface.BrokerClient):
             RawQueue: queue
         """
         # pylint: disable=invalid-name
-        q = RabbitMQSub(address, name, auth_token, ack_timeout, prefetch=prefetch)
+        q = RabbitMQSub(address, name, auth_token, prefetch)
         await q.connect()
         return q

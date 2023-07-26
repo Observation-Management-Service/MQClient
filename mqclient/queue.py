@@ -24,7 +24,7 @@ LOGGER = logging.getLogger("mqclient")
 
 
 # deprecation check
-for envvar in ["RABBITMQ_HEARTBEAT", "PULSAR_UNACKED_MESSAGES_TIMEOUT_SEC"]:
+for envvar in ["RABBITMQ_HEARTBEAT"]:
     if os.getenv(envvar):
         raise RuntimeError(f"Environment variable {envvar} has been deprecated.")
 
@@ -46,8 +46,6 @@ class Queue:
         name: name of queue
         prefetch: size of prefetch buffer for receiving messages (min 1)
         timeout: seconds to wait for a message to be delivered
-        ack_timeout: max time (seconds) to acknowledge a message
-                     before broker considers it lost (and re-queues)
         except_errors: whether to suppress interior context errors for
                         the consumer (when `True`, the context manager
                         will act like a `try-except` block)
@@ -61,7 +59,6 @@ class Queue:
         name: str = "",
         prefetch: int = DEFAULT_PREFETCH,
         timeout: int = DEFAULT_TIMEOUT,
-        ack_timeout: Optional[int] = None,
         retry_delay: float = DEFAULT_RETRY_DELAY,  # seconds
         retries: int = DEFAULT_RETRIES,  # ex: 2 means 1 initial try and 2 retries
         except_errors: bool = DEFAULT_EXCEPT_ERRORS,
@@ -76,10 +73,6 @@ class Queue:
         self._prefetch = prefetch
 
         self._auth_token = auth_token
-
-        if ack_timeout is not None and ack_timeout <= 0:
-            raise ValueError("timeout must be positive")
-        self._ack_timeout = ack_timeout
 
         # properties
         self._timeout = -1
@@ -143,7 +136,6 @@ class Queue:
             self._address,
             self._name,
             self._auth_token,
-            self._ack_timeout,
         )
 
     async def _create_sub_queue(self, prefetch_override: Optional[int] = None) -> Sub:
@@ -155,7 +147,6 @@ class Queue:
             # 0 is okay
             prefetch_override if prefetch_override is not None else self._prefetch,
             self._auth_token,
-            self._ack_timeout,
         )
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
