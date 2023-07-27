@@ -23,6 +23,10 @@ StrDict = Dict[str, Any]
 
 LOGGER = logging.getLogger("mqclient.rabbitmq")
 
+HEARTBEAT_STREAMLOSTERROR_MSG = (
+    "pika.exceptions.StreamLostError: may be due to a missed heartbeat"
+)
+
 
 HUMAN_PATTERN = "[SCHEME://][USER[:PASS]@]HOST[:PORT][/VIRTUAL_HOST]"
 
@@ -199,26 +203,30 @@ class RabbitMQPub(RabbitMQ, Pub):
                 body=msg,
             )
 
-        await utils.auto_retry_call(
-            func=_send_msg,
-            nonretriable_conditions=lambda e: isinstance(
-                e, pika.exceptions.AMQPChannelError
-            ),
-            retries=retries,
-            retry_delay=retry_delay,
-            close=(
-                None
-                if self.connection_can_have_multiple_unacked_messages
-                else self.close
-            ),
-            connect=(
-                None
-                if self.connection_can_have_multiple_unacked_messages
-                else self.connect
-            ),
-            logger=LOGGER,
-        )
-        LOGGER.debug(log_msgs.SENT_MESSAGE)
+        try:
+            await utils.auto_retry_call(
+                func=_send_msg,
+                nonretriable_conditions=lambda e: isinstance(
+                    e,
+                    (pika.exceptions.AMQPChannelError, pika.exceptions.StreamLostError),
+                ),
+                retries=retries,
+                retry_delay=retry_delay,
+                close=(
+                    None
+                    if self.connection_can_have_multiple_unacked_messages
+                    else self.close
+                ),
+                connect=(
+                    None
+                    if self.connection_can_have_multiple_unacked_messages
+                    else self.connect
+                ),
+                logger=LOGGER,
+            )
+            LOGGER.debug(log_msgs.SENT_MESSAGE)
+        except pika.exceptions.StreamLostError as e:
+            raise RuntimeError(HEARTBEAT_STREAMLOSTERROR_MSG) from e
 
 
 class RabbitMQSub(RabbitMQ, Sub):
@@ -318,7 +326,12 @@ class RabbitMQSub(RabbitMQ, Sub):
                 pika_msg = await utils.auto_retry_call(
                     func=_get_msg,
                     nonretriable_conditions=lambda e: isinstance(
-                        e, (pika.exceptions.AMQPChannelError, StopIteration)
+                        e,
+                        (
+                            pika.exceptions.AMQPChannelError,
+                            pika.exceptions.StreamLostError,
+                            StopIteration,
+                        ),
                     ),
                     retries=retries,
                     retry_delay=retry_delay,
@@ -337,6 +350,8 @@ class RabbitMQSub(RabbitMQ, Sub):
             except StopIteration:
                 LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                 return
+            except pika.exceptions.StreamLostError as e:
+                raise RuntimeError(HEARTBEAT_STREAMLOSTERROR_MSG) from e
             if msg := RabbitMQSub._to_message(pika_msg[0], pika_msg[2]):  # type: ignore[index]
                 LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
                 yield msg
@@ -379,21 +394,25 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        await utils.auto_retry_call(
-            func=functools.partial(
-                self.channel.basic_ack,
-                msg.msg_id,
-            ),
-            connect=None,
-            close=None,
-            nonretriable_conditions=lambda e: isinstance(
-                e, pika.exceptions.AMQPChannelError
-            ),
-            retries=retries,
-            retry_delay=retry_delay,
-            logger=LOGGER,
-        )
-        LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
+        try:
+            await utils.auto_retry_call(
+                func=functools.partial(
+                    self.channel.basic_ack,
+                    msg.msg_id,
+                ),
+                connect=None,
+                close=None,
+                nonretriable_conditions=lambda e: isinstance(
+                    e,
+                    (pika.exceptions.AMQPChannelError, pika.exceptions.StreamLostError),
+                ),
+                retries=retries,
+                retry_delay=retry_delay,
+                logger=LOGGER,
+            )
+            LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
+        except pika.exceptions.StreamLostError as e:
+            raise RuntimeError(HEARTBEAT_STREAMLOSTERROR_MSG) from e
 
     async def reject_message(
         self,
@@ -410,21 +429,25 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channel:
             raise RuntimeError("queue is not connected")
 
-        await utils.auto_retry_call(
-            func=functools.partial(
-                self.channel.basic_nack,
-                msg.msg_id,
-            ),
-            close=None,
-            connect=None,
-            nonretriable_conditions=lambda e: isinstance(
-                e, pika.exceptions.AMQPChannelError
-            ),
-            retries=retries,
-            retry_delay=retry_delay,
-            logger=LOGGER,
-        )
-        LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
+        try:
+            await utils.auto_retry_call(
+                func=functools.partial(
+                    self.channel.basic_nack,
+                    msg.msg_id,
+                ),
+                close=None,
+                connect=None,
+                nonretriable_conditions=lambda e: isinstance(
+                    e,
+                    (pika.exceptions.AMQPChannelError, pika.exceptions.StreamLostError),
+                ),
+                retries=retries,
+                retry_delay=retry_delay,
+                logger=LOGGER,
+            )
+            LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
+        except pika.exceptions.StreamLostError as e:
+            raise RuntimeError(HEARTBEAT_STREAMLOSTERROR_MSG) from e
 
     async def message_generator(
         self,
