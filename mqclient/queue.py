@@ -10,7 +10,14 @@ from typing import Any, AsyncGenerator, AsyncIterator, Dict, List, Optional, Typ
 
 from . import broker_client_manager
 from . import telemetry as wtt
-from .broker_client_interface import AckException, Message, NackException, Pub, Sub
+from .broker_client_interface import (
+    AckException,
+    Message,
+    MQClientException,
+    NackException,
+    Pub,
+    Sub,
+)
 from .config import (
     DEFAULT_EXCEPT_ERRORS,
     DEFAULT_PREFETCH,
@@ -26,7 +33,7 @@ LOGGER = logging.getLogger("mqclient")
 # deprecation check
 for envvar in ["RABBITMQ_HEARTBEAT"]:
     if os.getenv(envvar):
-        raise RuntimeError(f"Environment variable {envvar} has been deprecated.")
+        raise MQClientException(f"Environment variable {envvar} has been deprecated.")
 
 
 def _message_size_message(msg: Message) -> str:
@@ -214,7 +221,7 @@ class Queue:
             # needless, so we'll skip it
             LOGGER.debug(f"Attempted to ack an already-acked message: {msg}")
         else:
-            raise RuntimeError(f"Unrecognized AckStatus value: {msg}")
+            raise MQClientException(f"Unrecognized AckStatus value: {msg}")
 
     @wtt.spanned(
         these=[
@@ -247,7 +254,7 @@ class Queue:
                 f"Message has already been acked, it cannot be nacked: {msg}"
             )
         else:
-            raise RuntimeError(f"Unrecognized AckStatus value: {msg}")
+            raise MQClientException(f"Unrecognized AckStatus value: {msg}")
 
     def open_sub(self) -> "QueueSubResource":
         """Open a resource to receive messages from the queue as an iterator.
@@ -479,7 +486,7 @@ class ManualQueueSubResource:
         if not subs:
             raise ValueError("message cannot be mapped to a sub")
         elif len(subs) != 1:
-            raise RuntimeError("message found in more than one sub")
+            raise MQClientException("message found in more than one sub")
         else:
             return subs[0]
 
@@ -537,7 +544,9 @@ class QueueSubResource:
         LOGGER.debug("[QueueSubResource.__aenter__()] entered `with-as` block")
 
         if self._sub and self._gen:
-            raise RuntimeError("A 'QueueSubResource' instance cannot be re-entered.")
+            raise MQClientException(
+                "A 'QueueSubResource' instance cannot be re-entered."
+            )
 
         self._sub = await self.queue._create_sub_queue()
         self._gen = self._sub.message_generator(
@@ -575,7 +584,7 @@ class QueueSubResource:
             f"[QueueSubResource.__aexit__()] exiting `with-as` block (exc:{exc_type})"
         )
         if not (self._sub and self._gen):
-            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+            raise MQClientException(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         reraise_exception = False
 
@@ -617,7 +626,7 @@ class QueueSubResource:
         """
         LOGGER.debug("[QueueSubResource.__aiter__()] entered loop/`aiter()`")
         if not (self._sub and self._gen):
-            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+            raise MQClientException(self.RUNTIME_ERROR_CONTEXT_STRING)
         return self
 
     @wtt.spanned(
@@ -634,7 +643,7 @@ class QueueSubResource:
         """Return next Message in queue."""
         LOGGER.debug("[QueueSubResource.__anext__()] next iteration...")
         if not (self._sub and self._gen):
-            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+            raise MQClientException(self.RUNTIME_ERROR_CONTEXT_STRING)
 
         # ack the previous message before getting a new one (unless it was already nacked)
         if self.msg and self.msg._ack_status != Message.AckStatus.NACKED:
@@ -658,7 +667,7 @@ class QueueSubResource:
             raise
 
         if not self.msg:
-            raise RuntimeError(
+            raise MQClientException(
                 "Yielded value is `None`. This should not have happened."
             )
 
@@ -677,7 +686,7 @@ class QueueSubResource:
     async def nack_current(self) -> None:
         """Manually nack the current (most recently yielded) message."""
         if not (self._sub and self._gen):
-            raise RuntimeError(self.RUNTIME_ERROR_CONTEXT_STRING)
+            raise MQClientException(self.RUNTIME_ERROR_CONTEXT_STRING)
         if not self.msg:  # case: calling after iterator stopped (unusual but possible)
             return
         # pylint:disable=protected-access

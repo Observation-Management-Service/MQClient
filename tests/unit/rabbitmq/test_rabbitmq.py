@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pika  # type: ignore[import]
 import pytest
 from mqclient import broker_client_manager
-from mqclient.broker_client_interface import Message
+from mqclient.broker_client_interface import Message, MQClientException
 from mqclient.broker_clients.rabbitmq import HUMAN_PATTERN, _get_credentials, _parse_url
 from mqclient.config import (
     DEFAULT_RETRIES,
@@ -217,7 +217,7 @@ class TestUnitRabbitMQHelpers:
         assert _get_credentials("username", None, "auth_token") == cred
 
         # Error: no password for user
-        with pytest.raises(RuntimeError):
+        with pytest.raises(MQClientException):
             _get_credentials("username", None, "")
 
         # Case 2: Only password/token -- Ex: keycloak

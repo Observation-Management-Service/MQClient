@@ -6,6 +6,8 @@ import inspect
 import logging
 from typing import Awaitable, Callable, Optional, TypeVar, Union
 
+from ..broker_client_interface import MQClientException
+
 T = TypeVar("T")  # the callable/awaitable return type
 
 
@@ -35,17 +37,21 @@ async def auto_retry_call(
             else:
                 return ret  # type: ignore[return-value]
         except Exception as e:
+            logger.error(f"Broker client action failed with {type(e).__name__}")
             logger.exception(e)
             if nonretriable_conditions and nonretriable_conditions(e):
+                logger.error(
+                    f"Broker client action failure ({type(e).__name__}) is not retriable"
+                )
                 raise
             elif i == retries:
-                logger.info(
-                    f"[auto_retry_call()] {type(e)}. Reached max retries. Raising..."
+                logger.error(
+                    f"Broker client action failure ({type(e).__name__}) was final try -- raising..."
                 )
                 raise
             else:
-                logger.info(
-                    f"[auto_retry_call()] {type(e)}. Trying again. (attempt #{i+2})..."
+                logger.warning(
+                    f"Broker client action failure ({type(e).__name__}) is retriable -- trying again (attempt #{i+2})..."
                 )
 
         # close, wait, reconnect
@@ -59,4 +65,4 @@ async def auto_retry_call(
             await connect()
 
     # fall through -- this should not be reached in any situation
-    raise RuntimeError("unknown error in auto_retry_call()")
+    raise MQClientException("unknown error in auto_retry_call()")

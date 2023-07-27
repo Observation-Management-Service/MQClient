@@ -6,7 +6,12 @@ from typing import Any, AsyncGenerator
 from unittest.mock import call, patch, sentinel
 
 import pytest
-from mqclient.broker_client_interface import AckException, Message, NackException
+from mqclient.broker_client_interface import (
+    AckException,
+    Message,
+    MQClientException,
+    NackException,
+)
 from mqclient.config import DEFAULT_RETRIES, DEFAULT_RETRY_DELAY
 from mqclient.queue import EmptyQueueException, Queue
 
@@ -63,7 +68,7 @@ async def test_open_sub() -> None:
         recv_data = [d async for d in stream]
         assert data == recv_data
         if not stream._sub:
-            raise RuntimeError("_sub not instantiated")
+            raise MQClientException("_sub not instantiated")
         stream._sub.ack_message.assert_has_calls(  # type: ignore[attr-defined]
             [call(Message(i, Message.serialize(d))) for i, d in enumerate(recv_data)]
         )
@@ -229,7 +234,7 @@ async def test_nack_current() -> None:
     async with q.open_sub() as stream:
         i = 0
         if not stream._sub:
-            raise RuntimeError("_sub not instantiated")
+            raise MQClientException("_sub not instantiated")
         # manual nacking won't actually place the message for redelivery b/c of mocking
         async for _ in stream:
             if i == 0:  # nack it

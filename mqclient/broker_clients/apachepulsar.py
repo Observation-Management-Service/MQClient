@@ -13,6 +13,7 @@ from ..broker_client_interface import (
     AlreadyClosedException,
     ClosingFailedException,
     Message,
+    MQClientException,
     Pub,
     RawQueue,
     Sub,
@@ -127,12 +128,12 @@ class PulsarPub(Pulsar, Pub):
         """Send a message on a queue."""
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
         if not self.producer:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         def _send_msg():
             # use wrapper function so connection references can be updated by reconnects
             if not self.producer:
-                raise RuntimeError("queue is not connected")
+                raise MQClientException("queue is not connected")
             return self.producer.send(msg)
 
         await utils.auto_retry_call(
@@ -242,12 +243,12 @@ class PulsarSub(Pulsar, Sub):
         """
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         if not self.consumer:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         def _get_msg():
             # use wrapper function so connection references can be updated by reconnects
             if not self.consumer:
-                raise RuntimeError("queue is not connected")
+                raise MQClientException("queue is not connected")
             return self.consumer.receive(timeout_millis=timeout_millis)
 
         try:
@@ -291,7 +292,7 @@ class PulsarSub(Pulsar, Sub):
         """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
         if not self.consumer:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         if isinstance(msg.msg_id, bytes):
             pulsar_msg = pulsar.MessageId.deserialize(msg.msg_id)
@@ -321,7 +322,7 @@ class PulsarSub(Pulsar, Sub):
         """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
         if not self.consumer:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         if isinstance(msg.msg_id, bytes):
             pulsar_msg = pulsar.MessageId.deserialize(msg.msg_id)
@@ -360,7 +361,7 @@ class PulsarSub(Pulsar, Sub):
         """
         LOGGER.debug(log_msgs.MSGGEN_ENTERED)
         if not self.consumer:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         msg = None
         try:
