@@ -13,6 +13,7 @@ from ..broker_client_interface import (
     ClosingFailedException,
     ConnectingFailedException,
     Message,
+    MQClientException,
     Pub,
     RawQueue,
     Sub,
@@ -47,7 +48,7 @@ def _parse_url(url: str) -> Tuple[StrDict, Optional[str], Optional[str]]:
 
     # check validity
     if not parts or "host" not in parts:
-        raise RuntimeError(f"Invalid address: {url} (format: {HUMAN_PATTERN})")
+        raise MQClientException(f"Invalid address: {url} (format: {HUMAN_PATTERN})")
 
     return parts, result.username, result.password
 
@@ -66,7 +67,7 @@ def _get_credentials(
         return pika.credentials.PlainCredentials("", password)
     # Error: no password for user
     elif username and (not password):
-        raise RuntimeError("username given but no password or token")
+        raise MQClientException("username given but no password or token")
     # Case 3: no auth -- rabbitmq uses guest/guest
     else:  # not username and not password
         return None
@@ -191,12 +192,12 @@ class RabbitMQPub(RabbitMQ, Pub):
         """
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
         if not self.channel:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         def _send_msg():
             # use wrapper function so connection references can be updated by reconnects
             if not self.channel:
-                raise RuntimeError("queue is not connected")
+                raise MQClientException("queue is not connected")
             return self.channel.basic_publish(
                 exchange="",
                 routing_key=self.queue,
@@ -226,7 +227,7 @@ class RabbitMQPub(RabbitMQ, Pub):
             )
             LOGGER.debug(log_msgs.SENT_MESSAGE)
         except pika.exceptions.StreamLostError as e:
-            raise RuntimeError(HEARTBEAT_STREAMLOSTERROR_MSG) from e
+            raise MQClientException(HEARTBEAT_STREAMLOSTERROR_MSG) from e
 
 
 class RabbitMQSub(RabbitMQ, Sub):
@@ -305,12 +306,12 @@ class RabbitMQSub(RabbitMQ, Sub):
         retry_delay: float,
     ) -> AsyncIterator[Optional[Message]]:
         if not self.channel:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         def _get_msg():
             # use wrapper function so connection references can be updated by reconnects
             if not self.channel:
-                raise RuntimeError("queue is not connected")
+                raise MQClientException("queue is not connected")
             return next(
                 # pika smartly handles re-invocations
                 self.channel.consume(
@@ -351,7 +352,7 @@ class RabbitMQSub(RabbitMQ, Sub):
                 LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
                 return
             except pika.exceptions.StreamLostError as e:
-                raise RuntimeError(HEARTBEAT_STREAMLOSTERROR_MSG) from e
+                raise MQClientException(HEARTBEAT_STREAMLOSTERROR_MSG) from e
             if msg := RabbitMQSub._to_message(pika_msg[0], pika_msg[2]):  # type: ignore[index]
                 LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
                 yield msg
@@ -368,7 +369,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         """Get a message from a queue."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         if not self.channel:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         msg = None
         async for msg in self._iter_messages(timeout_millis, retries, retry_delay):
@@ -392,7 +393,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         """
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
         if not self.channel:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         try:
             await utils.auto_retry_call(
@@ -412,7 +413,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             )
             LOGGER.debug(f"{log_msgs.ACKED_MESSAGE} ({msg.msg_id!r}).")
         except pika.exceptions.StreamLostError as e:
-            raise RuntimeError(HEARTBEAT_STREAMLOSTERROR_MSG) from e
+            raise MQClientException(HEARTBEAT_STREAMLOSTERROR_MSG) from e
 
     async def reject_message(
         self,
@@ -427,7 +428,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         """
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
         if not self.channel:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         try:
             await utils.auto_retry_call(
@@ -447,7 +448,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             )
             LOGGER.debug(f"{log_msgs.NACKED_MESSAGE} ({msg.msg_id!r}).")
         except pika.exceptions.StreamLostError as e:
-            raise RuntimeError(HEARTBEAT_STREAMLOSTERROR_MSG) from e
+            raise MQClientException(HEARTBEAT_STREAMLOSTERROR_MSG) from e
 
     async def message_generator(
         self,
@@ -467,7 +468,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         """
         LOGGER.debug(log_msgs.MSGGEN_ENTERED)
         if not self.channel:
-            raise RuntimeError("queue is not connected")
+            raise MQClientException("queue is not connected")
 
         msg = None
         try:

@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import asyncstdlib as asl
 import pytest
+from mqclient.broker_client_interface import MQClientException
 from mqclient.queue import EmptyQueueException, Queue
 
 from .utils import (
@@ -737,7 +738,7 @@ class PubSubQueue:
         logging.warning("Round 2!")
 
         # continue where we left off
-        with pytest.raises(RuntimeError):
+        with pytest.raises(MQClientException):
             async with recv_gen as gen:
                 assert 0  # we should never get here
 
@@ -1121,8 +1122,8 @@ class PubSubQueue:
         logging.warning("Round 2!")
 
         # continue where we left off
-        with pytest.raises((AttributeError, RuntimeError)):
+        with pytest.raises((AttributeError, MQClientException)):
             # AttributeError: '_AsyncGeneratorContextManager' object has no attribute 'args'
-            # RuntimeError: generator didn't yield
+            # MQClientException: generator didn't yield
             async with recv_gen as gen:
                 assert 0  # we should never get here

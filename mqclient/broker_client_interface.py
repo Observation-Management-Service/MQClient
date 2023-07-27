@@ -10,11 +10,15 @@ from .config import MIN_PREFETCH
 MessageID = Union[int, str, bytes]
 
 
-class ConnectingFailedException(Exception):
+class MQClientException(Exception):
+    """Any exception for an error originating here."""
+
+
+class ConnectingFailedException(MQClientException):
     """Raised when a `connect()` fails."""
 
 
-class ClosingFailedException(Exception):
+class ClosingFailedException(MQClientException):
     """Raised when a `close()` fails."""
 
 
@@ -22,11 +26,11 @@ class AlreadyClosedException(ClosingFailedException):
     """Raised when a `close()` fails on an already closed interface."""
 
 
-class AckException(Exception):
+class AckException(MQClientException):
     """Raised when there's a problem with acking."""
 
 
-class NackException(Exception):
+class NackException(MQClientException):
     """Raised when there's a problem with nacking."""
 
 

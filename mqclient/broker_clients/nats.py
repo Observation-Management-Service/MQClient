@@ -11,6 +11,7 @@ from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
     ClosingFailedException,
     Message,
+    MQClientException,
     Pub,
     RawQueue,
     Sub,
@@ -106,12 +107,12 @@ class NATSPub(NATS, Pub):
         """Send a message (publish)."""
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
         if not self.js:
-            raise RuntimeError("JetStream is not connected")
+            raise MQClientException("JetStream is not connected")
 
         async def _send_msg():
             # use wrapper function so connection references can be updated by reconnects
             if not self.js:
-                raise RuntimeError("JetStream is not connected")
+                raise MQClientException("JetStream is not connected")
             return await self.js.publish(self.subject, msg)
 
         ack: nats.js.api.PubAck = await utils.auto_retry_call(
@@ -152,7 +153,7 @@ class NATSSub(NATS, Sub):
         LOGGER.debug(log_msgs.CONNECTING_SUB)
         await super().connect()
         if not self.js:
-            raise RuntimeError("JetStream is not connected.")
+            raise MQClientException("JetStream is not connected.")
 
         self._subscription = await self.js.pull_subscribe(self.subject, "psub")
         LOGGER.debug(log_msgs.CONNECTED_SUB)
@@ -178,7 +179,7 @@ class NATSSub(NATS, Sub):
         Assumes the message came from this NATSSub instance.
         """
         if not self._nats_client:
-            raise RuntimeError("Client is not connected")
+            raise MQClientException("Client is not connected")
 
         return nats.aio.msg.Msg(
             _client=self._nats_client,
@@ -201,7 +202,7 @@ class NATSSub(NATS, Sub):
         number of messages pulled may be smaller than `num_messages`.
         """
         if not self._subscription:
-            raise RuntimeError("Subscriber is not connected")
+            raise MQClientException("Subscriber is not connected")
 
         if not timeout_millis:
             timeout_millis = DEFAULT_TIMEOUT_MILLIS
@@ -209,7 +210,7 @@ class NATSSub(NATS, Sub):
         async def _get_msg():
             # use wrapper function so connection references can be updated by reconnects
             if not self._subscription:
-                raise RuntimeError("Subscriber is not connected")
+                raise MQClientException("Subscriber is not connected")
             return await self._subscription.fetch(
                 batch=num_messages,
                 timeout=int(math.ceil(timeout_millis / 1000)),
@@ -249,7 +250,7 @@ class NATSSub(NATS, Sub):
         """Get a message."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
         if not self._subscription:
-            raise RuntimeError("Subscriber is not connected.")
+            raise MQClientException("Subscriber is not connected.")
 
         try:
             msg = (
@@ -273,7 +274,7 @@ class NATSSub(NATS, Sub):
     ) -> AsyncGenerator[Message, None]:
         """Continuously generate messages until there are no more."""
         if not self._subscription:
-            raise RuntimeError("Subscriber is not connected.")
+            raise MQClientException("Subscriber is not connected.")
 
         while True:
             msgs = await self._get_messages(
@@ -296,7 +297,7 @@ class NATSSub(NATS, Sub):
         """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
         if not self._subscription:
-            raise RuntimeError("subscriber is not connected")
+            raise MQClientException("subscriber is not connected")
 
         async def _ack_msg():
             # use wrapper function so connection references can be updated by reconnects
@@ -323,7 +324,7 @@ class NATSSub(NATS, Sub):
         """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
         if not self._subscription:
-            raise RuntimeError("subscriber is not connected")
+            raise MQClientException("subscriber is not connected")
 
         async def _nack_msg():
             # use wrapper function so connection references can be updated by reconnects
@@ -358,7 +359,7 @@ class NATSSub(NATS, Sub):
         """
         LOGGER.debug(log_msgs.MSGGEN_ENTERED)
         if not self._subscription:
-            raise RuntimeError("subscriber is not connected")
+            raise MQClientException("subscriber is not connected")
 
         msg = None
         try:

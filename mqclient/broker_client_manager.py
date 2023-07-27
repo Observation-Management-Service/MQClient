@@ -3,7 +3,7 @@
 from types import ModuleType
 from typing import Dict, Optional
 
-from .broker_client_interface import BrokerClient
+from .broker_client_interface import BrokerClient, MQClientException
 
 # Import all the broker clients at package import, so any bindings can be built/compiled
 # fmt: off
@@ -34,10 +34,10 @@ def get_broker_client(broker_client_name: str) -> BrokerClient:
     try:
         module = _INSTALLED_BROKERS[broker_client_name]
     except KeyError:
-        raise RuntimeError(f"Unknown broker client: {broker_client_name}")
+        raise MQClientException(f"Unknown broker client: {broker_client_name}")
 
     if not module:
-        raise RuntimeError(
+        raise MQClientException(
             f"Install the '{broker_client_name.lower()}' extra "
             f"if you want to use the '{broker_client_name}' broker client"
         )

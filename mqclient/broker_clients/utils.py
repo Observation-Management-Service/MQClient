@@ -6,6 +6,8 @@ import inspect
 import logging
 from typing import Awaitable, Callable, Optional, TypeVar, Union
 
+from ..broker_client_interface import MQClientException
+
 T = TypeVar("T")  # the callable/awaitable return type
 
 
@@ -63,4 +65,4 @@ async def auto_retry_call(
             await connect()
 
     # fall through -- this should not be reached in any situation
-    raise RuntimeError("unknown error in auto_retry_call()")
+    raise MQClientException("unknown error in auto_retry_call()")
