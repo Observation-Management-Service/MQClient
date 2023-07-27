@@ -1122,8 +1122,8 @@ class PubSubQueue:
         logging.warning("Round 2!")
 
         # continue where we left off
-        with pytest.raises((AttributeError, MQClientException)):
+        with pytest.raises((AttributeError, RuntimeError)):
             # AttributeError: '_AsyncGeneratorContextManager' object has no attribute 'args'
-            # MQClientException: generator didn't yield
+            # RuntimeError: generator didn't yield
             async with recv_gen as gen:
                 assert 0  # we should never get here
