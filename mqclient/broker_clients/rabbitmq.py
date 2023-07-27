@@ -9,7 +9,6 @@ import pika  # type: ignore
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    AlreadyClosedException,
     ClosingFailedException,
     ConnectingFailedException,
     Message,
@@ -125,7 +124,8 @@ class RabbitMQ(RawQueue):
         if not self.connection:
             raise ClosingFailedException("No connection to close.")
         if self.connection.is_closed:
-            raise AlreadyClosedException()
+            LOGGER.warning("Attempted to close a connection that is already closed")
+            return
 
         try:
             # self.channel.cancel() -- done by self.connection.close()

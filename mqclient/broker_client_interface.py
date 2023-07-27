@@ -22,10 +22,6 @@ class ClosingFailedException(MQClientException):
     """Raised when a `close()` fails."""
 
 
-class AlreadyClosedException(ClosingFailedException):
-    """Raised when a `close()` fails on an already closed interface."""
-
-
 class AckException(MQClientException):
     """Raised when there's a problem with acking."""
 
