@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.2 (2023-07-27)
+
+### Other
+
+* Okay to Close an Already Closed Connection ([#109](https://github.com/Observation-Management-Service/MQClient/issues/109)) ([`70c99a2`](https://github.com/Observation-Management-Service/MQClient/commit/70c99a229dfb36b8c9cca40803863b4350c10f2c))
+
 ## v2.4.1 (2023-07-27)
 
 ### Other
