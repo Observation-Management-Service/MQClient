@@ -10,7 +10,6 @@ import pulsar  # type: ignore
 
 from .. import broker_client_interface, log_msgs
 from ..broker_client_interface import (
-    AlreadyClosedException,
     ClosingFailedException,
     Message,
     MQClientException,
@@ -69,7 +68,8 @@ class Pulsar(RawQueue):
         except Exception as e:
             # https://github.com/apache/pulsar/issues/3127
             if str(e) == "Pulsar error: AlreadyClosed":
-                raise AlreadyClosedException(str(e)) from e
+                LOGGER.warning("Attempted to close a connection that is already closed")
+                return
             raise ClosingFailedException(str(e)) from e
 
 
