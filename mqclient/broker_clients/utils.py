@@ -37,8 +37,7 @@ async def auto_retry_call(
             else:
                 return ret  # type: ignore[return-value]
         except Exception as e:
-            logger.error(f"Broker client action failed with {type(e).__name__}")
-            logger.exception(e)
+            logger.error(f"Broker client action failed with {repr(e)}")
             if nonretriable_conditions and nonretriable_conditions(e):
                 logger.error(
                     f"Broker client action failure ({type(e).__name__}) is not retriable"
