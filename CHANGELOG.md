@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.3 (2023-07-28)
+
+### Other
+
+* Exception Handling Patches Pt-2 ([`43e7d58`](https://github.com/Observation-Management-Service/MQClient/commit/43e7d580be8cd29815bd6ed83a824543b4fb429a))
+
 ## v2.4.2 (2023-07-27)
 
 ### Other
