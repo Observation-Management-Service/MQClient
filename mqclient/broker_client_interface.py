@@ -2,6 +2,7 @@
 
 
 import pickle
+import uuid
 from enum import Enum, auto
 from typing import Any, AsyncGenerator, Dict, Optional, Union
 
@@ -58,6 +59,9 @@ class Message:
 
         self._data = None
         self._headers = None
+
+        # set for special purposes since msg_id is not unique on redelivery
+        self.uuid = int(uuid.uuid4())
 
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""

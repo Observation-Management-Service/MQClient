@@ -459,7 +459,7 @@ class ManualQueueSubResource:
         while True:
             for sub in self._subs:
                 if raw_msg := await self._get(sub):  # got message from sub -> done
-                    self._subs[sub].append(id(raw_msg))
+                    self._subs[sub].append(raw_msg.uuid)
                     break
             else:  # no sub gave a message (didn't break) -> try w/ new sub
                 LOGGER.debug("no sub got a message -- trying w/ new sub")
@@ -473,7 +473,7 @@ class ManualQueueSubResource:
                 LOGGER.debug(
                     f"new sub got a message -- now using {len(self._subs)} subs"
                 )
-                self._subs[newb] = [id(raw_msg)]
+                self._subs[newb] = [raw_msg.uuid]
 
             LOGGER.debug(
                 f"{len(self._subs)} subs: {[len(msgs) for msgs in self._subs.values()]}"
@@ -491,7 +491,7 @@ class ManualQueueSubResource:
         )
 
     def _get_sub(self, msg: Message) -> Sub:
-        subs = [s for s, addrs in self._subs.items() if id(msg) in addrs]
+        subs = [s for s, addrs in self._subs.items() if msg.uuid in addrs]
         if not subs:
             raise ValueError("message cannot be mapped to a sub")
         elif len(subs) != 1:
