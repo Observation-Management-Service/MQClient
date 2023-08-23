@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.4 (2023-08-23)
+
+### Other
+
+* `ManualQueueSubResource` Tracking Fix ([#110](https://github.com/Observation-Management-Service/MQClient/issues/110)) ([`5bc272c`](https://github.com/Observation-Management-Service/MQClient/commit/5bc272cce82e00cc1ac8fc9939d37d2a0f62dd59))
+
 ## v2.4.3 (2023-07-28)
 
 ### Other
