@@ -312,15 +312,18 @@ class RabbitMQSub(RabbitMQ, Sub):
             # use wrapper function so connection references can be updated by reconnects
             if not self.channel:
                 raise MQClientException("queue is not connected")
-            return next(
-                # pika smartly handles re-invocations
-                self.channel.consume(
-                    self.queue,
-                    inactivity_timeout=timeout_millis / 1000.0
-                    if timeout_millis
-                    else None,
+            try:
+                return next(
+                    # pika smartly handles re-invocations
+                    self.channel.consume(
+                        self.queue,
+                        inactivity_timeout=timeout_millis / 1000.0
+                        if timeout_millis
+                        else None,
+                    )
                 )
-            )
+            except StopIteration:
+                return (None, None, None)
 
         while True:
             try:
@@ -331,7 +334,6 @@ class RabbitMQSub(RabbitMQ, Sub):
                         (
                             pika.exceptions.AMQPChannelError,
                             pika.exceptions.StreamLostError,
-                            StopIteration,
                         ),
                     ),
                     retries=retries,
@@ -348,12 +350,9 @@ class RabbitMQSub(RabbitMQ, Sub):
                     ),
                     logger=LOGGER,
                 )
-            except StopIteration:
-                LOGGER.debug(log_msgs.GETMSG_TIMEOUT_ERROR)
-                return
             except pika.exceptions.StreamLostError as e:
                 raise MQClientException(HEARTBEAT_STREAMLOSTERROR_MSG) from e
-            if msg := RabbitMQSub._to_message(pika_msg[0], pika_msg[2]):  # type: ignore[index]
+            if msg := RabbitMQSub._to_message(pika_msg[0], pika_msg[2]):
                 LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
                 yield msg
             else:
