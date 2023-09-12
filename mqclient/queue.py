@@ -6,7 +6,7 @@ import os
 import sys
 import types
 import uuid
-from typing import Any, AsyncGenerator, AsyncIterator, Dict, List, Optional, Type
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Type
 
 from . import broker_client_manager
 from . import telemetry as wtt
@@ -502,7 +502,7 @@ class ManualQueueSubResource:
         )
 
     def _get_sub(self, msg: Message) -> Sub:
-        return self._sub
+        return self._sub  # type: ignore[return-value]
 
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
@@ -516,7 +516,7 @@ class ManualQueueSubResource:
 
     async def close(self) -> None:
         """Close resource."""
-        self._sub.close()
+        self._sub.close()  # type: ignore[union-attr]
         # for sub in self._subs:
         #     await sub.close()
 
