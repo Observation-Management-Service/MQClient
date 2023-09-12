@@ -22,14 +22,24 @@ class TestUnitApachePulsar(BrokerClientUnitTest):
     con_patch = "pulsar.Client"
 
     @staticmethod
-    def _get_nack_mock_fn(mock_con: Any) -> Any:
-        """Return mock 'nack' function call."""
-        return mock_con.return_value.subscribe.return_value.negative_acknowledge
+    def _assert_nack_mock(mock_con: Any, called: bool, *with_args: Any) -> None:
+        """Assert mock 'nack' function called (or not)."""
+        if called:
+            mock_con.return_value.subscribe.return_value.negative_acknowledge.assert_called_with(
+                *with_args,
+            )
+        else:
+            mock_con.return_value.subscribe.return_value.negative_acknowledge.assert_not_called()
 
     @staticmethod
-    def _get_ack_mock_fn(mock_con: Any) -> Any:
-        """Return mock 'ack' function call."""
-        return mock_con.return_value.subscribe.return_value.acknowledge
+    def _assert_ack_mock(mock_con: Any, called: bool, *with_args: Any) -> None:
+        """Assert mock 'ack' function called (or not)."""
+        if called:
+            mock_con.return_value.subscribe.return_value.acknowledge.assert_called_with(
+                *with_args,
+            )
+        else:
+            mock_con.return_value.subscribe.return_value.acknowledge.assert_not_called()
 
     @staticmethod
     def _get_close_mock_fn(mock_con: Any) -> Any:

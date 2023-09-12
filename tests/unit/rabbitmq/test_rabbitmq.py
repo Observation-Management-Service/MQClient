@@ -26,14 +26,27 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
     con_patch = "pika.BlockingConnection"
 
     @staticmethod
-    def _get_nack_mock_fn(mock_con: Any) -> Any:
-        """Return mock 'nack' function call."""
-        return mock_con.return_value.channel.return_value.basic_nack
+    def _assert_nack_mock(mock_con: Any, called: bool, *with_args: Any) -> None:
+        """Assert mock 'nack' function called (or not)."""
+        if called:
+            mock_con.return_value.channel.return_value.basic_nack.assert_called_with(
+                *with_args,
+                requeue=True,
+                multiple=False,
+            )
+        else:
+            mock_con.return_value.channel.return_value.basic_nack.assert_not_called()
 
     @staticmethod
-    def _get_ack_mock_fn(mock_con: Any) -> Any:
-        """Return mock 'ack' function call."""
-        return mock_con.return_value.channel.return_value.basic_ack
+    def _assert_ack_mock(mock_con: Any, called: bool, *with_args: Any) -> None:
+        """Assert mock 'ack' function called (or not)."""
+        if called:
+            mock_con.return_value.channel.return_value.basic_ack.assert_called_with(
+                *with_args,
+                multiple=False,
+            )
+        else:
+            mock_con.return_value.channel.return_value.basic_ack.assert_not_called()
 
     @staticmethod
     def _get_close_mock_fn(mock_con: Any) -> Any:
