@@ -3,7 +3,16 @@
 import functools
 import logging
 import urllib
-from typing import Any, AsyncGenerator, AsyncIterator, Dict, Optional, Tuple, Union
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterator,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import pika  # type: ignore
 
@@ -97,29 +106,39 @@ class RabbitMQ(RawQueue):
 
         self.queue = queue
         self.connection: Optional[pika.BlockingConnection] = None
-        self.channel: Optional[pika.adapters.blocking_connection.BlockingChannel] = None
+        self.channels: List[pika.adapters.blocking_connection.BlockingChannel] = []
 
-    async def connect(self) -> None:
-        """Set up connection and channel."""
-        await super().connect()
-        LOGGER.info(f"Connecting with parameters={self.parameters}")
-        self.connection = pika.BlockingConnection(self.parameters)
-        self.channel = self.connection.channel()
+    async def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
+        """Add a channel for the connection and configure."""
+        if not self.connection:
+            raise ClosingFailedException("No connection to add channel.")
+
+        channel = self.connection.channel()
         """
         We need to discuss how many RabbitMQ instances we want to run
         the default is that the quorum queue is spread across 3 nodes
         so 1 can fail without issue. Maybe we want to up this for
         more production workloads
         """
-        self.channel.queue_declare(
+        channel.queue_declare(
             queue=self.queue, durable=True, arguments={"x-queue-type": "quorum"}
         )
+
+        self.channels.append(channel)
+        return channel
+
+    async def connect(self) -> None:
+        """Set up connection and channel."""
+        await super().connect()
+        LOGGER.info(f"Connecting with parameters={self.parameters}")
+        self.connection = pika.BlockingConnection(self.parameters)
+        await self.add_channel()
 
     async def close(self) -> None:
         """Close connection."""
         await super().close()
 
-        if not self.channel:
+        if not self.channels:
             raise ClosingFailedException("No channel to close.")
         if not self.connection:
             raise ClosingFailedException("No connection to close.")
@@ -133,8 +152,9 @@ class RabbitMQ(RawQueue):
         except Exception as e:
             raise ClosingFailedException() from e
 
-        if self.channel.is_open:
-            LOGGER.warning("Channel remains open after connection close.")
+        for channel in self.channels:
+            if channel.is_open:
+                LOGGER.warning("Channel remains open after connection close.")
 
 
 class RabbitMQPub(RabbitMQ, Pub):
@@ -154,6 +174,15 @@ class RabbitMQPub(RabbitMQ, Pub):
         LOGGER.debug(f"{log_msgs.INIT_PUB} ({address}; {name})")
         super().__init__(address, name, auth_token)
 
+    async def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
+        """Add a channel for the connection and configure."""
+        if self.channels:
+            raise MQClientException("RabbitMQPub instance can only have one channel")
+
+        channel = await super().add_channel()
+        channel.confirm_delivery()
+        return channel
+
     async def connect(self) -> None:
         """Set up connection, channel, and queue.
 
@@ -161,12 +190,6 @@ class RabbitMQPub(RabbitMQ, Pub):
         """
         LOGGER.debug(log_msgs.CONNECTING_PUB)
         await super().connect()
-
-        if not self.channel:
-            raise ConnectingFailedException("No channel to configure connection.")
-
-        self.channel.confirm_delivery()
-
         LOGGER.debug(log_msgs.CONNECTED_PUB)
 
     async def close(self) -> None:
@@ -191,14 +214,14 @@ class RabbitMQPub(RabbitMQ, Pub):
             RawQueue: queue
         """
         LOGGER.debug(log_msgs.SENDING_MESSAGE)
-        if not self.channel:
+        if not self.channels:
             raise MQClientException("queue is not connected")
 
         def _send_msg():
             # use wrapper function so connection references can be updated by reconnects
-            if not self.channel:
+            if not self.channels:
                 raise MQClientException("queue is not connected")
-            return self.channel.basic_publish(
+            return self.channels[0].basic_publish(
                 exchange="",
                 routing_key=self.queue,
                 body=msg,
@@ -250,18 +273,14 @@ class RabbitMQSub(RabbitMQ, Sub):
         self.consumer_id = None
         self.prefetch = prefetch
 
-    async def connect(self) -> None:
-        """Set up connection, channel, and queue.
+    async def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
+        """Add a channel for the connection and configure.
 
         Turn on prefetching.
         """
-        LOGGER.debug(log_msgs.CONNECTING_SUB)
-        await super().connect()
+        channel = await super().add_channel()
 
-        if not self.channel:
-            raise ConnectingFailedException("No channel to configure connection.")
-
-        self.channel.basic_qos(prefetch_count=max(self.prefetch, 1))
+        channel.basic_qos(prefetch_count=max(self.prefetch, 1))
         # Setting the value to 0 lets the consumer drain the entire queue.
         # https://www.cloudamqp.com/blog/rabbitmq-basic-consume-vs-rabbitmq-basic-get.html#what-are-the-advantages-of-a-rabbitmq-consumer
         # https://www.cloudamqp.com/blog/part1-rabbitmq-best-practice.html#prefetch
@@ -273,6 +292,12 @@ class RabbitMQSub(RabbitMQ, Sub):
         # global_qos=False b/c using quorum queues
         # https://www.rabbitmq.com/quorum-queues.html#global-qos
 
+        return channel
+
+    async def connect(self) -> None:
+        """Set up connection, channel, and queue."""
+        LOGGER.debug(log_msgs.CONNECTING_SUB)
+        await super().connect()
         LOGGER.debug(log_msgs.CONNECTED_SUB)
 
     async def close(self) -> None:
@@ -305,17 +330,17 @@ class RabbitMQSub(RabbitMQ, Sub):
         retries: int,
         retry_delay: float,
     ) -> AsyncIterator[Optional[Message]]:
-        if not self.channel:
+        if not self.channels:
             raise MQClientException("queue is not connected")
 
         def _get_msg():
             # use wrapper function so connection references can be updated by reconnects
-            if not self.channel:
+            if not self.channels:
                 raise MQClientException("queue is not connected")
             try:
                 return next(
                     # pika smartly handles re-invocations
-                    self.channel.consume(
+                    self.channels[0].consume(
                         self.queue,
                         inactivity_timeout=timeout_millis / 1000.0
                         if timeout_millis
@@ -367,7 +392,7 @@ class RabbitMQSub(RabbitMQ, Sub):
     ) -> Optional[Message]:
         """Get a message from a queue."""
         LOGGER.debug(log_msgs.GETMSG_RECEIVE_MESSAGE)
-        if not self.channel:
+        if not self.channels:
             raise MQClientException("queue is not connected")
 
         msg = None
@@ -391,13 +416,13 @@ class RabbitMQSub(RabbitMQ, Sub):
         of 3 in-progress messages will ack them all.
         """
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
-        if not self.channel:
+        if not self.channels:
             raise MQClientException("queue is not connected")
 
         try:
             await utils.auto_retry_call(
                 func=functools.partial(
-                    self.channel.basic_ack,
+                    self.channels[0].basic_ack,
                     msg.msg_id,
                 ),
                 connect=None,
@@ -426,13 +451,13 @@ class RabbitMQSub(RabbitMQ, Sub):
         of 3 in-progress messages will nack them all.
         """
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
-        if not self.channel:
+        if not self.channels:
             raise MQClientException("queue is not connected")
 
         try:
             await utils.auto_retry_call(
                 func=functools.partial(
-                    self.channel.basic_nack,
+                    self.channels[0].basic_nack,
                     msg.msg_id,
                 ),
                 close=None,
@@ -466,7 +491,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             propagate_error -- should errors from downstream kill the generator? (default: {True})
         """
         LOGGER.debug(log_msgs.MSGGEN_ENTERED)
-        if not self.channel:
+        if not self.channels:
             raise MQClientException("queue is not connected")
 
         msg = None
@@ -503,7 +528,7 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         # Done with generator, one way or another
         finally:
-            self.channel.cancel()
+            self.channels[0].cancel()
 
 
 class BrokerClient(broker_client_interface.BrokerClient):
