@@ -132,7 +132,9 @@ class RabbitMQ(RawQueue):
         await super().connect()
         LOGGER.info(f"Connecting with parameters={self.parameters}")
         self.connection = pika.BlockingConnection(self.parameters)
-        await self.add_channel()
+        channel = await self.add_channel()
+        if not channel or not self.channels:
+            raise ConnectingFailedException("Channel was not connected")
 
     async def close(self) -> None:
         """Close connection."""
