@@ -158,6 +158,7 @@ class RabbitMQ(RawQueue):
         for channel in self.channels:
             if channel.is_open:
                 LOGGER.warning("Channel remains open after connection close.")
+        self.channels = []
 
 
 class RabbitMQPub(RabbitMQ, Pub):
