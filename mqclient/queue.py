@@ -514,7 +514,7 @@ class ManualQueueSubResource:
 
     async def close(self) -> None:
         """Close resource."""
-        self._sub.close()  # type: ignore[union-attr]
+        await self._sub.close()  # type: ignore[union-attr]
         # for sub in self._subs:
         #     await sub.close()
 
