@@ -530,7 +530,7 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         # Done with generator, one way or another
         finally:
-            self.channels[0].cancel()
+            pass
 
 
 class BrokerClient(broker_client_interface.BrokerClient):
