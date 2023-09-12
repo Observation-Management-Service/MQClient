@@ -461,11 +461,8 @@ class ManualQueueSubResource:
         self._sub.connection_can_have_multiple_unacked_messages = True
 
         while True:
-            if not (
-                raw_msg := await self._get(self._sub)
-            ):  # no message -> close & exit
-                LOGGER.debug("sub had no message -- closing it...")
-                await self._sub.close()
+            if not (raw_msg := await self._get(self._sub)):
+                LOGGER.debug("sub had no message")
                 return
 
             # for sub in self._subs:
