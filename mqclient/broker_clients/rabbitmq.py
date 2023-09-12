@@ -414,11 +414,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         retries: int,
         retry_delay: float,
     ) -> None:
-        """Ack a message from the queue.
-
-        Note that RabbitMQ acks messages in-order, so acking message 3
-        of 3 in-progress messages will ack them all.
-        """
+        """Ack a message from the queue."""
         LOGGER.debug(log_msgs.ACKING_MESSAGE)
         if not self.channels:
             raise MQClientException("queue is not connected")
@@ -428,6 +424,7 @@ class RabbitMQSub(RabbitMQ, Sub):
                 func=functools.partial(
                     self.channels[0].basic_ack,
                     msg.msg_id,
+                    multiple=False,
                 ),
                 connect=None,
                 close=None,
@@ -449,11 +446,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         retries: int,
         retry_delay: float,
     ) -> None:
-        """Reject (nack) a message from the queue.
-
-        Note that RabbitMQ acks messages in-order, so nacking message 3
-        of 3 in-progress messages will nack them all.
-        """
+        """Reject (nack) a message from the queue."""
         LOGGER.debug(log_msgs.NACKING_MESSAGE)
         if not self.channels:
             raise MQClientException("queue is not connected")
@@ -463,6 +456,8 @@ class RabbitMQSub(RabbitMQ, Sub):
                 func=functools.partial(
                     self.channels[0].basic_nack,
                     msg.msg_id,
+                    multiple=False,
+                    requeue=True,
                 ),
                 close=None,
                 connect=None,
