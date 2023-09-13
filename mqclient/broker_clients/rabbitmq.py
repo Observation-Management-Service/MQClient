@@ -127,9 +127,7 @@ class RabbitMQ(RawQueue):
         )
 
         self.channels.append(channel)
-        LOGGER.info(
-            f"Added channel '{channel.channel_number}' to connection for '{self.queue=}'"
-        )
+        LOGGER.info(f"Added channel '{channel.channel_number}': {self.channels}")
         return channel
 
     async def connect(self) -> None:
