@@ -85,7 +85,7 @@ class BrokerClientUnitTest:
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
-            sub._get_channel_by_msg = lambda *args: sub.channels[0]
+            sub._get_channel_by_msg = lambda *args: sub.channels[0]  # type: ignore[attr-defined]
 
         await sub.ack_message(
             Message(12, b""),
@@ -104,7 +104,7 @@ class BrokerClientUnitTest:
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
-            sub._get_channel_by_msg = lambda *args: sub.channels[0]
+            sub._get_channel_by_msg = lambda *args: sub.channels[0]  # type: ignore[attr-defined]
 
         await sub.reject_message(
             Message(12, b""),
