@@ -89,7 +89,7 @@ class BrokerClientUnitTest:
             retries=DEFAULT_RETRIES,
             retry_delay=DEFAULT_RETRY_DELAY,
         )
-        self._assert_nack_mock(mock_con, True, 12)
+        self._assert_ack_mock(mock_con, True, 12)
 
     @pytest.mark.asyncio
     async def test_reject_message(self, mock_con: Any, queue_name: str) -> None:
@@ -410,7 +410,7 @@ class BrokerClientUnitTest:
                 assert msg == "baz"
 
         self._get_close_mock_fn(mock_con).assert_called()
-        self._assert_nack_mock(mock_con, True, 0)
+        self._assert_ack_mock(mock_con, True, 0)
 
     @pytest.mark.asyncio
     async def test_queue_recv_10_comsumer_exception(
@@ -547,7 +547,7 @@ class BrokerClientUnitTest:
                 logging.debug(f"{i} :: {msg}")
                 if i > 1:  # see if previous msg was acked
                     prev_id = (i - 1) * 10
-                    self._assert_nack_mock(mock_con, True, prev_id)
+                    self._assert_ack_mock(mock_con, True, prev_id)
 
             last_id = (num_msgs - 1) * 10
             self._assert_nack_mock(mock_con, True, last_id)

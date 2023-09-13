@@ -31,8 +31,8 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
         if called:
             mock_con.return_value.channel.return_value.basic_nack.assert_called_with(
                 *with_args,
-                requeue=True,
                 multiple=False,
+                requeue=True,
             )
         else:
             mock_con.return_value.channel.return_value.basic_nack.assert_not_called()
