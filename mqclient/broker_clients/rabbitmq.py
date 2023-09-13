@@ -461,9 +461,13 @@ class RabbitMQSub(RabbitMQ, Sub):
         """Map message to channel."""
         matches = [c for c in self.channels if c.channel_number == msg._connection_id]
         if not matches:
-            raise MQClientException("could not map message to channel")
+            raise MQClientException(
+                f"could not map message to channel: {msg} {self.channels}"
+            )
         elif len(matches) > 1:
-            raise MQClientException("message mapped to multiple channels")
+            raise MQClientException(
+                f"message mapped to multiple channels: {msg} {matches}"
+            )
         else:
             return matches[0]
 
