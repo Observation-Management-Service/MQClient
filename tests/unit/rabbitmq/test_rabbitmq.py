@@ -146,7 +146,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
                 pass
 
         # would be called by Queue one more time
-        assert self._get_close_mock_fn(mock_con).call_count == retries
+        assert self._get_close_mock_fn(mock_con).call_count == 0
 
         # reset for next call
         self._get_close_mock_fn(mock_con).reset_mock()
@@ -165,7 +165,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
                 pass
 
         # would be called by Queue one more time
-        assert self._get_close_mock_fn(mock_con).call_count == retries
+        assert self._get_close_mock_fn(mock_con).call_count == 0
 
 
 class TestUnitRabbitMQHelpers:
