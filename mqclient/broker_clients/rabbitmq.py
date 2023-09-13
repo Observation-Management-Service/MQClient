@@ -3,6 +3,7 @@
 import functools
 import logging
 import urllib
+import uuid
 from typing import (
     Any,
     AsyncGenerator,
@@ -115,7 +116,9 @@ class RabbitMQ(RawQueue):
         if not self.connection:
             raise ClosingFailedException("No connection to add channel.")
 
-        channel = self.connection.channel()
+        # give unique channel_number b/c pika has a delay on re-connections in which it will recycle a closed channel
+        channel = self.connection.channel(channel_number=int(uuid.uuid4()))
+
         """
         We need to discuss how many RabbitMQ instances we want to run
         the default is that the quorum queue is spread across 3 nodes
