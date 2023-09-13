@@ -12,7 +12,6 @@ from . import broker_client_manager
 from . import telemetry as wtt
 from .broker_client_interface import (
     AckException,
-    ClosingFailedException,
     Message,
     MQClientException,
     NackException,
