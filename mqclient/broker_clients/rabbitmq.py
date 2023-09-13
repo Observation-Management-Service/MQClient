@@ -119,6 +119,7 @@ class RabbitMQ(RawQueue):
 
         # give unique channel_number b/c pika has a delay on re-connections in which it will recycle a closed channel
         channel = self.connection.channel(self._next_channel_number)
+        pika.channel.MAX_CHANNELS  # per AMQP 0.9.1 spec. / max unsigned short
         self._next_channel_number += 1
 
         """
@@ -251,16 +252,8 @@ class RabbitMQPub(RabbitMQ, Pub):
                 ),
                 retries=retries,
                 retry_delay=retry_delay,
-                close=(
-                    None
-                    if self.connection_can_have_multiple_unacked_messages
-                    else self.close
-                ),
-                connect=(
-                    None
-                    if self.connection_can_have_multiple_unacked_messages
-                    else self.connect
-                ),
+                close=self.close,
+                connect=self.connect,
                 logger=LOGGER,
             )
             LOGGER.debug(log_msgs.SENT_MESSAGE)
@@ -396,16 +389,8 @@ class RabbitMQSub(RabbitMQ, Sub):
                     ),
                     retries=retries,
                     retry_delay=retry_delay,
-                    close=(
-                        None
-                        if self.connection_can_have_multiple_unacked_messages
-                        else self.close
-                    ),
-                    connect=(
-                        None
-                        if self.connection_can_have_multiple_unacked_messages
-                        else self.connect
-                    ),
+                    close=None,
+                    connect=None,
                     logger=LOGGER,
                 )
             except pika.exceptions.StreamLostError as e:
@@ -423,26 +408,20 @@ class RabbitMQSub(RabbitMQ, Sub):
             # DEAL WITH EMPTY CHANNEL
             else:
                 n_nonempty_channels_remaining -= 1
-                # Case 1: we allow multiple channels
-                if self.connection_can_have_multiple_unacked_messages:
-                    LOGGER.debug("No message received -- switching channels...")
-                    if n_nonempty_channels_remaining == 0:
-                        # don't reset n_nonempty_channels_remaining so we can see if this one is empty
-                        channel = self.add_channel()  # try it now
-                        # this new channel will be yielded by inf_channels_gen eventually
-                        continue
-                    elif n_nonempty_channels_remaining < 0:  # -1
-                        # this means our newly produced channel is empty,
-                        # so there's REALLY nothing in the queue
-                        LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
-                        yield None
-                    else:
-                        channel = next(inf_channels_gen)  # try next
-                        continue
-                # Case 2: only one channel is allowed
-                else:
+                LOGGER.debug("No message received -- switching channels...")
+                if n_nonempty_channels_remaining == 0:
+                    # don't reset n_nonempty_channels_remaining so we can see if this one is empty
+                    channel = self.add_channel()  # try it now
+                    # this new channel will be yielded by inf_channels_gen eventually
+                    continue
+                elif n_nonempty_channels_remaining < 0:  # -1
+                    # this means our newly produced channel is empty,
+                    # so there's REALLY nothing in the queue
                     LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
                     yield None
+                else:
+                    channel = next(inf_channels_gen)  # try next
+                    continue
 
     async def get_message(
         self,

@@ -114,15 +114,6 @@ class Message:
 class RawQueue:
     """Raw queue object, to hold queue state."""
 
-    def __init__(self) -> None:
-        # `connection_can_have_multiple_unacked_messages=True` signifies
-        # that a sub is not acking/nacking a previous message before
-        # getting another (these previous messages are 'unacked').
-        # - By default, set this to `False`. This can be changed by
-        #     the encompassing `Queue` if unacked messages are expected.
-        # - Each broker client handles this setting slightly different.
-        self.connection_can_have_multiple_unacked_messages = False
-
     async def connect(self) -> None:
         """Set up connection."""
 

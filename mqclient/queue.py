@@ -458,7 +458,6 @@ class ManualQueueSubResource:
             return msg
 
         self._sub = await self.queue._create_sub_queue()
-        self._sub.connection_can_have_multiple_unacked_messages = True
 
         while True:
             if not (raw_msg := await self._get(self._sub)):
