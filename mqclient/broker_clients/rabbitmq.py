@@ -196,7 +196,6 @@ class RabbitMQPub(RabbitMQ, Pub):
 
         channel = super().add_channel()
         channel.confirm_delivery()
-        # TODO - turn off heartbeats for pub b/c this may need to be called manually
         return channel
 
     async def connect(self) -> None:
