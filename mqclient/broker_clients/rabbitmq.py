@@ -8,6 +8,7 @@ from typing import (
     AsyncGenerator,
     AsyncIterator,
     Dict,
+    Iterator,
     List,
     Optional,
     Tuple,
@@ -108,7 +109,7 @@ class RabbitMQ(RawQueue):
         self.connection: Optional[pika.BlockingConnection] = None
         self.channels: List[pika.adapters.blocking_connection.BlockingChannel] = []
 
-    async def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
+    def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
         """Add a channel for the connection and configure."""
         LOGGER.info(f"Adding channel to connection for '{self.queue}'")
         if not self.connection:
@@ -132,8 +133,9 @@ class RabbitMQ(RawQueue):
         """Set up connection and channel."""
         await super().connect()
         LOGGER.info(f"Connecting with parameters={self.parameters}")
+
         self.connection = pika.BlockingConnection(self.parameters)
-        channel = await self.add_channel()
+        channel = self.add_channel()
         if not channel or not self.channels:
             raise ConnectingFailedException("Channel was not connected")
 
@@ -178,13 +180,14 @@ class RabbitMQPub(RabbitMQ, Pub):
         LOGGER.debug(f"{log_msgs.INIT_PUB} ({address}; {name})")
         super().__init__(address, name, auth_token)
 
-    async def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
+    def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
         """Add a channel for the connection and configure."""
         if self.channels:
             raise MQClientException("RabbitMQPub instance can only have one channel")
 
-        channel = await super().add_channel()
+        channel = super().add_channel()
         channel.confirm_delivery()
+        # TODO - turn off heartbeats for pub b/c this may need to be called manually
         return channel
 
     async def connect(self) -> None:
@@ -277,12 +280,12 @@ class RabbitMQSub(RabbitMQ, Sub):
         self.consumer_id = None
         self.prefetch = prefetch
 
-    async def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
+    def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
         """Add a channel for the connection and configure.
 
         Turn on prefetching.
         """
-        channel = await super().add_channel()
+        channel = super().add_channel()
 
         channel.basic_qos(prefetch_count=max(self.prefetch, 1))
         # Setting the value to 0 lets the consumer drain the entire queue.
@@ -344,7 +347,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             try:
                 return next(
                     # pika smartly handles re-invocations
-                    self.channels[0].consume(
+                    channel.consume(
                         self.queue,
                         inactivity_timeout=timeout_millis / 1000.0
                         if timeout_millis
@@ -353,6 +356,19 @@ class RabbitMQSub(RabbitMQ, Sub):
                 )
             except StopIteration:
                 return (None, None, None)
+
+        def infinite_channels() -> (
+            Iterator[pika.adapters.blocking_connection.BlockingChannel]
+        ):
+            # this allows self.channels to be updated,
+            # updates are reflected on outer-loop
+            # itertools.cycle() does not allow updates
+            while True:
+                yield from self.channels
+
+        inf_channels_gen = infinite_channels()
+        channel = next(inf_channels_gen)  # always called manually
+        n_nonempty_channels_remaining = len(self.channels)  # assume all are non-empty
 
         while True:
             try:
@@ -381,12 +397,35 @@ class RabbitMQSub(RabbitMQ, Sub):
                 )
             except pika.exceptions.StreamLostError as e:
                 raise MQClientException(HEARTBEAT_STREAMLOSTERROR_MSG) from e
+
+            # YIELD
             if msg := RabbitMQSub._to_message(pika_msg[0], pika_msg[2]):
                 LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
+                n_nonempty_channels_remaining = len(self.channels)  # reset!
                 yield msg
+            # DEAL WITH EMPTY CHANNEL
             else:
-                LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
-                yield None
+                n_nonempty_channels_remaining -= 1
+                # Case 1: we allow multiple channels
+                if self.connection_can_have_multiple_unacked_messages:
+                    LOGGER.debug("No message received -- switching channels...")
+                    if n_nonempty_channels_remaining == 0:
+                        # don't reset n_nonempty_channels_remaining so we can see if this one is empty
+                        channel = self.add_channel()  # try it now
+                        # this new channel will be yielded by inf_channels_gen eventually
+                        continue
+                    elif n_nonempty_channels_remaining < 0:  # -1
+                        # this means our newly produced channel is empty,
+                        # so there's REALLY nothing in the queue
+                        LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+                        yield None
+                    else:
+                        channel = next(inf_channels_gen)  # try next
+                        continue
+                # Case 2: only one channel is allowed
+                else:
+                    LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+                    yield None
 
     async def get_message(
         self,
