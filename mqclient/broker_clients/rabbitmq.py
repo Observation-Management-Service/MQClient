@@ -321,15 +321,19 @@ class RabbitMQSub(RabbitMQ, Sub):
     def _to_message(  # type: ignore[override]  # noqa: F821 # pylint: disable=W0221
         method_frame: Optional[pika.spec.Basic.GetOk],
         body: Optional[Union[str, bytes]],
+        channel_number: int,
     ) -> Optional[Message]:
         """Transform RabbitMQ-Message to Message type."""
         if not method_frame or body is None:
             return None
 
         if isinstance(body, str):
-            return Message(method_frame.delivery_tag, body.encode())
+            msg = Message(method_frame.delivery_tag, body.encode())
         else:
-            return Message(method_frame.delivery_tag, body)
+            msg = Message(method_frame.delivery_tag, body)
+
+        msg._connection_id = channel_number
+        return msg
 
     async def _iter_messages(
         self,
@@ -399,7 +403,11 @@ class RabbitMQSub(RabbitMQ, Sub):
                 raise MQClientException(HEARTBEAT_STREAMLOSTERROR_MSG) from e
 
             # YIELD
-            if msg := RabbitMQSub._to_message(pika_msg[0], pika_msg[2]):
+            if msg := RabbitMQSub._to_message(
+                pika_msg[0],
+                pika_msg[2],
+                channel.channel_number,
+            ):
                 LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
                 n_nonempty_channels_remaining = len(self.channels)  # reset!
                 yield msg
@@ -447,6 +455,18 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         return msg
 
+    def _get_channel_by_msg(
+        self, msg: Message
+    ) -> pika.adapters.blocking_connection.BlockingChannel:
+        """Map message to channel."""
+        matches = [c for c in self.channels if c.channel_number == msg._connection_id]
+        if not matches:
+            raise MQClientException("could not map message to channel")
+        elif len(matches) > 1:
+            raise MQClientException("message mapped to multiple channels")
+        else:
+            return matches[0]
+
     async def ack_message(
         self,
         msg: Message,
@@ -458,10 +478,12 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channels:
             raise MQClientException("queue is not connected")
 
+        channel = self._get_channel_by_msg(msg)
+
         try:
             await utils.auto_retry_call(
                 func=functools.partial(
-                    self.channels[0].basic_ack,
+                    channel.basic_ack,
                     msg.msg_id,
                     multiple=False,
                 ),
@@ -490,10 +512,12 @@ class RabbitMQSub(RabbitMQ, Sub):
         if not self.channels:
             raise MQClientException("queue is not connected")
 
+        channel = self._get_channel_by_msg(msg)
+
         try:
             await utils.auto_retry_call(
                 func=functools.partial(
-                    self.channels[0].basic_nack,
+                    channel.basic_nack,
                     msg.msg_id,
                     multiple=False,
                     requeue=True,

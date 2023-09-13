@@ -63,6 +63,9 @@ class Message:
         # set for special purposes since msg_id is not unique on redelivery
         self.uuid = int(uuid.uuid4())
 
+        # set for special purposes which vary per broker api
+        self._connection_id: Optional[int] = None
+
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
         return f"Message(msg_id={self.msg_id!r}, payload={self.payload!r}, _ack_status={self._ack_status})"
