@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.6 (2023-09-13)
+
+### Other
+
+* Allow Reentering `ManualQueueSubResource.iter_messages()` ([#112](https://github.com/Observation-Management-Service/MQClient/issues/112)) ([`b82b81e`](https://github.com/Observation-Management-Service/MQClient/commit/b82b81ecf72dd4a9cfc0462d46e476e0094191e4))
+
 ## v2.4.5 (2023-09-13)
 
 ### Other
