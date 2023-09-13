@@ -140,16 +140,8 @@ class PulsarPub(Pulsar, Pub):
             func=_send_msg,
             retries=retries,
             retry_delay=retry_delay,
-            close=(
-                None
-                if self.connection_can_have_multiple_unacked_messages
-                else self.close
-            ),
-            connect=(
-                None
-                if self.connection_can_have_multiple_unacked_messages
-                else self.connect
-            ),
+            close=self.close,
+            connect=self.connect,
             nonretriable_conditions=None,
             logger=LOGGER,
         )
@@ -256,16 +248,8 @@ class PulsarSub(Pulsar, Sub):
                 func=_get_msg,
                 retries=retries,
                 retry_delay=retry_delay,
-                close=(
-                    None
-                    if self.connection_can_have_multiple_unacked_messages
-                    else self.close
-                ),
-                connect=(
-                    None
-                    if self.connection_can_have_multiple_unacked_messages
-                    else self.connect
-                ),
+                close=None,
+                connect=None,
                 logger=LOGGER,
                 nonretriable_conditions=lambda e: str(e) == "Pulsar error: TimeOut",
             )
@@ -400,6 +384,10 @@ class PulsarSub(Pulsar, Sub):
         except GeneratorExit:
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
+
+        # Done with generator, one way or another
+        finally:
+            pass
 
 
 class BrokerClient(broker_client_interface.BrokerClient):

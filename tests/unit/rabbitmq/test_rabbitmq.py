@@ -26,14 +26,27 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
     con_patch = "pika.BlockingConnection"
 
     @staticmethod
-    def _get_nack_mock_fn(mock_con: Any) -> Any:
-        """Return mock 'nack' function call."""
-        return mock_con.return_value.channel.return_value.basic_nack
+    def _assert_nack_mock(mock_con: Any, called: bool, *with_args: Any) -> None:
+        """Assert mock 'nack' function called (or not)."""
+        if called:
+            mock_con.return_value.channel.return_value.basic_nack.assert_called_with(
+                *with_args,
+                multiple=False,
+                requeue=True,
+            )
+        else:
+            mock_con.return_value.channel.return_value.basic_nack.assert_not_called()
 
     @staticmethod
-    def _get_ack_mock_fn(mock_con: Any) -> Any:
-        """Return mock 'ack' function call."""
-        return mock_con.return_value.channel.return_value.basic_ack
+    def _assert_ack_mock(mock_con: Any, called: bool, *with_args: Any) -> None:
+        """Assert mock 'ack' function called (or not)."""
+        if called:
+            mock_con.return_value.channel.return_value.basic_ack.assert_called_with(
+                *with_args,
+                multiple=False,
+            )
+        else:
+            mock_con.return_value.channel.return_value.basic_ack.assert_not_called()
 
     @staticmethod
     def _get_close_mock_fn(mock_con: Any) -> Any:
@@ -133,7 +146,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
                 pass
 
         # would be called by Queue one more time
-        assert self._get_close_mock_fn(mock_con).call_count == retries
+        assert self._get_close_mock_fn(mock_con).call_count == 0
 
         # reset for next call
         self._get_close_mock_fn(mock_con).reset_mock()
@@ -152,7 +165,7 @@ class TestUnitRabbitMQ(BrokerClientUnitTest):
                 pass
 
         # would be called by Queue one more time
-        assert self._get_close_mock_fn(mock_con).call_count == retries
+        assert self._get_close_mock_fn(mock_con).call_count == 0
 
 
 class TestUnitRabbitMQHelpers:

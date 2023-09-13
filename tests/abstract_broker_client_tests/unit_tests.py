@@ -35,13 +35,13 @@ class BrokerClientUnitTest:
         return name
 
     @staticmethod
-    def _get_nack_mock_fn(mock_con: Any) -> Mock:
-        """Return mock 'nack' function."""
+    def _assert_nack_mock(mock_con: Any, called: bool, *with_args: Any) -> None:
+        """Assert mock 'nack' function called (or not)."""
         raise NotImplementedError()
 
     @staticmethod
-    def _get_ack_mock_fn(mock_con: Any) -> Mock:
-        """Return mock 'ack' function."""
+    def _assert_ack_mock(mock_con: Any, called: bool, *with_args: Any) -> None:
+        """Assert mock 'ack' function called (or not)."""
         raise NotImplementedError()
 
     @staticmethod
@@ -80,31 +80,39 @@ class BrokerClientUnitTest:
     async def test_ack_message(self, mock_con: Any, queue_name: str) -> None:
         """Test acking message."""
         sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
+            sub._get_channel_by_msg = lambda *args: sub.channels[0]  # type: ignore[attr-defined]
+
         await sub.ack_message(
             Message(12, b""),
             retries=DEFAULT_RETRIES,
             retry_delay=DEFAULT_RETRY_DELAY,
         )
-        self._get_ack_mock_fn(mock_con).assert_called_with(12)
+
+        self._assert_ack_mock(mock_con, True, 12)
 
     @pytest.mark.asyncio
     async def test_reject_message(self, mock_con: Any, queue_name: str) -> None:
         """Test rejecting message."""
         sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
+
         if is_inst_name(
             self.broker_client, "rabbitmq.BrokerClient"
         ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
+            sub._get_channel_by_msg = lambda *args: sub.channels[0]  # type: ignore[attr-defined]
+
         await sub.reject_message(
             Message(12, b""),
             retries=DEFAULT_RETRIES,
             retry_delay=DEFAULT_RETRY_DELAY,
         )
-        self._get_nack_mock_fn(mock_con).assert_called_with(12)
+
+        self._assert_nack_mock(mock_con, True, 12)
 
     @pytest.mark.asyncio
     async def test_message_generator_00(self, mock_con: Any, queue_name: str) -> None:
@@ -134,13 +142,13 @@ class BrokerClientUnitTest:
             if i > 0:  # see if previous msg was acked
                 # prev_id = (i - 1) * 10
                 # would be called by Queue
-                self._get_ack_mock_fn(mock_con).assert_not_called()
+                self._assert_ack_mock(mock_con, False)
             assert msg is not None
             assert msg.msg_id == fake_ids[i]
             assert msg.payload == fake_data[i]
 
         # last_id = (num_msgs - 1) * 10
-        self._get_ack_mock_fn(mock_con).assert_not_called()  # would be called by Queue
+        self._assert_ack_mock(mock_con, False)  # would be called by Queue
         # would be called by Queue
         self._get_close_mock_fn(mock_con).assert_not_called()
 
@@ -176,7 +184,7 @@ class BrokerClientUnitTest:
         assert m is not None
         assert m.msg_id == 12
         assert m.payload == b"foo, bar"
-        self._get_ack_mock_fn(mock_con).assert_not_called()  # would be called by Queue
+        self._assert_ack_mock(mock_con, False)  # would be called by Queue
         # would be called by Queue
         self._get_close_mock_fn(mock_con).assert_not_called()
 
@@ -206,7 +214,7 @@ class BrokerClientUnitTest:
         assert m is not None
         assert m.msg_id == 12
         assert m.payload == b"foo, bar"
-        self._get_ack_mock_fn(mock_con).assert_not_called()  # would be called by Queue
+        self._assert_ack_mock(mock_con, False)  # would be called by Queue
         # would be called by Queue
         self._get_close_mock_fn(mock_con).assert_not_called()
 
@@ -250,7 +258,7 @@ class BrokerClientUnitTest:
             logging.debug(i)
             if i > 0:  # see if previous msg was acked
                 # would be called by Queue
-                self._get_ack_mock_fn(mock_con).assert_not_called()
+                self._assert_ack_mock(mock_con, False)
 
             assert msg is not None
             assert msg.msg_id == i
@@ -291,7 +299,7 @@ class BrokerClientUnitTest:
             assert i < 3
             if i > 0:  # see if previous msg was acked
                 # would be called by Queue
-                self._get_ack_mock_fn(mock_con).assert_not_called()
+                self._assert_ack_mock(mock_con, False)
 
             assert msg is not None
             assert msg.msg_id == i
@@ -301,7 +309,7 @@ class BrokerClientUnitTest:
                 with pytest.raises(Exception):
                     await gen.athrow(Exception)
                 # would be called by Queue
-                self._get_nack_mock_fn(mock_con).assert_not_called()
+                self._assert_nack_mock(mock_con, False)
                 # would be called by Queue
                 self._get_close_mock_fn(mock_con).assert_not_called()
 
@@ -347,7 +355,7 @@ class BrokerClientUnitTest:
             if i % 2 == 0:
                 await gen.athrow(Exception)
                 # would be called by Queue
-                self._get_nack_mock_fn(mock_con).assert_not_called()
+                self._assert_nack_mock(mock_con, False)
 
             i += 1
 
@@ -389,7 +397,7 @@ class BrokerClientUnitTest:
         self._get_close_mock_fn(mock_con).assert_not_called()
 
         with pytest.raises(AssertionError):
-            self._get_nack_mock_fn(mock_con).assert_called_with(0)
+            self._assert_nack_mock(mock_con, True, 0)
 
     @pytest.mark.asyncio
     async def test_queue_recv_00_consumer(self, mock_con: Any, queue_name: str) -> None:
@@ -410,7 +418,7 @@ class BrokerClientUnitTest:
                 assert msg == "baz"
 
         self._get_close_mock_fn(mock_con).assert_called()
-        self._get_ack_mock_fn(mock_con).assert_called_with(0)
+        self._assert_ack_mock(mock_con, True, 0)
 
     @pytest.mark.asyncio
     async def test_queue_recv_10_comsumer_exception(
@@ -445,7 +453,7 @@ class BrokerClientUnitTest:
                 raise TestException
 
         self._get_close_mock_fn(mock_con).assert_called()
-        self._get_nack_mock_fn(mock_con).assert_called_with(0)
+        self._assert_nack_mock(mock_con, True, 0)
 
     @pytest.mark.asyncio
     async def test_queue_recv_11_comsumer_exception(
@@ -477,7 +485,7 @@ class BrokerClientUnitTest:
                 raise TestException
 
         self._get_close_mock_fn(mock_con).assert_called()
-        self._get_nack_mock_fn(mock_con).assert_called_with(0)
+        self._assert_nack_mock(mock_con, True, 0)
 
         logging.info("Round 2")
 
@@ -488,10 +496,10 @@ class BrokerClientUnitTest:
                 logging.debug(f"{i} :: {msg}")
                 if i > 1:  # see if previous msg was acked
                     prev_id = (i - 1) * 10
-                    self._get_ack_mock_fn(mock_con).assert_called_with(prev_id)
+                    self._assert_nack_mock(mock_con, True, prev_id)
 
             last_id = (num_msgs - 1) * 10
-            self._get_ack_mock_fn(mock_con).assert_called_with(last_id)
+            self._assert_nack_mock(mock_con, True, last_id)
 
         self._get_close_mock_fn(mock_con).assert_called()
 
@@ -527,7 +535,7 @@ class BrokerClientUnitTest:
                     raise TestException
 
         self._get_close_mock_fn(mock_con).assert_called()
-        self._get_nack_mock_fn(mock_con).assert_called_with(0)
+        self._assert_nack_mock(mock_con, True, 0)
 
         logging.info("Round 2")
 
@@ -542,14 +550,14 @@ class BrokerClientUnitTest:
         # continue where we left off
         q.except_errors = False
         async with q.open_sub() as gen:
-            self._get_ack_mock_fn(mock_con).assert_not_called()
+            self._assert_ack_mock(mock_con, False)
             async for i, msg in asl.enumerate(gen, start=1):
                 logging.debug(f"{i} :: {msg}")
                 if i > 1:  # see if previous msg was acked
                     prev_id = (i - 1) * 10
-                    self._get_ack_mock_fn(mock_con).assert_called_with(prev_id)
+                    self._assert_ack_mock(mock_con, True, prev_id)
 
             last_id = (num_msgs - 1) * 10
-            self._get_ack_mock_fn(mock_con).assert_called_with(last_id)
+            self._assert_nack_mock(mock_con, True, last_id)
 
         self._get_close_mock_fn(mock_con).assert_called()

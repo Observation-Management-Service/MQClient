@@ -401,6 +401,10 @@ class NATSSub(NATS, Sub):
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITING)
             LOGGER.debug(log_msgs.MSGGEN_GENERATOR_EXITED)
 
+        # Done with generator, one way or another
+        finally:
+            pass
+
 
 class BrokerClient(broker_client_interface.BrokerClient):
     """NATS Pub-Sub BrokerClient Factory.

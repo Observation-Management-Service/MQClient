@@ -63,9 +63,12 @@ class Message:
         # set for special purposes since msg_id is not unique on redelivery
         self.uuid = int(uuid.uuid4())
 
+        # set for special purposes which vary per broker api
+        self._connection_id: Optional[int] = None
+
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
-        return f"Message(msg_id={self.msg_id!r}, payload={self.payload!r}, _ack_status={self._ack_status})"
+        return f"Message(msg_id={self.msg_id!r}, payload={self.payload!r}, _ack_status={self._ack_status}, uuid={self.uuid}, _connection_id={self._connection_id})"
 
     def __eq__(self, other: object) -> bool:
         """Return True if self's and other's `data` are equal.
@@ -110,15 +113,6 @@ class Message:
 
 class RawQueue:
     """Raw queue object, to hold queue state."""
-
-    def __init__(self) -> None:
-        # `connection_can_have_multiple_unacked_messages=True` signifies
-        # that a sub is not acking/nacking a previous message before
-        # getting another (these previous messages are 'unacked').
-        # - By default, set this to `False`. This can be changed by
-        #     the encompassing `Queue` if unacked messages are expected.
-        # - Each broker client handles this setting slightly different.
-        self.connection_can_have_multiple_unacked_messages = False
 
     async def connect(self) -> None:
         """Set up connection."""
