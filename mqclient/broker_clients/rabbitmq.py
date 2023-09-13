@@ -111,7 +111,7 @@ class RabbitMQ(RawQueue):
 
     def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
         """Add a channel for the connection and configure."""
-        LOGGER.info(f"Adding channel to connection for '{self.queue}'")
+        LOGGER.info(f"Adding channel to connection for '{self.queue=}'")
         if not self.connection:
             raise ClosingFailedException("No connection to add channel.")
 
@@ -127,6 +127,9 @@ class RabbitMQ(RawQueue):
         )
 
         self.channels.append(channel)
+        LOGGER.info(
+            f"Added channel '{channel.channel_number}' to connection for '{self.queue=}'"
+        )
         return channel
 
     async def connect(self) -> None:
