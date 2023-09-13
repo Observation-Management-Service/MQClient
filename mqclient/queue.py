@@ -329,11 +329,12 @@ class Queue:
         Returns:
             ManualQueueSubResource -- context manager w/ iterator function
         """
-        resource = ManualQueueSubResource(self)
+        sub = await self._create_sub_queue()
+        resource = ManualQueueSubResource(self, sub)
         try:
             yield resource
         finally:
-            await resource.close()
+            await sub.close()
 
     @contextlib.asynccontextmanager  # needs to wrap @wtt stuff to span children correctly
     @wtt.spanned(
@@ -442,9 +443,9 @@ class QueuePubResource:
 class ManualQueueSubResource:
     """A manager class around `Sub.get_message()`."""
 
-    def __init__(self, queue: Queue) -> None:
+    def __init__(self, queue: Queue, sub: Sub) -> None:
         self.queue = queue
-        self._sub: Optional[Sub] = None
+        self._sub: Sub = sub
 
     async def iter_messages(self) -> AsyncIterator[Message]:
         """Yield a message."""
@@ -456,8 +457,6 @@ class ManualQueueSubResource:
         )
         def add_span_link(msg: Message) -> Message:
             return msg
-
-        self._sub = await self.queue._create_sub_queue()
 
         while True:
             if not (raw_msg := await self._get(self._sub)):
@@ -476,21 +475,11 @@ class ManualQueueSubResource:
 
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        if not self._sub:
-            raise AckException("sub not instantiated")
         await self.queue._safe_ack(self._sub, msg)
 
     async def nack(self, msg: Message) -> None:
         """Reject/nack the message."""
-        if not self._sub:
-            raise NackException("sub not instantiated")
         await self.queue._safe_nack(self._sub, msg)
-
-    async def close(self) -> None:
-        """Close resource."""
-        if not self._sub:
-            raise ClosingFailedException("sub not instantiated")
-        await self._sub.close()
 
 
 class QueueSubResource:
