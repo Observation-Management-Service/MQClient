@@ -12,6 +12,7 @@ from . import broker_client_manager
 from . import telemetry as wtt
 from .broker_client_interface import (
     AckException,
+    ClosingFailedException,
     Message,
     MQClientException,
     NackException,
@@ -443,7 +444,6 @@ class ManualQueueSubResource:
 
     def __init__(self, queue: Queue) -> None:
         self.queue = queue
-        # self._subs: Dict[Sub, List[int]] = {}
         self._sub: Optional[Sub] = None
 
     async def iter_messages(self) -> AsyncIterator[Message]:
@@ -463,30 +463,6 @@ class ManualQueueSubResource:
             if not (raw_msg := await self._get(self._sub)):
                 LOGGER.debug("sub had no message")
                 return
-
-            # for sub in self._subs:
-            #     if raw_msg := await self._get(sub):  # got message from sub -> done
-            #         self._subs[sub].append(raw_msg.uuid)
-            #         break
-            # else:  # no sub gave a message (didn't break) -> try w/ new sub
-            #     LOGGER.debug("no sub got a message -- trying w/ new sub")
-
-            #     newb = await self.queue._create_sub_queue()
-            #     # keep connection open for other unacked messages
-            #     newb.connection_can_have_multiple_unacked_messages = True
-            #     if not (raw_msg := await self._get(newb)):  # no message -> close & exit
-            #         LOGGER.debug("new sub had no message -- closing it...")
-            #         await newb.close()
-            #         return
-            #     LOGGER.debug(
-            #         f"new sub got a message -- now using {len(self._subs)} subs"
-            #     )
-            #     self._subs[newb] = [raw_msg.uuid]
-
-            # LOGGER.debug(
-            #     f"{len(self._subs)} subs: {[len(msgs) for msgs in self._subs.values()]}"
-            # )
-
             msg = add_span_link(raw_msg)  # got a message -> link and proceed
             LOGGER.info(f"Received Message: {_message_size_message(msg)}")
             yield msg
@@ -498,24 +474,23 @@ class ManualQueueSubResource:
             retry_delay=self.queue.retry_delay,
         )
 
-    def _get_sub(self, msg: Message) -> Sub:
-        return self._sub  # type: ignore[return-value]
-
     async def ack(self, msg: Message) -> None:
         """Acknowledge the message."""
-        sub = self._get_sub(msg)
-        await self.queue._safe_ack(sub, msg)
+        if not self._sub:
+            raise AckException("sub not instantiated")
+        await self.queue._safe_ack(self._sub, msg)
 
     async def nack(self, msg: Message) -> None:
         """Reject/nack the message."""
-        sub = self._get_sub(msg)
-        await self.queue._safe_nack(sub, msg)
+        if not self._sub:
+            raise NackException("sub not instantiated")
+        await self.queue._safe_nack(self._sub, msg)
 
     async def close(self) -> None:
         """Close resource."""
-        await self._sub.close()  # type: ignore[union-attr]
-        # for sub in self._subs:
-        #     await sub.close()
+        if not self._sub:
+            raise ClosingFailedException("sub not instantiated")
+        await self._sub.close()
 
 
 class QueueSubResource:
