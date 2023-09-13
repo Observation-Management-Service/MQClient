@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.5 (2023-09-13)
+
+### Other
+
+* Update Rabbitmq Multi-Handling ([#111](https://github.com/Observation-Management-Service/MQClient/issues/111)) ([`93da9f7`](https://github.com/Observation-Management-Service/MQClient/commit/93da9f7233cf2630cf9adb2ede6b6c072e1195bc))
+
 ## v2.4.4 (2023-08-23)
 
 ### Other
