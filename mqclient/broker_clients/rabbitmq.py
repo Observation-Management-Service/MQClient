@@ -3,7 +3,6 @@
 import functools
 import logging
 import urllib
-import uuid
 from typing import (
     Any,
     AsyncGenerator,
@@ -110,6 +109,8 @@ class RabbitMQ(RawQueue):
         self.connection: Optional[pika.BlockingConnection] = None
         self.channels: List[pika.adapters.blocking_connection.BlockingChannel] = []
 
+        self._next_channel_number = 0
+
     def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
         """Add a channel for the connection and configure."""
         LOGGER.info(f"Adding channel to connection for '{self.queue=}'")
@@ -117,7 +118,8 @@ class RabbitMQ(RawQueue):
             raise ClosingFailedException("No connection to add channel.")
 
         # give unique channel_number b/c pika has a delay on re-connections in which it will recycle a closed channel
-        channel = self.connection.channel(channel_number=int(uuid.uuid4()))
+        channel = self.connection.channel(self._next_channel_number)
+        self._next_channel_number += 1
 
         """
         We need to discuss how many RabbitMQ instances we want to run
