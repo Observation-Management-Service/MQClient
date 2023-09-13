@@ -119,7 +119,9 @@ class RabbitMQ(RawQueue):
 
         # give unique channel_number b/c pika has a delay on re-connections in which it will recycle a closed channel
         channel = self.connection.channel(self._next_channel_number)
-        pika.channel.MAX_CHANNELS  # per AMQP 0.9.1 spec. / max unsigned short
+        # alternatively, we could use: int(uuid.uuid4()) % pika.channel.MAX_CHANNELS + 1
+        # the channel number gets put in a struct and it's constrained to an unsigned short
+        # 0 is not allowed and will be treated as None
         self._next_channel_number += 1
 
         """
