@@ -37,20 +37,19 @@ async def auto_retry_call(
             else:
                 return ret  # type: ignore[return-value]
         except Exception as e:
-            logger.error(f"Broker client action failed with {repr(e)}")
             if nonretriable_conditions and nonretriable_conditions(e):
                 logger.error(
-                    f"Broker client action failure ({type(e).__name__}) is not retriable"
+                    f"Broker client action failure is not retriable: {repr(e)}"
                 )
                 raise
             elif i == retries:
                 logger.error(
-                    f"Broker client action failure ({type(e).__name__}) was final try -- raising..."
+                    f"Broker client action failure was final try, raising: {repr(e)}"
                 )
                 raise
             else:
                 logger.warning(
-                    f"Broker client action failure ({type(e).__name__}) is retriable -- trying again (attempt #{i+2})..."
+                    f"Broker client action failure is retriable, trying again (attempt #{i+2}): {repr(e)}"
                 )
 
         # close, wait, reconnect
