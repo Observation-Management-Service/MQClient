@@ -84,7 +84,8 @@ class BrokerClientUnitTest:
         if is_inst_name(self.broker_client, "rabbitmq.BrokerClient"):
             mock_con.return_value.is_closed = False
             with patch(
-                "mqclient.broker_clients.RabbitMQSub._get_channel_by_msg", Mock()
+                "mqclient.broker_clients.rabbitmq.RabbitMQSub._get_channel_by_msg",
+                Mock(),
             ):
                 await sub.ack_message(
                     Message(12, b""),
@@ -108,7 +109,8 @@ class BrokerClientUnitTest:
         if is_inst_name(self.broker_client, "rabbitmq.BrokerClient"):
             mock_con.return_value.is_closed = False
             with patch(
-                "mqclient.broker_clients.RabbitMQSub._get_channel_by_msg", Mock()
+                "mqclient.broker_clients.rabbitmq.RabbitMQSub._get_channel_by_msg",
+                Mock(),
             ):
                 await sub.reject_message(
                     Message(12, b""),
