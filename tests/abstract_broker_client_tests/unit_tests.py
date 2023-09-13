@@ -4,7 +4,7 @@
 
 import logging
 from typing import Any, List, Optional
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import asyncstdlib as asl
 import pytest
@@ -81,23 +81,17 @@ class BrokerClientUnitTest:
         """Test acking message."""
         sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
 
-        if is_inst_name(self.broker_client, "rabbitmq.BrokerClient"):
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
-            with patch(
-                "mqclient.broker_clients.rabbitmq.RabbitMQSub._get_channel_by_msg",
-                Mock(),
-            ):
-                await sub.ack_message(
-                    Message(12, b""),
-                    retries=DEFAULT_RETRIES,
-                    retry_delay=DEFAULT_RETRY_DELAY,
-                )
-        else:
-            await sub.ack_message(
-                Message(12, b""),
-                retries=DEFAULT_RETRIES,
-                retry_delay=DEFAULT_RETRY_DELAY,
-            )
+            sub._get_channel_by_msg = lambda *args: sub.channels[0]
+
+        await sub.ack_message(
+            Message(12, b""),
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
 
         self._assert_ack_mock(mock_con, True, 12)
 
@@ -106,23 +100,17 @@ class BrokerClientUnitTest:
         """Test rejecting message."""
         sub = await self.broker_client.create_sub_queue("localhost", queue_name, 1, "")
 
-        if is_inst_name(self.broker_client, "rabbitmq.BrokerClient"):
+        if is_inst_name(
+            self.broker_client, "rabbitmq.BrokerClient"
+        ):  # HACK: manually set attr
             mock_con.return_value.is_closed = False
-            with patch(
-                "mqclient.broker_clients.rabbitmq.RabbitMQSub._get_channel_by_msg",
-                Mock(),
-            ):
-                await sub.reject_message(
-                    Message(12, b""),
-                    retries=DEFAULT_RETRIES,
-                    retry_delay=DEFAULT_RETRY_DELAY,
-                )
-        else:
-            await sub.reject_message(
-                Message(12, b""),
-                retries=DEFAULT_RETRIES,
-                retry_delay=DEFAULT_RETRY_DELAY,
-            )
+            sub._get_channel_by_msg = lambda *args: sub.channels[0]
+
+        await sub.reject_message(
+            Message(12, b""),
+            retries=DEFAULT_RETRIES,
+            retry_delay=DEFAULT_RETRY_DELAY,
+        )
 
         self._assert_nack_mock(mock_con, True, 12)
 
