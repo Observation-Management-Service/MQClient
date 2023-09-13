@@ -68,7 +68,7 @@ class Message:
 
     def __repr__(self) -> str:
         """Return string of basic properties/attributes."""
-        return f"Message(msg_id={self.msg_id!r}, payload={self.payload!r}, _ack_status={self._ack_status})"
+        return f"Message(msg_id={self.msg_id!r}, payload={self.payload!r}, _ack_status={self._ack_status}, uuid={self.uuid}, _connection_id={self._connection_id})"
 
     def __eq__(self, other: object) -> bool:
         """Return True if self's and other's `data` are equal.
