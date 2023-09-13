@@ -235,7 +235,7 @@ class RabbitMQPub(RabbitMQ, Pub):
             if not self.channels:
                 raise MQClientException("queue is not connected")
             channel = self.channels[0]
-            LOGGER.debug(f"sending on channel: {channel}")
+            LOGGER.debug(f"sending on channel: {channel.channel_number}")
             return channel.basic_publish(
                 exchange="",
                 routing_key=self.queue,
@@ -356,7 +356,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             # use wrapper function so connection references can be updated by reconnects
             if not self.channels:
                 raise MQClientException("queue is not connected")
-            LOGGER.debug(f"consuming on channel: {channel}")
+            LOGGER.debug(f"consuming on channel: {channel.channel_number}")
             try:
                 return next(
                     # pika smartly handles re-invocations
@@ -492,7 +492,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise MQClientException("queue is not connected")
 
         channel = self._get_channel_by_msg(msg)
-        LOGGER.debug(f"acking on channel: {channel}")
+        LOGGER.debug(f"acking on channel: {channel.channel_number}")
 
         try:
             await utils.auto_retry_call(
@@ -527,7 +527,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             raise MQClientException("queue is not connected")
 
         channel = self._get_channel_by_msg(msg)
-        LOGGER.debug(f"nacking on channel: {channel}")
+        LOGGER.debug(f"nacking on channel: {channel.channel_number}")
 
         try:
             await utils.auto_retry_call(
