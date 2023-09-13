@@ -109,7 +109,7 @@ class RabbitMQ(RawQueue):
         self.connection: Optional[pika.BlockingConnection] = None
         self.channels: List[pika.adapters.blocking_connection.BlockingChannel] = []
 
-        self._next_channel_number = 0
+        self._next_channel_number = 1  # must start at 1
 
     def add_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
         """Add a channel for the connection and configure."""
