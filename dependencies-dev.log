@@ -45,5 +45,5 @@ typing-extensions==4.8.0
     #   wipac-dev-tools
 urllib3==2.0.6
     # via requests
-wipac-dev-tools==1.6.16
+wipac-dev-tools==1.7.0
     # via oms-mqclient (setup.py)
