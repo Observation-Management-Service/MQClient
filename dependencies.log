@@ -6,15 +6,15 @@
 #
 certifi==2023.7.22
     # via requests
-charset-normalizer==3.2.0
+charset-normalizer==3.3.0
     # via requests
 idna==3.4
     # via requests
 requests==2.31.0
     # via wipac-dev-tools
-typing-extensions==4.7.1
+typing-extensions==4.8.0
     # via wipac-dev-tools
-urllib3==2.0.4
+urllib3==2.0.6
     # via requests
 wipac-dev-tools==1.6.16
     # via oms-mqclient (setup.py)

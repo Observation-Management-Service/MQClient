@@ -10,7 +10,7 @@ backoff==2.2.1
     #   opentelemetry-exporter-otlp-proto-http
 certifi==2023.7.22
     # via requests
-charset-normalizer==3.2.0
+charset-normalizer==3.3.0
     # via requests
 coloredlogs==15.0.1
     # via wipac-telemetry
@@ -22,7 +22,7 @@ googleapis-common-protos==1.56.2
     # via
     #   opentelemetry-exporter-jaeger-proto-grpc
     #   opentelemetry-exporter-otlp-proto-http
-grpcio==1.58.0
+grpcio==1.59.0
     # via opentelemetry-exporter-jaeger-proto-grpc
 humanfriendly==10.0
     # via coloredlogs
@@ -72,12 +72,12 @@ six==1.16.0
     # via thrift
 thrift==0.16.0
     # via opentelemetry-exporter-jaeger-thrift
-typing-extensions==4.7.1
+typing-extensions==4.8.0
     # via
     #   opentelemetry-sdk
     #   wipac-dev-tools
     #   wipac-telemetry
-urllib3==2.0.4
+urllib3==2.0.6
     # via requests
 wipac-dev-tools==1.6.16
     # via
@@ -87,5 +87,5 @@ wipac-telemetry==0.2.7
     # via oms-mqclient (setup.py)
 wrapt==1.15.0
     # via deprecated
-zipp==3.16.2
+zipp==3.17.0
     # via importlib-metadata
