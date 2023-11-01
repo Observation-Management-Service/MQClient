@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.8 (2023-11-01)
+
+### Other
+
+* Use `WIPACrepo/wipac-dev-py-setup-action@v2.8` ([`3ce2a6e`](https://github.com/Observation-Management-Service/MQClient/commit/3ce2a6ef040a801cbd22a864104fe72a5b34afff))
+
 ## v2.4.7 (2023-10-03)
 
 ### Other
