@@ -397,7 +397,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             except pika.exceptions.StreamLostError as e:
                 raise MQClientException(HEARTBEAT_STREAMLOSTERROR_MSG) from e
 
-            # YIELD
+            # YIELD (got a message)
             if msg := RabbitMQSub._to_message(
                 pika_msg[0],
                 pika_msg[2],
@@ -406,7 +406,7 @@ class RabbitMQSub(RabbitMQ, Sub):
                 LOGGER.debug(f"{log_msgs.GETMSG_RECEIVED_MESSAGE} ({msg.msg_id!r}).")
                 n_nonempty_channels_remaining = len(self.channels)  # reset!
                 yield msg
-            # DEAL WITH EMPTY CHANNEL
+            # DEAL WITH EMPTY CHANNEL (didn't get a message)
             else:
                 n_nonempty_channels_remaining -= 1
                 LOGGER.debug("No message received -- switching channels...")
@@ -414,6 +414,15 @@ class RabbitMQSub(RabbitMQ, Sub):
                     # don't reset n_nonempty_channels_remaining so we can see if this one is empty
                     channel = self.add_channel()  # try it now
                     # this new channel will be yielded by inf_channels_gen eventually
+
+                    # FIXME - this leads to MANY empty channels if the user
+                    #   keeps cycling despite coming up empty
+                    # TODO - figure way to close or limit channels, but
+                    #   consider that some ack-pending messages need to use
+                    #   the channel to ack. Keep one local mapping?
+                    #   Currently uses msg._connection_id.
+                    #   Maybe just closing a newly-opened channel will suffice?
+
                     continue
                 elif n_nonempty_channels_remaining < 0:  # -1
                     # this means our newly produced channel is empty,
