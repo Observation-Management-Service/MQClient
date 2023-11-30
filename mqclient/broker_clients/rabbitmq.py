@@ -364,7 +364,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             except StopIteration:
                 return (None, None, None)
 
-        def infinite_channels() -> (
+        def infinite_loop_over_channels() -> (
             Iterator[pika.adapters.blocking_connection.BlockingChannel]
         ):
             # this allows self.channels to be updated,
@@ -373,7 +373,7 @@ class RabbitMQSub(RabbitMQ, Sub):
             while True:
                 yield from self.channels
 
-        inf_channels_gen = infinite_channels()
+        inf_channels_gen = infinite_loop_over_channels()
         channel = next(inf_channels_gen)  # always called manually
         n_nonempty_channels_remaining = len(self.channels)  # assume all are non-empty
 
