@@ -303,6 +303,18 @@ class RabbitMQSub(RabbitMQ, Sub):
 
         return channel
 
+    def remove_channel(
+        self,
+        channel: pika.adapters.blocking_connection.BlockingChannel,
+    ) -> None:
+        """Remove the channel from the channel list, and close.
+
+        If there are any ack-pending messages, those will fail.
+        """
+        self.channels.remove(channel)
+        if channel.is_open:
+            channel.close()
+
     async def connect(self) -> None:
         """Set up connection, channel, and queue."""
         LOGGER.debug(log_msgs.CONNECTING_SUB)
@@ -428,9 +440,12 @@ class RabbitMQSub(RabbitMQ, Sub):
                     # this means our newly produced channel is empty,
                     # so there's REALLY nothing in the queue
                     LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
+                    self.remove_channel(channel)
+                    channel = next(inf_channels_gen)  # try next, next time
+                    # FIXME - this design still allows a lot of new channels, one per final iter...
                     yield None
                 else:
-                    channel = next(inf_channels_gen)  # try next
+                    channel = next(inf_channels_gen)  # try next, now
                     continue
 
     async def get_message(
