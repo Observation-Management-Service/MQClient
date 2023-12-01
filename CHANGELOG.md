@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.10 (2023-12-01)
+
+### Other
+
+* `rabbitmq`: Don't Keep Unlimited Dry Channels ([#116](https://github.com/Observation-Management-Service/MQClient/issues/116)) ([`583a4ee`](https://github.com/Observation-Management-Service/MQClient/commit/583a4eefe2b70b4a505c0619dca7d0707f0e065f))
+
 ## v2.4.9 (2023-11-01)
 
 ### Other
