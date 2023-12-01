@@ -182,7 +182,7 @@ class RabbitMQPub(RabbitMQ, Pub):
     ) -> None:
         LOGGER.debug(f"{log_msgs.INIT_PUB} ({address}; {name})")
         super().__init__(address, name, auth_token)
-        self.channel: pika.adapters.blocking_connection.BlockingChannel = []
+        self.channel: Optional[pika.adapters.blocking_connection.BlockingChannel] = None
 
     def open_channel(self) -> pika.adapters.blocking_connection.BlockingChannel:
         """Add a channel for the connection and configure."""
@@ -206,6 +206,7 @@ class RabbitMQPub(RabbitMQ, Pub):
         """Close connection."""
         LOGGER.debug(log_msgs.CLOSING_PUB)
         await super().close()
+        self.channel = None
         LOGGER.debug(log_msgs.CLOSED_PUB)
 
     async def send_message(
@@ -326,7 +327,7 @@ class RabbitMQSub(RabbitMQ, Sub):
                 )
         if self.reserve_channel and self.reserve_channel.is_open:
             LOGGER.warning(
-                f"Reserve channel remains open after connection close: {channel.channel_number}."
+                f"Reserve channel remains open after connection close: {self.reserve_channel.channel_number}."
             )
         self.active_channels = []
         self.reserve_channel = None
