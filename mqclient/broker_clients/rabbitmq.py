@@ -319,11 +319,15 @@ class RabbitMQSub(RabbitMQ, Sub):
         """
         LOGGER.debug(log_msgs.CLOSING_SUB)
         await super().close()
-        for channel in self.active_channels + [self.reserve_channel]:
+        for channel in self.active_channels:
             if channel.is_open:
                 LOGGER.warning(
                     f"Channel remains open after connection close: {channel.channel_number}."
                 )
+        if self.reserve_channel and self.reserve_channel.is_open:
+            LOGGER.warning(
+                f"Reserve channel remains open after connection close: {channel.channel_number}."
+            )
         self.active_channels = []
         self.reserve_channel = None
         LOGGER.debug(log_msgs.CLOSED_SUB)
