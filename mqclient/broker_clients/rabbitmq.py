@@ -8,7 +8,6 @@ from typing import (
     AsyncGenerator,
     AsyncIterator,
     Dict,
-    Iterator,
     List,
     Optional,
     Tuple,
@@ -385,7 +384,7 @@ class RabbitMQSub(RabbitMQ, Sub):
         # inf_channels_gen = infinite_loop_over_channels()
         # channel = next(inf_channels_gen)  # always called manually
         # n_nonempty_channels_remaining = len(self.channels)  # assume all are non-empty
-        remaining_channels = self.active_channels  # start with all
+        remaining_channels = [c for c in self.active_channels]  # start with all
         channel = remaining_channels[0]  # TODO - use by priority?
 
         while True:
@@ -420,7 +419,7 @@ class RabbitMQSub(RabbitMQ, Sub):
                     # if this was the reserve channel, move it to active channels
                     self.active_channels.append(self.reserve_channel)
                     self.reserve_channel = None  # no need to open a new one now
-                remaining_channels = self.active_channels  # reset!
+                remaining_channels = [c for c in self.active_channels]  # reset!
                 yield msg
             # DEAL WITH EMPTY CHANNEL (didn't get a message)
             else:
@@ -430,7 +429,7 @@ class RabbitMQSub(RabbitMQ, Sub):
                     # this means our reserve channel came up empty,
                     # so there's REALLY nothing in the queue
                     LOGGER.debug(log_msgs.GETMSG_NO_MESSAGE)
-                    remaining_channels = self.active_channels  # reset!
+                    remaining_channels = [c for c in self.active_channels]  # reset!
                     yield None
                 else:
                     remaining_channels.remove(channel)
