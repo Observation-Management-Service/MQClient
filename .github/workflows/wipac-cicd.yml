@@ -2,7 +2,14 @@ name: wipac ci/cd
 
 on: [push]
 
+
 jobs:
+
+
+  #############################################################################
+  # PACKAGING & LINTERS
+  #############################################################################
+
 
   py-versions:
     runs-on: ubuntu-latest
@@ -57,6 +64,12 @@ jobs:
         uses: WIPACrepo/wipac-dev-py-setup-action@v2.8
         with:
           base-keywords: "WIPAC IceCube"
+
+
+  #############################################################################
+  # TESTS
+  #############################################################################
+
 
   example:
     needs: [py-versions]
@@ -234,6 +247,12 @@ jobs:
         if: always()
         run: |
           docker logs "${{ matrix.broker_client }}" || true
+
+
+  #############################################################################
+  # GITHUB RELEASE
+  #############################################################################
+
 
   release:
     # only run on main/master/default
