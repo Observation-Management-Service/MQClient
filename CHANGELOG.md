@@ -2,6 +2,24 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.10 (2023-12-01)
+
+### Other
+
+* `rabbitmq`: Don't Keep Unlimited Dry Channels ([#116](https://github.com/Observation-Management-Service/MQClient/issues/116)) ([`583a4ee`](https://github.com/Observation-Management-Service/MQClient/commit/583a4eefe2b70b4a505c0619dca7d0707f0e065f))
+
+## v2.4.9 (2023-11-01)
+
+### Other
+
+* Use `WIPACrepo/wipac-dev-py-setup-action@v2.8` ([#115](https://github.com/Observation-Management-Service/MQClient/issues/115)) ([`b274e2c`](https://github.com/Observation-Management-Service/MQClient/commit/b274e2c931673142623b0333cb08f405d23dbb02))
+
+## v2.4.8 (2023-11-01)
+
+### Other
+
+* Use `WIPACrepo/wipac-dev-py-setup-action@v2.8` ([`3ce2a6e`](https://github.com/Observation-Management-Service/MQClient/commit/3ce2a6ef040a801cbd22a864104fe72a5b34afff))
+
 ## v2.4.7 (2023-10-03)
 
 ### Other
