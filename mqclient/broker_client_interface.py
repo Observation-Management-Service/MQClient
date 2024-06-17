@@ -49,10 +49,10 @@ class Message:
             raise TypeError(
                 f"Message.msg_id must be type int|str|bytes (not '{type(msg_id)}')."
             )
-        # if not isinstance(payload, bytes): TODO - keep/fix/remove
-        #     raise TypeError(
-        #         f"Message.data must be type 'bytes' (not '{type(payload)}')."
-        #     )
+        if not isinstance(payload, bytes):
+            raise TypeError(
+                f"Message.data must be type 'bytes' (not '{type(payload)}')."
+            )
         self.msg_id = msg_id
         self.payload = payload
         self._ack_status: Message.AckStatus = Message.AckStatus.NONE
