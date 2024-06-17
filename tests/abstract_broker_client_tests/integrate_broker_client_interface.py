@@ -4,10 +4,12 @@ classes.
 Verify functionality that is abstracted away from the Queue class.
 """
 
+import base64
 import copy
 import itertools
 import logging
 import pickle
+import re
 from typing import List, Optional
 
 import asyncstdlib as asl
@@ -104,13 +106,31 @@ class PubSubBrokerClientInterface:
 
         pickable_data_list = [MyComplexDataForTest01(d) for d in DATA_LIST]
 
-        # sanity check
-        with pytest.raises(TypeError):
+        # sanity checks
+        with pytest.raises(
+            TypeError,
+            match=re.escape(
+                f"Object of type {type(pickable_data_list[0]).__name__} is not JSON serializable"
+            ),
+        ):
             Message.serialize(pickable_data_list[0])
+        with pytest.raises(
+            TypeError,
+            match=re.escape("Object of type bytes is not JSON serializable"),
+        ):
+            Message.serialize(pickle.dumps(pickable_data_list[0]))
+        with pytest.raises(
+            TypeError,
+            match=re.escape("Object of type bytes is not JSON serializable"),
+        ):
+            Message.serialize(base64.b64encode(pickle.dumps(pickable_data_list[0])))
 
         # send
         for msg in pickable_data_list:
-            raw_data = Message.serialize(pickle.dumps(msg))
+            raw_data = Message.serialize(
+                # obj -> bytes -> bytes -> str
+                base64.b64encode(pickle.dumps(msg)).decode("utf-8")
+            )
             await pub.send_message(
                 raw_data,
                 retries=DEFAULT_RETRIES,
@@ -136,7 +156,9 @@ class PubSubBrokerClientInterface:
                 break
 
             assert recv_msg
-            assert pickable_data_list[i] == pickle.loads(recv_msg.data)
+            # str -> bytes -> obj
+            decoded_msg = pickle.loads(base64.b64decode(recv_msg.data))
+            assert pickable_data_list[i] == decoded_msg
 
             await sub.ack_message(
                 recv_msg,
