@@ -1,7 +1,6 @@
 """Define an interface that broker_clients will adhere to."""
 
 import json
-import pickle
 import uuid
 from enum import Enum, auto
 from typing import Any, AsyncGenerator, Dict, Optional, Union
@@ -94,7 +93,7 @@ class Message:
         return self._headers
 
     @staticmethod
-    def serialize(data: Any, headers: Optional[Dict[str, Any]] = None) -> str:
+    def serialize(data: Any, headers: Optional[Dict[str, Any]] = None) -> bytes:
         """Return serialized representation of message payload as a json str.
 
         Optionally include `headers` dict for internal information.
@@ -102,20 +101,7 @@ class Message:
         if not headers:
             headers = {}
 
-        encoded_data: Union[str, bytes]
-        try:
-            encoded_data = json.dumps(data)
-            headers["Data-Type"] = "json"
-        except TypeError:
-            encoded_data = pickle.dumps(data, protocol=5)  # 5 is only avail for py 3.8+
-            headers["Data-Type"] = "pickle"
-
-        return json.dumps(
-            {
-                "headers": headers,
-                "data": encoded_data,
-            }
-        )
+        return json.dumps({"headers": headers, "data": data}).encode("utf-8")
 
 
 # -----------------------------
