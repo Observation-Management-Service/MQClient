@@ -25,6 +25,13 @@ def _log_recv_message(recv_msg: Optional[Message]) -> None:
     _log_recv(f"{recv_msg} -> {recv_data}")
 
 
+class MyComplexDataForTest01:
+    """Used in test 01."""
+
+    def __init__(self, inner_data):
+        self.inner_data = inner_data
+
+
 class PubSubBrokerClientInterface:
     """Integration test suite for broker_client_interface objects.
 
@@ -95,11 +102,7 @@ class PubSubBrokerClientInterface:
             "localhost", queue_name, 1, auth_token
         )
 
-        class MyComplexData:
-            def __init__(self, inner_data):
-                self.inner_data = inner_data
-
-        pickable_data_list = [MyComplexData(d) for d in DATA_LIST]
+        pickable_data_list = [MyComplexDataForTest01(d) for d in DATA_LIST]
 
         # sanity check
         with pytest.raises(TypeError):
