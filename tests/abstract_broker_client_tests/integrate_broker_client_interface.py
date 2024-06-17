@@ -4,18 +4,17 @@ classes.
 Verify functionality that is abstracted away from the Queue class.
 """
 
-# pylint:disable=invalid-name,too-many-public-methods,redefined-outer-name,unused-import
-
 import copy
 import itertools
 import logging
+import pickle
 from typing import List, Optional
 
 import asyncstdlib as asl
 import pytest
+
 from mqclient.broker_client_interface import BrokerClient, Message
 from mqclient.config import DEFAULT_RETRIES, DEFAULT_RETRY_DELAY, DEFAULT_TIMEOUT_MILLIS
-
 from .utils import DATA_LIST, _log_recv, _log_send
 
 
@@ -74,6 +73,67 @@ class PubSubBrokerClientInterface:
 
             assert recv_msg
             assert DATA_LIST[i] == recv_msg.data
+
+            await sub.ack_message(
+                recv_msg,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            )
+
+        await pub.close()
+        await sub.close()
+
+    @pytest.mark.asyncio
+    async def test_01__not_jsonable_data(
+        self, queue_name: str, auth_token: str
+    ) -> None:
+        """Sanity test."""
+        pub = await self.broker_client.create_pub_queue(
+            "localhost", queue_name, auth_token
+        )
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, auth_token
+        )
+
+        class MyComplexData:
+            def __init__(self, inner_data):
+                self.inner_data = inner_data
+
+        pickable_data_list = [MyComplexData(d) for d in DATA_LIST]
+
+        # sanity check
+        with pytest.raises(TypeError):
+            Message.serialize(pickable_data_list[0])
+
+        # send
+        for msg in pickable_data_list:
+            raw_data = Message.serialize(pickle.dumps(msg))
+            await pub.send_message(
+                raw_data,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            )
+            _log_send(msg)
+
+        # receive
+        for i in itertools.count():
+            logging.info(i)
+            assert i <= len(pickable_data_list)
+
+            recv_msg = await sub.get_message(
+                timeout_millis=DEFAULT_TIMEOUT_MILLIS,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            )
+            _log_recv_message(recv_msg)
+
+            # check received message
+            if i == len(pickable_data_list):
+                assert not recv_msg  # None signifies end of stream
+                break
+
+            assert recv_msg
+            assert pickable_data_list[i] == pickle.loads(recv_msg.data)
 
             await sub.ack_message(
                 recv_msg,
