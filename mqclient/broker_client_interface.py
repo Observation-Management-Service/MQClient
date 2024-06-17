@@ -83,14 +83,14 @@ class Message:
     def data(self) -> Any:
         """Read and return an object from the `data` field."""
         if not self._data:
-            self._data = pickle.loads(self.payload)["data"]
+            self._data = json.loads(self.payload)["data"]
         return self._data
 
     @property
     def headers(self) -> Any:
         """Read and return dict from the `headers` field."""
         if not self._headers:
-            self._headers = pickle.loads(self.payload)["headers"]
+            self._headers = json.loads(self.payload)["headers"]
         return self._headers
 
     @staticmethod
