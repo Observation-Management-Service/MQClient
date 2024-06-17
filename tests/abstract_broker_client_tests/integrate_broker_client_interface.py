@@ -33,6 +33,9 @@ class MyComplexDataForTest01:
     def __init__(self, inner_data):
         self.inner_data = inner_data
 
+    def __eq__(self, other) -> bool:
+        return self.inner_data == other.inner_data
+
 
 class PubSubBrokerClientInterface:
     """Integration test suite for broker_client_interface objects.
@@ -158,6 +161,7 @@ class PubSubBrokerClientInterface:
             assert recv_msg
             # str -> bytes -> obj
             decoded_msg = pickle.loads(base64.b64decode(recv_msg.data))
+            assert isinstance(pickable_data_list[i], type(decoded_msg))
             assert pickable_data_list[i] == decoded_msg
 
             await sub.ack_message(
