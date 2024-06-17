@@ -94,7 +94,7 @@ class Message:
 
     @staticmethod
     def serialize(data: Any, headers: Optional[Dict[str, Any]] = None) -> bytes:
-        """Return serialized representation of message payload as a json str.
+        """Return serialized representation of message payload as a json bytes str.
 
         Optionally include `headers` dict for internal information.
         """
