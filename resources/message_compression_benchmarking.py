@@ -17,7 +17,7 @@ def compare_size(algo_pkg, data):
         import base64
 
         data = base64.b64encode(data).decode("utf-8")
-        print(f"\nthe following use base64 first...\n")
+        print("\nthe following use base64 first...\n")
 
     compressed_size = len(algo_pkg.compress(json.dumps(data).encode()))
     print(
