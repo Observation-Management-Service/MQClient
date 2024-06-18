@@ -119,7 +119,11 @@ def main():
     elif args.algo == "zstd":
         import zstd  # type: ignore
 
-        zstd_compress_1thread = lambda x: zstd.compress(x, -3, 1)  # -3 is default
+        zstd_compress_1thread = lambda x: zstd.compress(  # noqa: E731
+            x,
+            3,  # level (3 is default)
+            1,  # num of threads (auto is default)
+        )
         if args.only_size:
             compare_size(args.algo, zstd_compress_1thread, data)
         else:

@@ -109,7 +109,8 @@ class Message:
 
         return zstd.compress(
             json.dumps({"headers": headers, "data": data}).encode("utf-8"),
-            __threads=1,
+            3,  # level (3 is default)
+            1,  # num of threads (auto is default)
         )
 
 
