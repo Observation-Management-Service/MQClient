@@ -108,7 +108,8 @@ class Message:
             headers = {}
 
         return zstd.compress(
-            json.dumps({"headers": headers, "data": data}).encode("utf-8")
+            json.dumps({"headers": headers, "data": data}).encode("utf-8"),
+            __threads=1,
         )
 
 
