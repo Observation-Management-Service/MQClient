@@ -90,7 +90,7 @@ class Message:
         return self._deserialize()["headers"]
 
     def _deserialize(self) -> Dict[str, Any]:
-        if self._deserialized_payload:
+        if not self._deserialized_payload:
             self._deserialized_payload = json.loads(zstd.decompress(self.payload))
         return self._deserialized_payload
 
