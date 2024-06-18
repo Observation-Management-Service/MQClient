@@ -3,7 +3,7 @@
 import argparse
 import json
 
-TITLE_SPACING = 20
+TITLE_SPACING = 21
 SIZE_SPACING = 8
 
 
