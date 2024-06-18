@@ -429,7 +429,10 @@ class QueuePubResource:
 
     @wtt.spanned(kind=wtt.SpanKind.PRODUCER)
     async def send(self, data: Any) -> None:
-        """Send a message."""
+        """Send a message.
+
+        Data must be JSON serializable.
+        """
         msg_bytes = Message.serialize(data, headers=wtt.inject_links_carrier())
         LOGGER.info(f"Sending Message: {sys.getsizeof(msg_bytes)} bytes")
         await self.pub.send_message(

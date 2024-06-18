@@ -4,18 +4,19 @@ classes.
 Verify functionality that is abstracted away from the Queue class.
 """
 
-# pylint:disable=invalid-name,too-many-public-methods,redefined-outer-name,unused-import
-
+import base64
 import copy
 import itertools
 import logging
+import pickle
+import re
 from typing import List, Optional
 
 import asyncstdlib as asl
 import pytest
+
 from mqclient.broker_client_interface import BrokerClient, Message
 from mqclient.config import DEFAULT_RETRIES, DEFAULT_RETRY_DELAY, DEFAULT_TIMEOUT_MILLIS
-
 from .utils import DATA_LIST, _log_recv, _log_send
 
 
@@ -24,6 +25,16 @@ def _log_recv_message(recv_msg: Optional[Message]) -> None:
     if recv_msg:
         recv_data = recv_msg.data
     _log_recv(f"{recv_msg} -> {recv_data}")
+
+
+class MyComplexDataForTest01:
+    """Used in test 01."""
+
+    def __init__(self, inner_data):
+        self.inner_data = inner_data
+
+    def __eq__(self, other) -> bool:
+        return self.inner_data == other.inner_data
 
 
 class PubSubBrokerClientInterface:
@@ -74,6 +85,84 @@ class PubSubBrokerClientInterface:
 
             assert recv_msg
             assert DATA_LIST[i] == recv_msg.data
+
+            await sub.ack_message(
+                recv_msg,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            )
+
+        await pub.close()
+        await sub.close()
+
+    @pytest.mark.asyncio
+    async def test_01__not_jsonable_data(
+        self, queue_name: str, auth_token: str
+    ) -> None:
+        """Sanity test."""
+        pub = await self.broker_client.create_pub_queue(
+            "localhost", queue_name, auth_token
+        )
+        sub = await self.broker_client.create_sub_queue(
+            "localhost", queue_name, 1, auth_token
+        )
+
+        pickable_data_list = [MyComplexDataForTest01(d) for d in DATA_LIST]
+
+        # sanity checks
+        with pytest.raises(
+            TypeError,
+            match=re.escape(
+                f"Object of type {type(pickable_data_list[0]).__name__} is not JSON serializable"
+            ),
+        ):
+            Message.serialize(pickable_data_list[0])
+        with pytest.raises(
+            TypeError,
+            match=re.escape("Object of type bytes is not JSON serializable"),
+        ):
+            Message.serialize(pickle.dumps(pickable_data_list[0]))
+        with pytest.raises(
+            TypeError,
+            match=re.escape("Object of type bytes is not JSON serializable"),
+        ):
+            Message.serialize(base64.b64encode(pickle.dumps(pickable_data_list[0])))
+
+        # send
+        for msg in pickable_data_list:
+            raw_data = Message.serialize(
+                # obj -> bytes -> bytes -> str
+                base64.b64encode(pickle.dumps(msg)).decode("utf-8")
+            )
+            await pub.send_message(
+                raw_data,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            )
+            _log_send(msg)
+
+        # receive
+        for i in itertools.count():
+            logging.info(i)
+            assert i <= len(pickable_data_list)
+
+            recv_msg = await sub.get_message(
+                timeout_millis=DEFAULT_TIMEOUT_MILLIS,
+                retries=DEFAULT_RETRIES,
+                retry_delay=DEFAULT_RETRY_DELAY,
+            )
+            _log_recv_message(recv_msg)
+
+            # check received message
+            if i == len(pickable_data_list):
+                assert not recv_msg  # None signifies end of stream
+                break
+
+            assert recv_msg
+            # str -> bytes -> obj
+            decoded_msg = pickle.loads(base64.b64decode(recv_msg.data))
+            assert isinstance(pickable_data_list[i], type(decoded_msg))
+            assert pickable_data_list[i] == decoded_msg
 
             await sub.ack_message(
                 recv_msg,
