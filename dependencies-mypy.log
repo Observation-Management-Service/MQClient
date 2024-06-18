@@ -67,7 +67,7 @@ typing_extensions==4.12.2
 Unidecode==1.3.8
 urllib3==2.2.2
 wipac-dev-tools==1.10.6
-wipac-keycloak-rest-services==1.4.101
+wipac-keycloak-rest-services==1.4.102
 wipac-rest-tools==1.7.5
 wipac-telemetry==0.3.0
 wrapt==1.16.0
@@ -118,7 +118,7 @@ pytest-xdist==3.6.1
     └── pluggy [required: >=1.5,<2.0, installed: 1.5.0]
 setuptools==65.5.1
 wheel==0.43.0
-wipac-keycloak-rest-services==1.4.101
+wipac-keycloak-rest-services==1.4.102
 ├── aio-pika [required: Any, installed: 9.4.1]
 │   ├── aiormq [required: >=6.8.0,<6.9.0, installed: 6.8.0]
 │   │   ├── pamqp [required: ==3.3.0, installed: 3.3.0]
