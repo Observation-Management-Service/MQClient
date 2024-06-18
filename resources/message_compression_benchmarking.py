@@ -134,6 +134,14 @@ def main():
         else:
             compress_decompress(gzip, data)
 
+    elif args.algo == "lz4":
+        import lz4.frame  # type: ignore
+
+        if args.only_size:
+            compare_size(lz4.frame, data)
+        else:
+            compress_decompress(lz4.frame, data)
+
     else:
         raise Exception("invalid compression algorithm specified")
 

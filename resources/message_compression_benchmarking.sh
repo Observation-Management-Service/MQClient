@@ -7,7 +7,7 @@ if [ -z $1 ]; then
 fi
 N_ITERATIONS=$1
 
-all_algos='bz2 lzma zstd gzip'
+all_algos='bz2 lzma zstd gzip lz4'
 all_data='large_dict medium_string skyscan_i3_frame_pkl'
 
 for algo in $all_algos; do
