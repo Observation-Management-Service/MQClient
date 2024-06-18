@@ -5,6 +5,8 @@ import uuid
 from enum import Enum, auto
 from typing import Any, AsyncGenerator, Dict, Optional, Union
 
+import zstd
+
 from .config import MIN_PREFETCH
 
 MessageID = Union[int, str, bytes]
@@ -56,8 +58,7 @@ class Message:
         self.payload = payload
         self._ack_status: Message.AckStatus = Message.AckStatus.NONE
 
-        self._data = None
-        self._headers = None
+        self._deserialized_payload: Dict[str, Any] = {}
 
         # set for special purposes since msg_id is not unique on redelivery
         self.uuid = int(uuid.uuid4())
@@ -80,28 +81,35 @@ class Message:
 
     @property
     def data(self) -> Any:
-        """Read and return an object from the `data` field."""
-        if not self._data:
-            self._data = json.loads(self.payload)["data"]
-        return self._data
+        """The object from the `data` field."""
+        return self._deserialize()["data"]
 
     @property
     def headers(self) -> Any:
-        """Read and return dict from the `headers` field."""
-        if not self._headers:
-            self._headers = json.loads(self.payload)["headers"]
-        return self._headers
+        """The dict from the `headers` field."""
+        return self._deserialize()["headers"]
+
+    def _deserialize(self) -> Dict[str, Any]:
+        if self._deserialized_payload:
+            self._deserialized_payload = json.loads(zstd.decompress(self.payload))
+        return self._deserialized_payload
 
     @staticmethod
     def serialize(data: Any, headers: Optional[Dict[str, Any]] = None) -> bytes:
-        """Return serialized representation of message payload as a json bytes str.
+        """Return serialized (bytes) representation of message payload.
 
         Optionally include `headers` dict for internal information.
+
+        Data is compressed using `zstd.compress`, which was chosen by comparing
+        the performance of bz2, lzma, zstd, gzip, and lz4 compression methods on
+        various types of data.
         """
         if not headers:
             headers = {}
 
-        return json.dumps({"headers": headers, "data": data}).encode("utf-8")
+        return zstd.compress(
+            json.dumps({"headers": headers, "data": data}).encode("utf-8")
+        )
 
 
 # -----------------------------
