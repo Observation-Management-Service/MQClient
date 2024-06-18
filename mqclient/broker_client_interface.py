@@ -5,7 +5,7 @@ import uuid
 from enum import Enum, auto
 from typing import Any, AsyncGenerator, Dict, Optional, Union
 
-import zstd
+import zstd  # type: ignore[import-not-found]  # false negative by mypy
 
 from .config import MIN_PREFETCH
 
