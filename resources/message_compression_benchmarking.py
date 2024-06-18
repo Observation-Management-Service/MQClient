@@ -7,7 +7,7 @@ TITLE_SPACING = 21
 SIZE_SPACING = 8
 
 
-def compare_size(algo_pkg, data):
+def compare_size(name, compress, data):
     """Compare the size of the data in various compression methods."""
 
     was_bytes = False
@@ -19,10 +19,8 @@ def compare_size(algo_pkg, data):
         data = base64.b64encode(data).decode("utf-8")
         print("\nthe following use base64 first...\n")
 
-    compressed_size = len(algo_pkg.compress(json.dumps(data).encode()))
-    print(
-        f"{f'json+encode+{algo_pkg.__name__}':{TITLE_SPACING}} {compressed_size:{SIZE_SPACING}}"
-    )
+    compressed_size = len(compress(json.dumps(data).encode()))
+    print(f"{f'json+encode+{name}':{TITLE_SPACING}} {compressed_size:{SIZE_SPACING}}")
 
     json_encoded_size = len(json.dumps(data).encode())
     print(
@@ -38,13 +36,13 @@ def compare_size(algo_pkg, data):
         )
 
 
-def compress_decompress(algo_pkg, data):
+def compress_decompress(compress, decompress, data):
     if isinstance(data, bytes):
         import base64
 
         data = base64.b64encode(data).decode("utf-8")
-    comp_data = algo_pkg.compress(json.dumps(data).encode())
-    out_data = json.loads(algo_pkg.decompress(comp_data))
+    comp_data = compress(json.dumps(data).encode())
+    out_data = json.loads(decompress(comp_data))
     # just in case there's a typo, check the data
     assert out_data == data
 
@@ -106,41 +104,42 @@ def main():
         import bz2
 
         if args.only_size:
-            compare_size(bz2, data)
+            compare_size(args.algo, bz2.compress, data)
         else:
-            compress_decompress(bz2, data)
+            compress_decompress(bz2.compress, bz2.decompress, data)
 
     elif args.algo == "lzma":
         import lzma
 
         if args.only_size:
-            compare_size(lzma, data)
+            compare_size(args.algo, lzma.compress, data)
         else:
-            compress_decompress(lzma, data)
+            compress_decompress(lzma.compress, lzma.decompress, data)
 
     elif args.algo == "zstd":
         import zstd  # type: ignore
 
+        zstd_compress_1thread = lambda x: zstd.compress(x, -3, 1)  # -3 is default
         if args.only_size:
-            compare_size(zstd, data)
+            compare_size(args.algo, zstd_compress_1thread, data)
         else:
-            compress_decompress(zstd, data)
+            compress_decompress(zstd_compress_1thread, zstd.decompress, data)
 
     elif args.algo == "gzip":
         import gzip
 
         if args.only_size:
-            compare_size(gzip, data)
+            compare_size(args.algo, gzip.compress, data)
         else:
-            compress_decompress(gzip, data)
+            compress_decompress(gzip.compress, gzip.decompress, data)
 
     elif args.algo == "lz4":
         import lz4.frame  # type: ignore
 
         if args.only_size:
-            compare_size(lz4.frame, data)
+            compare_size(args.algo, lz4.frame.compress, data)
         else:
-            compress_decompress(lz4.frame, data)
+            compress_decompress(lz4.frame.compress, lz4.frame.decompress, data)
 
     else:
         raise Exception("invalid compression algorithm specified")
