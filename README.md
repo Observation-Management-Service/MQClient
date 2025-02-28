@@ -4,13 +4,14 @@
 
 # MQClient
 
-MQClient is a versatile message-queue client API that provides a unified interface for interacting with multiple messaging systems, including Apache Pulsar, RabbitMQ, and NATS.io.
+MQClient is a powerful and flexible message-queue client API that provides a unified interface for working with multiple messaging systems, including Apache Pulsar, RabbitMQ, and NATS.io. It is designed for resilient, asynchronous message publishing and consumption.
 
 ## Features
 
-- **Unified API**: Interact with multiple message brokers through a single, consistent interface.
-- **Extensible Design**: Easily add support for additional messaging systems as needed.
-- **Asynchronous Support**: Leverage asynchronous operations for improved performance and scalability.
+- **Unified API** – Work seamlessly with different message brokers using a consistent interface.
+- **Pluggable Broker Support** – Easily swap between supported brokers without changing application logic.
+- **Automatic Error Handling** – Built-in support for message acknowledgments, retries, and failure recovery.
+- **Flexible Consumer Patterns** – Supports streaming consumers, batch processing, concurrent message handling, and more.
 
 ## Installation
 
