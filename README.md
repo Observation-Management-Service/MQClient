@@ -42,7 +42,9 @@ To use MQClient, instantiate a `Queue` with the required broker client:
 from mqclient.queue import Queue
 import os
 
-broker_client = "rabbitmq"  # this must match what was used at install
+# Ensure that broker_client matches what was installed
+broker_client = "rabbitmq"  # Change this to "pulsar" or "nats" if installed accordingly
+
 queue = Queue(broker_client=broker_client, name="my_queue", auth_token=os.getenv('MY_QUEUE_AUTH'))
 ```
 
@@ -104,7 +106,7 @@ async def stream_consumer(queue: Queue):
     async with queue.open_sub() as sub:
         async for msg in sub:
             print(f"Received: {msg}")
-            await process_message(msg)
+            await process_message(msg)  # may raise an Exception -> auto nack
 ```
 
 ### Less Common Use Cases / Patterns / Recipes
@@ -120,28 +122,69 @@ async def consume_one(queue: Queue):
         print(f"Received: {msg}")
 ```
 
-#### **Multitasking Consumer with Manual Acknowledgement**
+#### **Consuming Messages in Batches and/or Concurrently**
 
 Since `open_sub()`'s built-in ack/nack mechanism enforces one-by-one message consumption—i.e., the previous message must be acked/nacked before an additional message can be consumed—you will need to manually acknowledge (or nack) messages.
 
 **Warning:** If a message is not acked/nacked within a certain time, it may be re-enqueued. Client code will need to account for this.
 
+##### Batch Processing
+
 ```python
-async def stream_consumer_manual_ack(queue: Queue):
-    """Stream many messages, manually."""
+async def batch_processing_consumer(queue: Queue):
+    """Manually process messages in batches before acking."""
+    batch_size = 5
     messages_pending_ack = []
+
     async with queue.open_sub_manual_acking() as sub:
-        async for m in sub.iter_messages():
-            messages_pending_ack.append(m)
-            # Process many messages -- another example might use an async-multitasking pool
-            some_msg_obj = next_done_message(messages_pending_ack)
+        async for msg in sub.iter_messages():
+            messages_pending_ack.append(msg)
+
+            if len(messages_pending_ack) < batch_size:
+                continue  # need more messages!
+
             try:
-                print(f"Processed: {some_msg_obj.data}")
-                custom_postvalidation(some_msg_obj)  # may raise Exception
+                await process_batch([m.data for m in messages_pending_ack])
             except Exception:
-                await sub.nack(some_msg_obj)  # Mark message for redelivery
+                print("Batch processing failed, nacking all messages")
+                for m in messages_pending_ack:
+                    await sub.nack(m)
             else:
-                await sub.ack(some_msg_obj)  # Manually acknowledge
+                print("Success!")
+                for m in messages_pending_ack:
+                    await sub.ack(m)
+            finally:
+                messages_pending_ack = []
+```
+
+##### Concurrent Processing
+
+```python
+import asyncio
+
+
+async def concurrent_processing_consumer(queue: Queue):
+    """Process messages concurrently and ack/nack as soon as one is done."""
+    async with queue.open_sub_manual_acking() as sub:
+        tasks = {}
+
+        async for msg in sub.iter_messages():
+            task = asyncio.create_task(process_message(msg.data))
+            tasks[task] = msg  # Track task-to-message mapping
+
+            # Wait for at least one task to complete
+            done, _ = await asyncio.wait(tasks.keys(), return_when=asyncio.FIRST_COMPLETED)
+
+            for finished_task in done:
+                msg = tasks.pop(finished_task)
+                try:
+                    await finished_task  # Raises if task failed
+                except Exception:
+                    print(f"Processing failed for {msg}, nacking")
+                    await sub.nack(msg)
+                else:
+                    print(f"Successfully processed {msg}, acking")
+                    await sub.ack(msg)
 ```
 
 ## Configuration
