@@ -14,8 +14,22 @@ MQClient is a versatile message-queue client API that provides a unified interfa
 
 ## Installation
 
+You must choose the message broker protocol at install time, these are `pulsar`, `rabbitmq`,and `nats`:
+
 ```bash
-pip install oms-mqclient
+pip install oms-mqclient[pulsar]  
+```
+
+or
+
+```bash
+pip install oms-mqclient[rabbitmq]  
+```
+
+or
+
+```bash
+pip install oms-mqclient[nats]  
 ```
 
 ## Usage
@@ -26,8 +40,10 @@ To use MQClient, instantiate a `Queue` with the required broker client:
 
 ```python
 from mqclient.queue import Queue
+import os
 
-queue = Queue(broker_client="rabbitmq", name="my_queue", auth_token="your-auth-token")
+broker_client = "rabbitmq"  # this must match what was used at install
+queue = Queue(broker_client=broker_client, name="my_queue", auth_token=os.getenv('MY_QUEUE_AUTH'))
 ```
 
 ### Use Cases / Patterns / Recipes
