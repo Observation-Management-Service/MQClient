@@ -1,16 +1,9 @@
 name: wipac ci/cd
 
-on: [push]
+on: [ push ]
 
 
 jobs:
-
-
-  #############################################################################
-  # PACKAGING & LINTERS
-  #############################################################################
-
-
   py-versions:
     runs-on: ubuntu-latest
     outputs:
@@ -20,15 +13,26 @@ jobs:
       - id: versions
         uses: WIPACrepo/wipac-dev-py-versions-action@v2.1
 
+  #############################################################################
+  # PACKAGING & LINTERS
+  #############################################################################
+
   flake8:
+    needs: [ py-versions ]
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.py3 }}
       - uses: WIPACrepo/wipac-dev-flake8-action@v1.0
 
   mypy:
-    needs: [py-versions]
+    needs: [ py-versions ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -72,13 +76,13 @@ jobs:
 
 
   example:
-    needs: [py-versions]
+    needs: [ py-versions ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        broker_client: [nats, pulsar, rabbitmq]
+        broker_client: [ nats, pulsar, rabbitmq ]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -138,13 +142,13 @@ jobs:
           docker logs "${{ matrix.broker_client }}" || true
 
   unit-test:
-    needs: [py-versions]
+    needs: [ py-versions ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        type: [brokerless, pulsar, rabbitmq]
+        type: [ brokerless, pulsar, rabbitmq ]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -161,13 +165,13 @@ jobs:
           pytest -vvv tests/unit/"${{ matrix.type }}"
 
   integration-test:
-    needs: [py-versions]
+    needs: [ py-versions ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        broker_client: [nats, pulsar, rabbitmq]
+        broker_client: [ nats, pulsar, rabbitmq ]
     services:
       keycloak:
         image: ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master
@@ -176,8 +180,8 @@ jobs:
           KEYCLOAK_ADMIN_PASSWORD: admin
           CMD: "start --hostname-url=https://localhost:8443/auth"
         ports:
-        #- 8081:8080 # host 8080 is used by pulsar
-        - 8443:8443
+          #- 8081:8080 # host 8080 is used by pulsar
+          - 8443:8443
     env:
       KEYCLOAK_URL: https://localhost:8443
       KEYCLOAK_REALM: testrealm
@@ -257,15 +261,15 @@ jobs:
   release:
     # only run on main/master/default
     if: format('refs/heads/{0}', github.event.repository.default_branch) == github.ref
-    needs: [flake8, mypy, py-setup, example, unit-test, integration-test]
+    needs: [ flake8, mypy, py-setup, example, unit-test, integration-test ]
     runs-on: ubuntu-latest
     concurrency: release
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - uses: python-semantic-release/python-semantic-release@v7.34.6
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        repository_username: __token__
-        repository_password: ${{ secrets.PYPI_TOKEN }}
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: python-semantic-release/python-semantic-release@v7.34.6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          repository_username: __token__
+          repository_password: ${{ secrets.PYPI_TOKEN }}
