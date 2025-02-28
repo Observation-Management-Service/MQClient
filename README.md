@@ -66,7 +66,9 @@ async def stream_publisher(queue: Queue):
 
 #### Serialization
 
-`pub.send` only accepts JSON-serializable data. You will need to pre-serialize any non-compliant data. Any consumer will need to implement the inverse function.
+`pub.send()` only accepts JSON-serializable data.
+
+Any non-compliant data will need to pre-serialized prior to `pub.send()`. Then, every "consumer code" will need to implement the inverse function.
 
 One way to do this is:
 
