@@ -64,6 +64,34 @@ async def stream_publisher(queue: Queue):
             print(f"Sent: {msg}")
 ```
 
+#### Serialization
+
+`pub.send` only accepts JSON-serializable data. You will need to pre-serialize any non-compliant data. Any consumer will need to implement the inverse function.
+
+One way to do this is:
+
+```python
+import base64
+import pickle
+from typing import Any
+
+
+def encode_pkl_b64_data(my_data: Any) -> dict:
+    """Encode a Python object to message-friendly dict."""
+    print(f"want to send: {my_data}")
+    out = {'my-data': base64.b64encode(pickle.dumps(my_data)).decode()}
+    print("data is now ready to be sent with `pub.send()`!")
+    return out
+
+
+def decode_pkl_b64_data(b64_string: dict) -> Any:
+    """Decode a message-friendly dict back to a Python object."""
+    print("attempting to read the data just gotten from the `open_sub` iterator...")
+    my_data = pickle.loads(base64.b64decode(b64_string))['my-data']
+    print(f"got: {my_data}")
+    return my_data
+```
+
 #### **Streaming Consumer**
 
 Use `open_sub()` to open a sub stream. Each message will be automatically acknowledged upon the following iteration. If an `Exception` is raised, the message will immediately be nacked. By default, any un-excepted exceptions will be excepted by the `open_sub()` context manager. This can be turned off by setting `Queue.except_errors` to `False`.
