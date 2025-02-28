@@ -124,9 +124,9 @@ async def consume_one(queue: Queue):
 
 #### **Consuming Messages in Batches and/or Concurrently**
 
-Since `open_sub()`'s built-in ack/nack mechanism enforces one-by-one message consumption—i.e., the previous message must be acked/nacked before an additional message can be consumed—you will need to manually acknowledge (or nack) messages.
+Since `open_sub()`'s built-in ack/nack mechanism enforces one-by-one message consumption—i.e., the previous message must be acked/nacked before an additional message can be consumed—you will need to use `open_sub_manual_acking()` to manually acknowledge (or nack) messages.
 
-**Warning:** If a message is not acked/nacked within a certain time, it may be re-enqueued. Client code will need to account for this.
+**Warning:** If a message is not acked/nacked within a certain time, it may be re-enqueued. Client code will need to account for this. The exact behavior of this depends on the broker server configuration.
 
 ##### Batch Processing
 
