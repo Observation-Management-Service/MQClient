@@ -107,7 +107,7 @@ async def stream_consumer_manual_ack(queue: Queue):
             some_msg_obj = next_done_message(messages_pending_ack)
             try:
                 print(f"Processed: {some_msg_obj.data}")
-                raise_exception_if_failed(some_msg_obj)
+                custom_postvalidation(some_msg_obj)  # may raise Exception
             except Exception:
                 await sub.nack(some_msg_obj)  # Mark message for redelivery
             else:
