@@ -283,13 +283,12 @@ jobs:
           set -euo pipefail
           echo "now: $(date --utc --iso-8601=seconds)"
           set -x
-          docker logs $(docker ps --filter "ancestor=ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master" --format "{{.Names}}")
+          docker logs $(docker ps --filter "ancestor=ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master" --format "{{.Names}}" | head -n 1)
 
 
   #############################################################################
   # GITHUB RELEASE
   #############################################################################
-
 
   release:
     # only run on main/master/default
