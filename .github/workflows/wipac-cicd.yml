@@ -191,7 +191,7 @@ jobs:
           KEYCLOAK_ADMIN_PASSWORD: admin
           KC_HTTP_ENABLED: "false"
           KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/conf/server.keystore
-          CMD: "start --hostname=localhost --hostname-admin=localhost"
+          CMD: "start --hostname=localhost"
         ports:
           #- 8081:8080 # host 8080 is used by pulsar
           - 8443:8443
