@@ -4,7 +4,7 @@ set -euo pipefail
 echo "--------------------------------------------------------------"
 echo "starting pulsar broker..."
 
-if [ -z $1 ]; then
+if [ -z "${1-}" ]; then
     echo "MISSING ARG: docker-pulsar.sh CONTAINER_NAME"
     exit 1
 fi
@@ -18,7 +18,7 @@ docker run -i --rm --name $1 \
     -p 8080:8080 \
     apachepulsar/pulsar:2.6.0 /bin/bash \
     -c "sed -i s/brokerDeleteInactiveTopicsEnabled=.*/brokerDeleteInactiveTopicsEnabled=false/ /pulsar/conf/standalone.conf && bin/pulsar standalone" \
-    >> broker.out 2>&1 &
+    >>broker.out 2>&1 &
 dockerize -wait tcp://localhost:8080 -timeout 10m
 dockerize -wait tcp://localhost:6650 -timeout 10m
 
