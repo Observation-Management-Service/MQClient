@@ -91,6 +91,8 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - name: example
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           # NOTE: these examples are intended to be the most basic in terms of config:
           #   no auth, no unnecessary env vars, etc.
 
@@ -125,11 +127,15 @@ jobs:
       - name: worker output
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           cat worker.out
 
       - name: broker output
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           set -x
           cat ./broker.out
           if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
@@ -140,6 +146,8 @@ jobs:
       - name: broker docker logs
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           docker logs "${{ matrix.broker_client }}" || true
 
   unit-test:
@@ -157,6 +165,8 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - name: tests
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           pip install --upgrade pip wheel setuptools
           if [ "${{ matrix.type }}" = "brokerless" ]; then
             pip install .[dev]
@@ -196,20 +206,28 @@ jobs:
           python-version: ${{ matrix.py3 }}
       - name: install deps
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }},integration]
       - name: get keycloak cert
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           docker run --rm -v $PWD:/mnt -u root --entrypoint=/usr/bin/keytool ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master -export -alias server -keystore /opt/keycloak/conf/server.keystore -rfc -file /mnt/public.cert -storepass password
           echo "REQUESTS_CA_BUNDLE=$PWD/public.cert" >> $GITHUB_ENV
       - name: bootstrap keycloak
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           python ./resources/keycloak_bootstrap.py
           cat KEYCLOAK_OIDC_URL.txt
           cat KEYCLOAK_CLIENT_ID.txt
           cat KEYCLOAK_CLIENT_SECRET.txt
       - name: tests
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           export KEYCLOAK_OIDC_URL=$(cat KEYCLOAK_OIDC_URL.txt)
           echo $KEYCLOAK_OIDC_URL
           export KEYCLOAK_CLIENT_ID=$(cat KEYCLOAK_CLIENT_ID.txt)
@@ -241,6 +259,8 @@ jobs:
       - name: broker output
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           set -x
           cat ./broker.out
           if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
@@ -251,6 +271,8 @@ jobs:
       - name: broker docker logs
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
           docker logs "${{ matrix.broker_client }}" || true
 
 
