@@ -211,12 +211,14 @@ jobs:
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }},integration]
       - name: get keycloak cert
+        if: matrix.broker_client == 'rabbitmq'
         run: |
           set -euo pipefail
           echo "now: $(date --utc --iso-8601=seconds)"
           docker run --rm -v $PWD:/mnt -u root --entrypoint=/usr/bin/keytool ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master -export -alias server -keystore /opt/keycloak/conf/server.keystore -rfc -file /mnt/public.cert -storepass password
           echo "REQUESTS_CA_BUNDLE=$PWD/public.cert" >> $GITHUB_ENV
       - name: bootstrap keycloak
+        if: matrix.broker_client == 'rabbitmq'
         run: |
           set -euo pipefail
           echo "now: $(date --utc --iso-8601=seconds)"
