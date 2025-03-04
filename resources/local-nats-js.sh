@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 echo "--------------------------------------------------------------"
 echo "starting nats broker..."
@@ -8,7 +9,7 @@ curl -L https://github.com/nats-io/nats-server/releases/download/v2.6.6/nats-ser
 
 unzip nats-server.zip -d nats-server
 
-nats-server/nats-server-v2.6.6-linux-amd64/nats-server -js >> broker.out 2>&1 &
+nats-server/nats-server-v2.6.6-linux-amd64/nats-server -js >>broker.out 2>&1 &
 
 echo "--------------------------------------------------------------"
 echo "waiting for nats broker..."

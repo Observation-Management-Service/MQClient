@@ -1,42 +1,47 @@
 name: wipac ci/cd
 
-on: [push]
+on: [ push ]
 
 
 jobs:
-
-
-  #############################################################################
-  # PACKAGING & LINTERS
-  #############################################################################
-
 
   py-versions:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.versions.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - id: versions
         uses: WIPACrepo/wipac-dev-py-versions-action@v2.1
 
-  flake8:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-      - uses: WIPACrepo/wipac-dev-flake8-action@v1.0
+  #############################################################################
+  # PACKAGING & LINTERS
+  #############################################################################
 
-  mypy:
-    needs: [py-versions]
+  flake8:
+    needs: [ py-versions ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.py3 }}
+      - uses: WIPACrepo/wipac-dev-flake8-action@v1.0
+
+  mypy:
+    needs: [ py-versions ]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py3 }}
       - uses: WIPACrepo/wipac-dev-mypy-action@v2.0
@@ -53,7 +58,7 @@ jobs:
           github.ref_type == 'branch' &&
           format('refs/heads/{0}', github.event.repository.default_branch) != github.ref
         name: checkout (only for non-dependabot non-default branches)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       - if: |
@@ -72,20 +77,22 @@ jobs:
 
 
   example:
-    needs: [py-versions]
+    needs: [ py-versions ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        broker_client: [nats, pulsar, rabbitmq]
+        broker_client: [ nats, pulsar, rabbitmq ]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py3 }}
       - name: example
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           # NOTE: these examples are intended to be the most basic in terms of config:
           #   no auth, no unnecessary env vars, etc.
 
@@ -120,11 +127,15 @@ jobs:
       - name: worker output
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           cat worker.out
 
       - name: broker output
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           set -x
           cat ./broker.out
           if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
@@ -135,23 +146,27 @@ jobs:
       - name: broker docker logs
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           docker logs "${{ matrix.broker_client }}" || true
 
   unit-test:
-    needs: [py-versions]
+    needs: [ py-versions ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        type: [brokerless, pulsar, rabbitmq]
+        type: [ brokerless, pulsar, rabbitmq ]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py3 }}
       - name: tests
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           pip install --upgrade pip wheel setuptools
           if [ "${{ matrix.type }}" = "brokerless" ]; then
             pip install .[dev]
@@ -161,23 +176,25 @@ jobs:
           pytest -vvv tests/unit/"${{ matrix.type }}"
 
   integration-test:
-    needs: [py-versions]
+    needs: [ py-versions ]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
-        broker_client: [nats, pulsar, rabbitmq]
+        broker_client: [ nats, pulsar, rabbitmq ]
     services:
       keycloak:
         image: ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master
         env:
           KEYCLOAK_ADMIN: admin
           KEYCLOAK_ADMIN_PASSWORD: admin
-          CMD: "start --hostname-url=https://localhost:8443/auth"
+          KC_HTTP_ENABLED: "false"
+          KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/conf/server.keystore
+          CMD: "start --hostname=localhost"
         ports:
-        #- 8081:8080 # host 8080 is used by pulsar
-        - 8443:8443
+          #- 8081:8080 # host 8080 is used by pulsar
+          - 8443:8443
     env:
       KEYCLOAK_URL: https://localhost:8443
       KEYCLOAK_REALM: testrealm
@@ -185,26 +202,44 @@ jobs:
       USERNAME: admin
       PASSWORD: admin
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py3 }}
       - name: install deps
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }},integration]
       - name: get keycloak cert
+        if: matrix.broker_client == 'rabbitmq'
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           docker run --rm -v $PWD:/mnt -u root --entrypoint=/usr/bin/keytool ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master -export -alias server -keystore /opt/keycloak/conf/server.keystore -rfc -file /mnt/public.cert -storepass password
           echo "REQUESTS_CA_BUNDLE=$PWD/public.cert" >> $GITHUB_ENV
       - name: bootstrap keycloak
+        if: matrix.broker_client == 'rabbitmq'
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          
+          # Check if the Keycloak container is running before boostrap
+          KEYCLOAK_CONTAINER=$(docker ps --filter "ancestor=ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master" --format "{{.Names}}" | head -n 1)
+          if [ -z "$KEYCLOAK_CONTAINER" ]; then
+            echo "::error::Keycloak container is not running!"
+            exit 1
+          fi
+
           python ./resources/keycloak_bootstrap.py
           cat KEYCLOAK_OIDC_URL.txt
           cat KEYCLOAK_CLIENT_ID.txt
           cat KEYCLOAK_CLIENT_SECRET.txt
       - name: tests
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           export KEYCLOAK_OIDC_URL=$(cat KEYCLOAK_OIDC_URL.txt)
           echo $KEYCLOAK_OIDC_URL
           export KEYCLOAK_CLIENT_ID=$(cat KEYCLOAK_CLIENT_ID.txt)
@@ -236,6 +271,8 @@ jobs:
       - name: broker output
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           set -x
           cat ./broker.out
           if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
@@ -246,26 +283,34 @@ jobs:
       - name: broker docker logs
         if: always()
         run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           docker logs "${{ matrix.broker_client }}" || true
+
+      - name: keycloak docker logs
+        if: always() && matrix.broker_client == 'rabbitmq'
+        run: |
+          set -euo pipefail
+          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          docker logs $(docker ps -a --filter "ancestor=ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master" --format "{{.Names}}" | head -n 1)
 
 
   #############################################################################
   # GITHUB RELEASE
   #############################################################################
 
-
   release:
     # only run on main/master/default
     if: format('refs/heads/{0}', github.event.repository.default_branch) == github.ref
-    needs: [flake8, mypy, py-setup, example, unit-test, integration-test]
+    needs: [ flake8, mypy, py-setup, example, unit-test, integration-test ]
     runs-on: ubuntu-latest
     concurrency: release
     steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - uses: python-semantic-release/python-semantic-release@v7.34.6
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        repository_username: __token__
-        repository_password: ${{ secrets.PYPI_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: python-semantic-release/python-semantic-release@v7.34.6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          repository_username: __token__
+          repository_password: ${{ secrets.PYPI_TOKEN }}

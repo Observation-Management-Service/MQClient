@@ -107,3 +107,6 @@ tokens/
 
 # wipac-dev-py-setup-action
 !dependencies*.log
+
+.idea/
+
