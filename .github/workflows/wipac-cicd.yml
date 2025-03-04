@@ -191,7 +191,7 @@ jobs:
           KEYCLOAK_ADMIN_PASSWORD: admin
           KC_HTTP_ENABLED: "false"
           KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/conf/server.keystore
-          CMD: "start --hostname-url=https://localhost:8443/auth"
+          CMD: "start --hostname=localhost --hostname-admin=localhost"
         ports:
           #- 8081:8080 # host 8080 is used by pulsar
           - 8443:8443
@@ -284,8 +284,6 @@ jobs:
         run: |
           set -euo pipefail
           echo "now: $(date --utc --iso-8601=seconds)"
-          set -x
-          docker ps -a
           docker logs $(docker ps -a --filter "ancestor=ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master" --format "{{.Names}}" | head -n 1)
 
 
