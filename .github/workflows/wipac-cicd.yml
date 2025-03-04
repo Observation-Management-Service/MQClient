@@ -277,6 +277,13 @@ jobs:
           echo "now: $(date --utc --iso-8601=seconds)"
           docker logs "${{ matrix.broker_client }}" || true
 
+      - name: keycloak docker logs
+        if: always() && matrix.broker_client == 'rabbitmq'
+        run: |
+          set -euo pipefail
+          echo "now: $(date --utc --iso-8601=seconds)"
+          docker logs "keycloak" || true
+
 
   #############################################################################
   # GITHUB RELEASE
