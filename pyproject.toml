@@ -1,0 +1,56 @@
+# pyproject.toml
+
+[project]
+dependencies = [
+    "wipac-dev-tools",
+    "zstd",
+] # (can remove comment) originally migrated from 'setup.cfg' by 'WIPACrepo/wipac-dev-py-setup-action' github action package
+
+[project.optional-dependencies] # (can remove comment) originally migrated from 'setup.cfg' by 'WIPACrepo/wipac-dev-py-setup-action' github action package
+all = [
+    "pulsar-client",
+    "pika",
+    "nats-py[nkeys]",
+]
+pulsar = [
+    "pulsar-client",
+]
+rabbitmq = [
+    "pika",
+]
+nats = [
+    "nats-py[nkeys]",
+]
+telemetry = [
+    "wipac-telemetry",
+]
+dev = [
+    "asyncstdlib",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-mock",
+    "mock",
+    "coloredlogs",
+]
+integration = [
+    "wipac-keycloak-rest-services",
+    "wipac-rest-tools",
+    "pytest-xdist",
+]
+mypy = [
+    "pulsar-client",
+    "pika",
+    "nats-py[nkeys]",
+    "wipac-telemetry",
+    "asyncstdlib",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-mock",
+    "mock",
+    "coloredlogs",
+    "wipac-keycloak-rest-services",
+    "wipac-rest-tools",
+    "pytest-xdist",
+]
