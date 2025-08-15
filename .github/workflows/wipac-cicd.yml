@@ -11,8 +11,10 @@ jobs:
       matrix: ${{ steps.versions.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - id: versions
-        uses: WIPACrepo/wipac-dev-py-versions-action@v2.1
+        uses: WIPACrepo/wipac-dev-py-versions-action@v2.7
 
   #############################################################################
   # PACKAGING & LINTERS
@@ -27,10 +29,14 @@ jobs:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py3 }}
-      - uses: WIPACrepo/wipac-dev-flake8-action@v1.0
+      - uses: WIPACrepo/wipac-dev-flake8-action@v1.3
+        with:
+          max-complexity: 14  # ideal is ~10-15
 
   mypy:
     needs: [ py-versions ]
@@ -41,40 +47,47 @@ jobs:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py3 }}
       - uses: WIPACrepo/wipac-dev-mypy-action@v2.0
 
+
+  ############################################################################
+  # PACKAGING
+  #############################################################################
+
   py-setup:
     runs-on: ubuntu-latest
     steps:
-      # dependabot can't access normal secrets
-      #   & don't run non-branch triggers (like tags)
-      #   & we don't want to trigger an update on PR's merge to main/master/default (which is a branch)
-      # IOW: only for non-dependabot branches
-      - if: |
-          github.actor != 'dependabot[bot]' &&
-          github.ref_type == 'branch' &&
-          format('refs/heads/{0}', github.event.repository.default_branch) != github.ref
-        name: checkout (only for non-dependabot non-default branches)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-      - if: |
-          github.actor != 'dependabot[bot]' &&
-          github.ref_type == 'branch' &&
-          format('refs/heads/{0}', github.event.repository.default_branch) != github.ref
-        name: wipac-dev-py-setup-action (only for non-dependabot non-default branches)
-        uses: WIPACrepo/wipac-dev-py-setup-action@v2.8
+          ref: ${{ github.ref }}  # dont lock to sha (action needs to push)
+      - uses: WIPACrepo/wipac-dev-py-setup-action@v5.2
         with:
-          base-keywords: "WIPAC IceCube"
+          mode: PACKAGING_AND_PYPI
+          pypi_name: oms-mqclient
+          python_min: '3.10'
+          author: WIPAC Developers
+          author_email: developers@icecube.wisc.edu
+          keywords_comma: "Observation Management Service, Event Workflow Management System, EWMS, python message passing client, message passing, API, mq, apache, pulsar, pubsub, rabbitmq, pika, nats, nats.io"
+          auto_mypy_option: True
+
+  py-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
+      - uses: WIPACrepo/wipac-dev-py-dependencies-action@v3.1
 
 
   #############################################################################
   # TESTS
   #############################################################################
-
 
   example:
     needs: [ py-versions ]
@@ -86,13 +99,14 @@ jobs:
         broker_client: [ nats, pulsar, rabbitmq ]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py3 }}
       - name: example
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           # NOTE: these examples are intended to be the most basic in terms of config:
           #   no auth, no unnecessary env vars, etc.
 
@@ -127,15 +141,13 @@ jobs:
       - name: worker output
         if: always()
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           cat worker.out
 
       - name: broker output
         if: always()
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           set -x
           cat ./broker.out
           if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
@@ -146,8 +158,7 @@ jobs:
       - name: broker docker logs
         if: always()
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           docker logs "${{ matrix.broker_client }}" || true
 
   unit-test:
@@ -160,13 +171,14 @@ jobs:
         type: [ brokerless, pulsar, rabbitmq ]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py3 }}
       - name: tests
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           pip install --upgrade pip wheel setuptools
           if [ "${{ matrix.type }}" = "brokerless" ]; then
             pip install .[dev]
@@ -190,7 +202,7 @@ jobs:
           KEYCLOAK_ADMIN: admin
           KEYCLOAK_ADMIN_PASSWORD: admin
           KC_HTTP_ENABLED: "false"
-          KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/conf/server.keystore
+          KC_HTTPS_KEY_STORE_FILE: ${{ env.KEYCLOAK_KEYSTORE }}
           CMD: "start --hostname=localhost"
         ports:
           #- 8081:8080 # host 8080 is used by pulsar
@@ -201,29 +213,40 @@ jobs:
       KEYCLOAK_CLIENT_ID: testclient
       USERNAME: admin
       PASSWORD: admin
+      # the keystore file may move in the future -- see https://github.com/WIPACrepo/keycloak-rest-services/blob/master/resources/keycloak-image/Dockerfile
+      KEYCLOAK_KEYSTORE: /opt/keycloak/conf/truststores/server.keystore
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.py3 }}
       - name: install deps
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           pip install --upgrade pip wheel setuptools
           pip install .[dev,${{ matrix.broker_client }},integration]
       - name: get keycloak cert
         if: matrix.broker_client == 'rabbitmq'
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
-          docker run --rm -v $PWD:/mnt -u root --entrypoint=/usr/bin/keytool ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master -export -alias server -keystore /opt/keycloak/conf/server.keystore -rfc -file /mnt/public.cert -storepass password
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          docker run --rm \
+              -v $PWD:/mnt \
+              -u root \
+              --entrypoint=/usr/bin/keytool \
+              ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master \
+              -export \
+              -alias server \
+              -keystore ${{ env.KEYCLOAK_KEYSTORE }} \
+              -rfc \
+              -file /mnt/public.cert \
+              -storepass password
           echo "REQUESTS_CA_BUNDLE=$PWD/public.cert" >> $GITHUB_ENV
       - name: bootstrap keycloak
         if: matrix.broker_client == 'rabbitmq'
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           
           # Check if the Keycloak container is running before boostrap
           KEYCLOAK_CONTAINER=$(docker ps --filter "ancestor=ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master" --format "{{.Names}}" | head -n 1)
@@ -238,8 +261,7 @@ jobs:
           cat KEYCLOAK_CLIENT_SECRET.txt
       - name: tests
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           export KEYCLOAK_OIDC_URL=$(cat KEYCLOAK_OIDC_URL.txt)
           echo $KEYCLOAK_OIDC_URL
           export KEYCLOAK_CLIENT_ID=$(cat KEYCLOAK_CLIENT_ID.txt)
@@ -271,8 +293,7 @@ jobs:
       - name: broker output
         if: always()
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           set -x
           cat ./broker.out
           if [ -n "$(ls -A ./broker_logs/ 2>/dev/null)" ]; then
@@ -283,34 +304,41 @@ jobs:
       - name: broker docker logs
         if: always()
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           docker logs "${{ matrix.broker_client }}" || true
 
       - name: keycloak docker logs
         if: always() && matrix.broker_client == 'rabbitmq'
         run: |
-          set -euo pipefail
-          echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
+          set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
           docker logs $(docker ps -a --filter "ancestor=ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master" --format "{{.Names}}" | head -n 1)
 
 
-  #############################################################################
-  # GITHUB RELEASE
+    ############################################################################
+  # TAG + RELEASE
   #############################################################################
 
-  release:
-    # only run on main/master/default
+  tag-and-release:
+    # only run on main/default
     if: format('refs/heads/{0}', github.event.repository.default_branch) == github.ref
-    needs: [ flake8, mypy, py-setup, example, unit-test, integration-test ]
-    runs-on: ubuntu-latest
-    concurrency: release
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: python-semantic-release/python-semantic-release@v7.34.6
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          repository_username: __token__
-          repository_password: ${{ secrets.PYPI_TOKEN }}
+    needs: [
+      py-versions,
+      flake8,
+      mypy,
+      py-setup,
+      py-dependencies,
+      example,
+      unit-test,
+      integration-test
+    ]
+    uses: WIPACrepo/wipac-dev-workflows/.github/workflows/tag-and-release.yml@v1.7
+    permissions: # for GITHUB_TOKEN
+      contents: write
+    with:
+      project-type: python
+      python-version: "${{ fromJSON(needs.py-versions.outputs.matrix)[0] }}"
+      release-artifacts: |
+        py-dependencies-logs
+      publish-to-pypi: true
+    secrets:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
