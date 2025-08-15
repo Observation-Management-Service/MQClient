@@ -70,7 +70,7 @@ jobs:
         with:
           mode: PACKAGING_AND_PYPI
           pypi_name: oms-mqclient
-          python_min: 3.10
+          python_min: '3.10'
           author: WIPAC Developers
           author_email: developers@icecube.wisc.edu
           keywords_comma: "Observation Management Service, Event Workflow Management System, EWMS, python message passing client, message passing, API, mq, apache, pulsar, pubsub, rabbitmq, pika, nats, nats.io"
