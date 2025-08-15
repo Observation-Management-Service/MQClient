@@ -10,7 +10,7 @@ jobs:
     outputs:
       matrix: ${{ steps.versions.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - id: versions
@@ -28,7 +28,7 @@ jobs:
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
@@ -46,7 +46,7 @@ jobs:
       matrix:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
@@ -62,7 +62,7 @@ jobs:
   py-setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           ref: ${{ github.ref }}  # dont lock to sha (action needs to push)
@@ -79,7 +79,7 @@ jobs:
   py-dependencies:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: WIPACrepo/wipac-dev-py-dependencies-action@v3.1
@@ -98,7 +98,7 @@ jobs:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         broker_client: [ nats, pulsar, rabbitmq ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
@@ -170,7 +170,7 @@ jobs:
         py3: ${{ fromJSON(needs.py-versions.outputs.matrix) }}
         type: [ brokerless, pulsar, rabbitmq ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
@@ -216,7 +216,7 @@ jobs:
       # the keystore file may move in the future -- see https://github.com/WIPACrepo/keycloak-rest-services/blob/master/resources/keycloak-image/Dockerfile
       KEYCLOAK_KEYSTORE: /opt/keycloak/conf/truststores/server.keystore
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}  # lock to triggered commit (github.ref is dynamic)
       - uses: actions/setup-python@v5
