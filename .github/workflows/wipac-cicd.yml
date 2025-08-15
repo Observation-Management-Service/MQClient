@@ -202,7 +202,7 @@ jobs:
           KEYCLOAK_ADMIN: admin
           KEYCLOAK_ADMIN_PASSWORD: admin
           KC_HTTP_ENABLED: "false"
-          KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/conf/server.keystore
+          KC_HTTPS_KEY_STORE_FILE: ${{ env.KEYCLOAK_KEYSTORE }}
           CMD: "start --hostname=localhost"
         ports:
           #- 8081:8080 # host 8080 is used by pulsar
@@ -213,6 +213,8 @@ jobs:
       KEYCLOAK_CLIENT_ID: testclient
       USERNAME: admin
       PASSWORD: admin
+      # the keystore file may move in the future -- see https://github.com/WIPACrepo/keycloak-rest-services/blob/master/resources/keycloak-image/Dockerfile
+      KEYCLOAK_KEYSTORE: /opt/keycloak/conf/truststores/server.keystore
     steps:
       - uses: actions/checkout@v4
         with:
@@ -229,7 +231,17 @@ jobs:
         if: matrix.broker_client == 'rabbitmq'
         run: |
           set -euo pipefail; echo "now: $(date -u +"%Y-%m-%dT%H:%M:%S.%3N")"
-          docker run --rm -v $PWD:/mnt -u root --entrypoint=/usr/bin/keytool ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master -export -alias server -keystore /opt/keycloak/conf/server.keystore -rfc -file /mnt/public.cert -storepass password
+          docker run --rm \
+              -v $PWD:/mnt \
+              -u root \
+              --entrypoint=/usr/bin/keytool \
+              ghcr.io/wipacrepo/keycloak-rest-services:test-keycloak-master \
+              -export \
+              -alias server \
+              -keystore ${{ env.KEYCLOAK_KEYSTORE }} \
+              -rfc \
+              -file /mnt/public.cert \
+              -storepass password
           echo "REQUESTS_CA_BUNDLE=$PWD/public.cert" >> $GITHUB_ENV
       - name: bootstrap keycloak
         if: matrix.broker_client == 'rabbitmq'
