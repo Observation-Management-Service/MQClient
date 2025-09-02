@@ -30,7 +30,7 @@ docker run -i --rm --name $1 \
     --env BITNAMI_DEBUG=true \
     $CUSTOM_CONF_MOUNT \
     --mount type=bind,source=$(realpath ./broker_logs),target=/opt/bitnami/rabbitmq/var/log/rabbitmq/ \
-    bitnamisecure/rabbitmq:latest \
+    bitnamilegacy/rabbitmq:latest \
     >>broker.out 2>&1 &
 dockerize -wait tcp://localhost:5672 -timeout 1m
 dockerize -wait tcp://localhost:15672 -timeout 1m
